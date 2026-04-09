@@ -403,13 +403,14 @@ if(backLobbyEl) backLobbyEl.href = `lobby.html?code=${roomCode}`;
 let players = [];       // liste joueurs depuis Supabase
 let scores = {};        // { session_id: score }
 let currentQ = 0;       // index question courante (0-based)
-let questions = [];     // questions mélangées pour cette partie
+let questions = [];     // questions mélangées par l'hôte, reçues par les invités
 let answered = false;   // a-t-on répondu cette question ?
 let answeredPlayers = []; // session_ids qui ont répondu cette question
 let timerVal = QUESTION_TIME;
 let timerInterval = null;
 let gameChannel = null;
 let myPlayer = null;
+let nextTriggered = false; // évite le double-déclenchement de nextQuestion
 
 // ───────────────────────────────────────────────
 // INIT
@@ -425,16 +426,22 @@ async function init() {
   // Initialiser les scores
   players.forEach(p => { scores[p.session_id] = 0; });
 
-  // Mélanger les questions
-  questions = shuffleArray([...ALL_QUESTIONS]).slice(0, TOTAL_QUESTIONS);
+  // Seul l'hôte mélange les questions — les invités reçoivent chaque question via broadcast
+  if (isHost) {
+    questions = shuffleArray([...ALL_QUESTIONS]).slice(0, TOTAL_QUESTIONS);
+  }
 
-  // Channel temps réel pour la synchronisation du jeu
+  // Channel temps réel
   gameChannel = db.channel(`game-${roomCode}`)
     .on('broadcast', { event: 'answer' }, ({ payload }) => {
       handleRemoteAnswer(payload);
     })
-    .on('broadcast', { event: 'next_question' }, ({ payload }) => {
-      if (!isHost) loadQuestion(payload.index);
+    .on('broadcast', { event: 'load_question' }, ({ payload }) => {
+      // Invités : stocker et afficher la question reçue depuis l'hôte
+      if (!isHost) {
+        questions[payload.index] = payload.question;
+        loadQuestion(payload.index);
+      }
     })
     .on('broadcast', { event: 'game_over' }, ({ payload }) => {
       showPodium(payload.scores);
@@ -446,7 +453,12 @@ async function init() {
   document.getElementById('game-screen').style.display = 'block';
 
   renderScoreboard();
-  loadQuestion(0);
+
+  // L'hôte envoie la première question à tous (y compris lui-même)
+  if (isHost) {
+    setTimeout(() => broadcastQuestion(0), 400);
+  }
+  // Les invités attendent le broadcast 'load_question'
 }
 
 // ───────────────────────────────────────────────
@@ -456,6 +468,7 @@ function loadQuestion(index) {
   currentQ = index;
   answered = false;
   answeredPlayers = [];
+  nextTriggered = false;
 
   const q = questions[index];
   if (!q) { endGame(); return; }
@@ -499,6 +512,11 @@ function startTimer() {
     if (timerVal <= 0) {
       clearInterval(timerInterval);
       if (!answered) timeOut();
+      // L'hôte force la question suivante après expiration du timer
+      // couvre le cas où certains joueurs n'ont pas répondu du tout
+      if (isHost && !nextTriggered) {
+        setTimeout(() => nextQuestion(), 2400);
+      }
     }
   }, 1000);
 }
@@ -569,8 +587,10 @@ function applyAnswer(sessionId, answerIdx, correct, points, isMe) {
   }
 
   // Si tout le monde a répondu → hôte passe à la suivante
-  if (answeredPlayers.length >= players.length && isHost) {
-    setTimeout(() => nextQuestion(), 2200);
+  // On attend un court délai pour laisser les joueurs voir le feedback
+  if (isHost && answeredPlayers.length >= players.length && !nextTriggered) {
+    clearInterval(timerInterval);
+    setTimeout(() => nextQuestion(), 2400);
   }
 }
 
@@ -610,17 +630,34 @@ function timeOut() {
 }
 
 // ───────────────────────────────────────────────
+// DIFFUSER UNE QUESTION (hôte uniquement)
+// ───────────────────────────────────────────────
+function broadcastQuestion(index) {
+  const q = questions[index];
+  if (!q) { endGame(); return; }
+  // Envoyer la question complète à tous les joueurs (y compris l'hôte lui-même)
+  gameChannel.send({
+    type: 'broadcast',
+    event: 'load_question',
+    payload: { index, question: q }
+  });
+  // L'hôte charge aussi la question localement
+  loadQuestion(index);
+}
+
+// ───────────────────────────────────────────────
 // QUESTION SUIVANTE (hôte uniquement)
 // ───────────────────────────────────────────────
 function nextQuestion() {
+  if (nextTriggered) return; // empêcher le double-déclenchement
+  nextTriggered = true;
+  clearInterval(timerInterval);
   const next = currentQ + 1;
   if (next >= TOTAL_QUESTIONS) {
     endGame();
     return;
   }
-  // Broadcaster la prochaine question
-  gameChannel.send({ type:'broadcast', event:'next_question', payload:{ index: next } });
-  loadQuestion(next);
+  broadcastQuestion(next);
 }
 
 // ───────────────────────────────────────────────
