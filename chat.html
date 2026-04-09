@@ -352,14 +352,14 @@
 
 <!-- HEADER -->
 <header>
-  <a class="logo" href="index.html"><div class="logo-icon">✝</div>Bible<span>Play</span></a>
+  <div class="logo" onclick="safeNav('index.html')" style="cursor:pointer"><div class="logo-icon">✝</div>Bible<span>Play</span></div>
   <div class="header-mid">
     <div class="salon-title">💬 Salon Communautaire</div>
     <div class="online-badge"><span class="live-dot"></span><span id="online-count">—</span> en ligne</div>
   </div>
   <div class="header-right">
-    <a class="nav-btn" href="lobby.html">← Lobby</a>
-    <a class="nav-btn primary" href="index.html">🎮 Jouer</a>
+    <button class="nav-btn" onclick="safeNav('lobby.html')">← Lobby</button>
+    <button class="nav-btn primary" onclick="safeNav('index.html')">🎮 Jouer</button>
   </div>
 </header>
 
@@ -508,19 +508,19 @@
 
     <div class="sr-section">
       <div class="sr-label">🎮 Jouer maintenant</div>
-      <a class="quick-game-btn" href="lobby.html">
+      <a class="quick-game-btn" href="#" onclick="safeNav('index.html'); return false;">
         <span class="qg-icon">📖</span> Quiz Battle
       </a>
-      <a class="quick-game-btn" href="lobby.html">
+      <a class="quick-game-btn" href="#" onclick="safeNav('index.html'); return false;">
         <span class="qg-icon">🎤</span> Défi Prédicateur
       </a>
-      <a class="quick-game-btn" href="lobby.html">
+      <a class="quick-game-btn" href="#" onclick="safeNav('index.html'); return false;">
         <span class="qg-icon">🔤</span> Anagramme
       </a>
-      <a class="quick-game-btn" href="lobby.html">
+      <a class="quick-game-btn" href="#" onclick="safeNav('index.html'); return false;">
         <span class="qg-icon">🎲</span> Roue Biblique
       </a>
-      <a class="quick-game-btn" href="lobby.html">
+      <a class="quick-game-btn" href="#" onclick="safeNav('index.html'); return false;">
         <span class="qg-icon">⚔️</span> Duel de Versets
       </a>
       <a class="quick-game-btn" href="scores.html">
@@ -933,6 +933,26 @@ function autoResize(el) {
 function handleKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
+
+// Navigation sécurisée — ne quitte jamais à cause d'une touche accidentelle
+function safeNav(url) {
+  if (chatChannel) chatChannel.unsubscribe();
+  window.location.href = url;
+}
+
+// Empêcher que les boutons du header gardent le focus après un clic
+// (évite qu'un Enter suivant les réactive)
+document.addEventListener('keydown', (e) => {
+  // Si l'utilisateur tape dans le textarea, ne rien faire
+  if (document.activeElement && document.activeElement.id === 'msg-input') return;
+  // Bloquer Enter/Espace sur les boutons de navigation
+  if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement.tagName === 'BUTTON') {
+    const btn = document.activeElement;
+    if (btn.classList.contains('nav-btn') || btn.classList.contains('input-tools-btn')) {
+      e.preventDefault();
+    }
+  }
+});
 
 function scrollToBottom() {
   const area = document.getElementById('messages-area');
