@@ -196,7 +196,7 @@
   <div class="header-right">
     <a class="scores-btn" href="scores.html">🏆 Classements</a>
     <a class="chat-btn" href="chat.html">💬 Salon</a>
-    <a class="back-btn" href="index.html" onclick="return leaveRoom()">← Quitter</a>
+    <button class="back-btn" onclick="confirmLeave()">← Quitter la salle</button>
   </div>
 </header>
 
@@ -560,6 +560,26 @@ function showToast(msg,type=''){
 }
 
 window.addEventListener('beforeunload',()=>leaveRoom());
+
+// ── Confirmer avant de quitter ──
+function confirmLeave(){
+  if(confirm('Quitter la salle de jeu ?')){
+    leaveRoom().then(()=>{ window.location.href='index.html'; });
+  }
+}
+
+// ── Bloquer la navigation accidentelle au clavier ──
+document.addEventListener('keydown',(e)=>{
+  const tag=document.activeElement?.tagName;
+  const isInput=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
+  // Backspace hors champ = bloquer
+  if(e.key==='Backspace'&&!isInput){ e.preventDefault(); return; }
+  // Enter sur le bouton quitter = bloquer
+  if(e.key==='Enter'&&document.activeElement?.classList?.contains('back-btn')){
+    e.preventDefault(); return;
+  }
+});
+
 loadPlayers();loadRoom();
 </script>
 </body>
