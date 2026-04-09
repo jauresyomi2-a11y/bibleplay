@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Défi du Prédicateur</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #0f0e17;
+      --parch: #f5f0e8;
+      --parch2: #ede6d6;
+      --gold: #c9a84c;
+      --gold-light: #e8cc7a;
+      --gold-dark: #8a6520;
+      --amber: #d97706;
+      --text: #1c1917;
+      --text-muted: #78716c;
+      --border: #d6cfc0;
+      --white: #fdfcf8;
+      --purple: #7c3aed;
+      --purple-light: #a78bfa;
+      --green: #16a34a;
+      --red: #dc2626;
+    }
+    html, body { height: 100%; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--parch); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+    /* ── BG PARCHEMIN ── */
+    .bg {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201,168,76,0.12) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 0% 100%, rgba(201,168,76,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse 40% 30% at 100% 50%, rgba(217,119,6,0.07) 0%, transparent 50%);
+    }
+    .bg-cross { position:fixed; opacity:0.04; font-size:280px; color:var(--gold); user-select:none; line-height:1; pointer-events:none; z-index:0; }
+    .bg-cross.a { top:-60px; right:-40px; transform:rotate(10deg); }
+    .bg-cross.b { bottom:-40px; left:-30px; transform:rotate(-8deg); font-size:180px; }
+
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes popIn    { from{opacity:0;transform:scale(0.86)} to{opacity:1;transform:scale(1)} }
+    @keyframes pulseRing{ 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)} 50%{box-shadow:0 0 0 10px rgba(201,168,76,0)} }
+    @keyframes slideLeft{ from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes timerShrink{ from{stroke-dashoffset:0} to{stroke-dashoffset:283} }
+    @keyframes glow { 0%,100%{text-shadow:0 0 20px rgba(201,168,76,0.3)} 50%{text-shadow:0 0 40px rgba(201,168,76,0.7)} }
+    @keyframes correctBounce { 0%{transform:scale(1)} 40%{transform:scale(1.06)} 100%{transform:scale(1)} }
+    @keyframes wrongShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)} 40%{transform:translateX(7px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+
+    /* ── HEADER ── */
+    header {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 40px;
+      border-bottom: 1px solid rgba(201,168,76,0.25);
+      background: rgba(245,240,232,0.92); backdrop-filter: blur(14px);
+    }
+    .logo { font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:800; color:var(--text); text-decoration:none; display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:34px; height:34px; background:linear-gradient(135deg,var(--gold),var(--gold-light)); border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:17px; box-shadow:0 2px 10px rgba(201,168,76,0.3); }
+    .logo span { color:var(--amber); }
+    .h-center { display:flex; align-items:center; gap:10px; }
+    .game-title-badge { font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; color:var(--gold-dark); background:rgba(201,168,76,0.12); border:1px solid rgba(201,168,76,0.3); padding:6px 16px; border-radius:10px; }
+    .room-badge { font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; letter-spacing:0.12em; color:var(--text); background:rgba(201,168,76,0.08); border:1px solid rgba(201,168,76,0.2); padding:6px 14px; border-radius:10px; }
+    .quit-btn { font-size:0.8rem; font-weight:500; color:var(--text-muted); background:none; border:1.5px solid var(--border); padding:7px 14px; border-radius:9px; cursor:pointer; text-decoration:none; transition:all 0.2s; }
+    .quit-btn:hover { color:var(--red); border-color:rgba(220,38,38,0.3); }
+
+    /* ── WRAP ── */
+    .game-wrap { position:relative; z-index:5; max-width:980px; margin:0 auto; padding:32px 24px 60px; display:grid; grid-template-columns:1fr 300px; gap:24px; }
+
+    /* ── GAUCHE ── */
+    .left-col { display:flex; flex-direction:column; gap:20px; }
+
+    /* SCOREBOARD */
+    .scoreboard { display:flex; gap:10px; flex-wrap:wrap; animation:fadeDown 0.5s ease both; }
+    .score-card { flex:1; min-width:90px; background:var(--white); border:1px solid var(--border); border-radius:14px; padding:12px 10px; text-align:center; transition:all 0.3s; position:relative; overflow:hidden; }
+    .score-card.preacher { border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,168,76,0.15); animation:pulseRing 2s ease-in-out infinite; }
+    .score-card.preacher::before { content:'🎤'; position:absolute; top:4px; right:6px; font-size:11px; }
+    .score-card.me { border-color:rgba(124,58,237,0.4); box-shadow:0 0 0 3px rgba(124,58,237,0.08); }
+    .sc-av { font-size:18px; margin-bottom:3px; }
+    .sc-name { font-size:0.75rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sc-score { font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; color:var(--text); line-height:1; margin-top:3px; }
+    @keyframes scoreFlash { 0%{color:var(--green);transform:scale(1.2)} 100%{color:var(--text);transform:scale(1)} }
+    .sc-score.flash { animation:scoreFlash 0.4s ease; }
+
+    /* ZONE PRINCIPALE */
+    .main-card {
+      background:var(--white); border:1px solid var(--border); border-radius:22px;
+      padding:36px 40px; position:relative; overflow:hidden;
+      animation:fadeUp 0.5s 0.1s ease both;
+      min-height:340px;
+    }
+    .main-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--gold),var(--amber),var(--gold-light)); }
+
+    /* Ronde */
+    .round-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:10px; }
+    .round-info { }
+    .round-label { font-size:0.72rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; }
+    .round-num { font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:700; color:var(--text); }
+    .progress-row { display:flex; gap:6px; align-items:center; margin-top:6px; }
+    .prog-dot { width:8px; height:8px; border-radius:50%; background:var(--border); transition:background 0.3s; }
+    .prog-dot.done { background:var(--gold); }
+    .prog-dot.current { background:var(--amber); animation:pulseRing 1.5s ease-in-out infinite; }
+
+    /* Timer circulaire */
+    .timer-zone { display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .timer-svg { transform:rotate(-90deg); }
+    .timer-bg-c { fill:none; stroke:var(--parch2); stroke-width:4; }
+    .timer-fg-c { fill:none; stroke:var(--gold); stroke-width:4; stroke-linecap:round; stroke-dasharray:283; stroke-dashoffset:0; transition:stroke-dashoffset 1s linear, stroke 0.3s; }
+    .timer-fg-c.urgent { stroke:var(--red); }
+    .timer-val { font-family:'Playfair Display',serif; font-size:1.1rem; font-weight:700; color:var(--text); }
+    .timer-val.urgent { color:var(--red); }
+
+    /* Phase : prédicateur */
+    .phase-preacher { animation:fadeUp 0.4s ease both; }
+    .preacher-crown { font-size:2.5rem; text-align:center; margin-bottom:10px; animation:glow 2s ease-in-out infinite; }
+    .preacher-announce { font-family:'Playfair Display',serif; font-size:1.8rem; font-weight:700; text-align:center; color:var(--text); margin-bottom:6px; }
+    .preacher-sub { text-align:center; font-size:0.88rem; color:var(--text-muted); margin-bottom:28px; }
+    .question-input-wrap { margin-bottom:16px; }
+    .q-input-label { font-size:0.78rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; display:block; }
+    .q-input {
+      width:100%; padding:14px 16px; font-family:'Playfair Display',serif; font-size:1.1rem;
+      border:2px solid var(--border); border-radius:14px; background:var(--parch);
+      color:var(--text); outline:none; transition:all 0.2s;
+    }
+    .q-input:focus { border-color:var(--gold); box-shadow:0 0 0 4px rgba(201,168,76,0.12); background:var(--white); }
+    .q-input::placeholder { color:#b5a99a; font-style:italic; }
+    .answer-input-wrap { margin-bottom:20px; }
+    .answer-label { font-size:0.78rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px; display:block; }
+    .answer-input {
+      width:100%; padding:12px 16px; font-family:'DM Sans',sans-serif; font-size:0.95rem;
+      border:2px solid var(--border); border-radius:12px; background:var(--parch);
+      color:var(--text); outline:none; transition:all 0.2s;
+    }
+    .answer-input:focus { border-color:var(--amber); box-shadow:0 0 0 4px rgba(217,119,6,0.1); background:var(--white); }
+    .btn-submit-q {
+      width:100%; padding:15px; font-family:'DM Sans',sans-serif; font-size:0.95rem; font-weight:600;
+      border:none; cursor:pointer; border-radius:14px;
+      background:linear-gradient(135deg,var(--gold),var(--gold-dark));
+      color:white; letter-spacing:0.04em;
+      box-shadow:0 4px 18px rgba(201,168,76,0.35); transition:all 0.25s;
+    }
+    .btn-submit-q:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 28px rgba(201,168,76,0.45); }
+    .btn-submit-q:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+    /* Phase : deviner */
+    .phase-guesser { animation:fadeUp 0.4s ease both; }
+    .question-display { font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; color:var(--text); line-height:1.35; margin-bottom:8px; }
+    .asked-by { display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--text-muted); margin-bottom:24px; }
+    .guesser-input-wrap { display:flex; gap:10px; margin-bottom:16px; }
+    .guess-input {
+      flex:1; padding:13px 16px; font-family:'DM Sans',sans-serif; font-size:0.95rem;
+      border:2px solid var(--border); border-radius:12px; background:var(--parch);
+      color:var(--text); outline:none; transition:all 0.2s;
+    }
+    .guess-input:focus { border-color:var(--purple); box-shadow:0 0 0 4px rgba(124,58,237,0.1); background:var(--white); }
+    .guess-input:disabled { opacity:0.6; cursor:not-allowed; }
+    .btn-guess {
+      padding:13px 22px; font-family:'DM Sans',sans-serif; font-size:0.9rem; font-weight:600;
+      border:none; cursor:pointer; border-radius:12px;
+      background:linear-gradient(135deg,var(--purple),#5b21b6);
+      color:white; box-shadow:0 4px 14px rgba(124,58,237,0.3); transition:all 0.25s;
+    }
+    .btn-guess:hover:not(:disabled) { transform:translateY(-2px); }
+    .btn-guess:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+    /* Réponses soumises */
+    .guesses-zone { display:flex; flex-direction:column; gap:8px; }
+    .guess-row {
+      display:flex; align-items:center; gap:12px; padding:12px 16px;
+      border-radius:12px; background:var(--parch); border:1.5px solid var(--border);
+      animation:slideLeft 0.3s ease both;
+    }
+    .guess-row.correct { border-color:var(--green); background:rgba(22,163,74,0.06); animation:correctBounce 0.4s ease; }
+    .guess-row.wrong   { border-color:var(--red);   background:rgba(220,38,38,0.05);  animation:wrongShake 0.4s ease; }
+    .guess-row.pending { border-color:var(--gold);  background:rgba(201,168,76,0.06); }
+    .gr-av { font-size:20px; flex-shrink:0; }
+    .gr-info { flex:1; min-width:0; }
+    .gr-name { font-size:0.8rem; font-weight:600; color:var(--text-muted); margin-bottom:2px; }
+    .gr-answer { font-size:0.95rem; font-weight:500; color:var(--text); }
+    .gr-result { font-size:1.2rem; flex-shrink:0; }
+    .gr-pts { font-family:'Playfair Display',serif; font-size:0.9rem; font-weight:700; color:var(--green); flex-shrink:0; }
+    .waiting-guess { font-size:0.85rem; color:var(--text-muted); font-style:italic; text-align:center; padding:16px; }
+
+    /* Phase : révélation */
+    .phase-reveal { animation:popIn 0.4s ease both; text-align:center; }
+    .reveal-icon { font-size:3.5rem; margin-bottom:12px; }
+    .reveal-title { font-family:'Playfair Display',serif; font-size:2rem; font-weight:700; color:var(--text); margin-bottom:8px; }
+    .reveal-answer { font-family:'Playfair Display',serif; font-size:1.5rem; font-style:italic; color:var(--gold-dark); margin-bottom:6px; }
+    .reveal-explanation { font-size:0.88rem; color:var(--text-muted); max-width:440px; margin:0 auto 20px; line-height:1.6; }
+    .reveal-scores { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:20px; }
+    .rs-chip {
+      display:flex; align-items:center; gap:6px; padding:8px 14px;
+      background:var(--parch); border:1px solid var(--border); border-radius:10px;
+      font-size:0.85rem;
+    }
+    .rs-chip .pts { font-family:'Playfair Display',serif; font-weight:700; color:var(--green); }
+    .rs-chip .pts.neg { color:var(--text-muted); }
+    .btn-next-round {
+      padding:13px 36px; font-family:'DM Sans',sans-serif; font-size:0.92rem; font-weight:600;
+      border:none; cursor:pointer; border-radius:13px;
+      background:linear-gradient(135deg,var(--gold),var(--gold-dark));
+      color:white; box-shadow:0 4px 18px rgba(201,168,76,0.3); transition:all 0.25s;
+    }
+    .btn-next-round:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(201,168,76,0.4); }
+
+    /* Phase : waiting */
+    .phase-waiting { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:200px; gap:16px; animation:fadeUp 0.4s ease both; }
+    .waiting-cross { font-size:2.8rem; }
+    .waiting-title { font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:700; color:var(--text); }
+    .waiting-sub { font-size:0.85rem; color:var(--text-muted); text-align:center; max-width:320px; }
+    .preacher-spotlight {
+      display:flex; align-items:center; gap:12px; padding:14px 20px;
+      background:rgba(201,168,76,0.08); border:1.5px solid rgba(201,168,76,0.3); border-radius:14px;
+    }
+    .ps-avatar { font-size:28px; }
+    .ps-info {}
+    .ps-label { font-size:0.72rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold-dark); margin-bottom:2px; }
+    .ps-name { font-family:'Playfair Display',serif; font-size:1.2rem; font-weight:700; color:var(--text); }
+
+    /* ── DROITE ── */
+    .right-col { display:flex; flex-direction:column; gap:18px; }
+
+    /* Joueurs */
+    .players-card { background:var(--white); border:1px solid var(--border); border-radius:18px; padding:20px 18px; position:sticky; top:20px; animation:fadeUp 0.5s 0.15s ease both; }
+    .pc-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .pc-title { font-family:'Playfair Display',serif; font-size:1.1rem; font-weight:700; color:var(--text); }
+    .pc-round { font-size:0.75rem; font-weight:600; background:rgba(201,168,76,0.1); color:var(--gold-dark); border:1px solid rgba(201,168,76,0.25); padding:3px 10px; border-radius:8px; }
+    .players-list { display:flex; flex-direction:column; gap:6px; }
+    .player-row-r { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:11px; transition:background 0.2s; }
+    .player-row-r.current-preacher { background:rgba(201,168,76,0.08); border:1px solid rgba(201,168,76,0.25); }
+    .pr-av { font-size:20px; width:34px; height:34px; background:var(--parch); border:1.5px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; position:relative; }
+    .pr-av.me { border-color:var(--purple-light); }
+    .pr-crown { position:absolute; top:-8px; right:-6px; font-size:11px; }
+    .pr-info { flex:1; min-width:0; }
+    .pr-name { font-size:0.85rem; font-weight:600; color:var(--text); }
+    .pr-sub { font-size:0.7rem; color:var(--text-muted); }
+    .pr-score-badge { font-family:'Playfair Display',serif; font-size:1rem; font-weight:700; color:var(--text); }
+
+    /* Règles */
+    .rules-card { background:rgba(201,168,76,0.06); border:1px solid rgba(201,168,76,0.2); border-radius:16px; padding:16px 18px; }
+    .rules-title { font-family:'Playfair Display',serif; font-size:0.95rem; font-weight:700; color:var(--gold-dark); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+    .rule-item { display:flex; gap:8px; font-size:0.8rem; color:var(--text-muted); line-height:1.5; margin-bottom:6px; }
+    .rule-num { width:18px; height:18px; border-radius:50%; background:var(--gold); color:white; font-size:0.65rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+
+    /* PODIUM */
+    .podium-overlay { position:fixed; inset:0; z-index:200; background:rgba(245,240,232,0.97); backdrop-filter:blur(14px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; opacity:0; pointer-events:none; transition:opacity 0.5s; padding:24px; }
+    .podium-overlay.active { opacity:1; pointer-events:all; }
+    .podium-title { font-family:'Playfair Display',serif; font-size:clamp(2rem,5vw,3rem); font-weight:800; color:var(--text); text-align:center; }
+    .podium-title span { color:var(--gold); font-style:italic; }
+    .podium-sub { font-family:'Playfair Display',serif; font-size:1rem; font-style:italic; color:var(--text-muted); text-align:center; }
+    .podium-row { display:flex; gap:14px; align-items:flex-end; justify-content:center; flex-wrap:wrap; }
+    .pod-card { background:var(--white); border:1px solid var(--border); border-radius:18px; padding:20px 16px; text-align:center; min-width:110px; animation:popIn 0.5s ease both; }
+    .pod-card.p1 { border-color:rgba(201,168,76,0.5); box-shadow:0 0 0 3px rgba(201,168,76,0.15); }
+    .pod-rank { font-size:1.8rem; margin-bottom:6px; }
+    .pod-av { font-size:2rem; margin-bottom:6px; }
+    .pod-name { font-size:0.88rem; font-weight:600; color:var(--text); margin-bottom:4px; }
+    .pod-score { font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:700; color:var(--amber); }
+    .pod-score.gold { color:var(--gold); }
+    .podium-actions { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+    .btn-podium { padding:13px 30px; font-family:'DM Sans',sans-serif; font-size:0.9rem; font-weight:600; border:none; cursor:pointer; border-radius:13px; background:linear-gradient(135deg,var(--gold),var(--gold-dark)); color:white; box-shadow:0 4px 16px rgba(201,168,76,0.3); transition:all 0.25s; text-decoration:none; display:inline-flex; align-items:center; }
+    .btn-podium:hover { transform:translateY(-2px); }
+    .btn-podium.outline { background:transparent; border:1.5px solid var(--border); color:var(--text-muted); box-shadow:none; }
+    .btn-podium.outline:hover { border-color:var(--gold); color:var(--gold-dark); }
+
+    /* TOAST */
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(12px); background:var(--text); color:white; padding:10px 20px; border-radius:10px; font-size:0.84rem; font-weight:500; box-shadow:0 6px 24px rgba(0,0,0,0.18); z-index:300; opacity:0; transition:all 0.3s; pointer-events:none; white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.success { background:var(--green); }
+    .toast.error { background:var(--red); }
+    .toast.info { background:var(--purple); }
+    .toast.gold { background:var(--gold-dark); }
+
+    @media(max-width:780px) { .game-wrap { grid-template-columns:1fr; } header { padding:12px 16px; } .h-center { display:none; } .main-card { padding:24px 18px; } }
+  </style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="bg-cross a">✝</div>
+<div class="bg-cross b">✝</div>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">🎤</div>Bible<span>Play</span></a>
+  <div class="h-center">
+    <span class="game-title-badge">🎤 Défi du Prédicateur</span>
+    <span class="room-badge" id="h-room">—</span>
+  </div>
+  <a class="quit-btn" href="index.html" onclick="return quitGame()">✕ Quitter</a>
+</header>
+
+<div class="game-wrap" id="game-wrap" style="display:none">
+
+  <!-- GAUCHE -->
+  <div class="left-col">
+
+    <!-- Scores -->
+    <div class="scoreboard" id="scoreboard"></div>
+
+    <!-- Carte principale -->
+    <div class="main-card" id="main-card">
+      <!-- Round header -->
+      <div class="round-header" id="round-header">
+        <div class="round-info">
+          <div class="round-label">Tour en cours</div>
+          <div class="round-num" id="round-num">Tour 1</div>
+          <div class="progress-row" id="progress-row"></div>
+        </div>
+        <div class="timer-zone">
+          <svg class="timer-svg" width="60" height="60" viewBox="0 0 100 100">
+            <circle class="timer-bg-c" cx="50" cy="50" r="45"/>
+            <circle class="timer-fg-c" id="timer-circle" cx="50" cy="50" r="45"/>
+          </svg>
+          <div class="timer-val" id="timer-val">—</div>
+        </div>
+      </div>
+
+      <!-- Contenu dynamique -->
+      <div id="phase-content"></div>
+    </div>
+
+  </div>
+
+  <!-- DROITE -->
+  <div class="right-col">
+
+    <div class="players-card">
+      <div class="pc-header">
+        <div class="pc-title">Joueurs</div>
+        <div class="pc-round" id="pc-round-label">Tour 1 / ?</div>
+      </div>
+      <div class="players-list" id="players-list-r"></div>
+    </div>
+
+    <div class="rules-card">
+      <div class="rules-title">📜 Règles du jeu</div>
+      <div class="rule-item"><div class="rule-num">1</div><span>Le <strong>Prédicateur</strong> pose une question biblique à sa façon.</span></div>
+      <div class="rule-item"><div class="rule-num">2</div><span>Les autres joueurs devinent la réponse en <strong>45 secondes</strong>.</span></div>
+      <div class="rule-item"><div class="rule-num">3</div><span>Le Prédicateur valide ou invalide chaque réponse.</span></div>
+      <div class="rule-item"><div class="rule-num">4</div><span><strong>+50 pts</strong> par bonne réponse trouvée. <strong>+30 pts</strong> au Prédicateur par bonne réponse validée.</span></div>
+      <div class="rule-item"><div class="rule-num">5</div><span>Chaque joueur devient Prédicateur à son tour.</span></div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Écran chargement -->
+<div id="loading-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;gap:16px;position:relative;z-index:5;">
+  <div style="font-size:3rem;animation:glow 1.8s ease-in-out infinite">🎤</div>
+  <div style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--text)">Chargement de la partie…</div>
+  <div style="font-size:0.85rem;color:var(--text-muted)">Que la Parole soit avec toi 🙏</div>
+</div>
+
+<!-- Podium -->
+<div class="podium-overlay" id="podium-overlay">
+  <div class="podium-title">✦ <span>Bravo</span> à tous ! ✦</div>
+  <div class="podium-sub">"Courez de manière à remporter le prix." — 1 Corinthiens 9:24</div>
+  <div class="podium-row" id="podium-row"></div>
+  <div class="podium-actions">
+    <button class="btn-podium" onclick="replayGame()">↺ Rejouer</button>
+    <a class="btn-podium outline" href="lobby.html" id="back-lobby-btn">← Lobby</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Supabase ──
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── Session ──
+const params = new URLSearchParams(window.location.search);
+const roomCode = params.get('code') || '';
+let playerData = {};
+try { playerData = JSON.parse(sessionStorage.getItem('bp_player') || '{}'); } catch(e) {}
+const mySessionId = playerData.sessionId || sessionStorage.getItem('bp_session') || '';
+const isHost = playerData.role === 'host';
+document.getElementById('h-room').textContent = roomCode;
+const backBtn = document.getElementById('back-lobby-btn');
+if (backBtn) backBtn.href = `lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+
+// ── Constantes ──
+const GUESS_TIME   = 45; // secondes pour deviner
+const REVEAL_TIME  = 6;  // secondes pour voir le résultat
+const PTS_GUESSER  = 50;
+const PTS_PREACHER = 30;
+
+// ── État ──
+let players      = [];
+let scores       = {};
+let currentRound = 0;   // index du tour (= index du prédicateur)
+let totalRounds  = 0;
+let phase        = 'waiting'; // 'preacher_compose' | 'guessing' | 'reveal' | 'waiting' | 'end'
+let currentQuestion = null;
+let currentAnswer   = null;
+let guesses         = {};   // { session_id: { answer, correct, pts } }
+let timerVal        = 0;
+let timerInterval   = null;
+let hasGuessed      = false;
+let myPreacherTurn  = false;
+let gameChannel     = null;
+let isValidating    = false;
+
+// ── Init ──
+async function init() {
+  if (!roomCode) { window.location.href='index.html'; return; }
+
+  const { data: pData } = await db.from('players').select('*').eq('room_code', roomCode).order('joined_at');
+  players = pData || [];
+  totalRounds = players.length;
+  players.forEach(p => { scores[p.session_id] = 0; });
+
+  // Channel broadcast
+  gameChannel = db.channel(`predicateur-${roomCode}`)
+    .on('broadcast', { event: 'question_posted' }, ({ payload }) => {
+      if (!myPreacherTurn) receiveQuestion(payload);
+    })
+    .on('broadcast', { event: 'guess_submitted' }, ({ payload }) => {
+      if (myPreacherTurn) receiveGuess(payload);
+      else receiveGuessDisplay(payload);
+    })
+    .on('broadcast', { event: 'guess_validated' }, ({ payload }) => {
+      applyValidation(payload);
+    })
+    .on('broadcast', { event: 'reveal_phase' }, ({ payload }) => {
+      showReveal(payload);
+    })
+    .on('broadcast', { event: 'next_round' }, ({ payload }) => {
+      if (!myPreacherTurn) startRound(payload.roundIndex);
+    })
+    .on('broadcast', { event: 'game_over' }, ({ payload }) => {
+      showPodium(payload.scores);
+    })
+    .subscribe();
+
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('game-wrap').style.display = 'grid';
+
+  renderScoreboard();
+  renderPlayersList();
+  startRound(0);
+}
+
+// ── Tour ──
+function startRound(roundIndex) {
+  currentRound   = roundIndex;
+  phase          = 'waiting';
+  guesses        = {};
+  hasGuessed     = false;
+  currentQuestion = null;
+  currentAnswer   = null;
+  isValidating    = false;
+
+  const preacher = players[roundIndex % players.length];
+  myPreacherTurn = (preacher.session_id === mySessionId);
+
+  updateRoundUI();
+  renderPlayersList();
+  stopTimer();
+
+  if (myPreacherTurn) {
+    phase = 'preacher_compose';
+    renderPhasePreacherCompose(preacher);
+  } else {
+    phase = 'waiting_question';
+    renderPhaseWaiting(preacher);
+  }
+}
+
+// ── Prédicateur : compose ──
+function renderPhasePreacherCompose(preacher) {
+  document.getElementById('timer-val').textContent = '—';
+  document.getElementById('phase-content').innerHTML = `
+    <div class="phase-preacher">
+      <div class="preacher-crown">🎤</div>
+      <div class="preacher-announce">C'est ton tour de prêcher !</div>
+      <div class="preacher-sub">Pose une question biblique à tes adversaires. Sois créatif !</div>
+      <div class="question-input-wrap">
+        <label class="q-input-label">Ta question biblique</label>
+        <input class="q-input" id="q-field" type="text" maxlength="200" placeholder="Ex : Quel est le nom de la femme de Lot ?"/>
+      </div>
+      <div class="answer-input-wrap">
+        <label class="answer-label">La bonne réponse (gardée secrète jusqu'à la révélation)</label>
+        <input class="answer-input" id="a-field" type="text" maxlength="100" placeholder="La réponse exacte…"/>
+      </div>
+      <button class="btn-submit-q" id="btn-submit-q" onclick="submitQuestion()">
+        🎤 Lancer la question à tous
+      </button>
+    </div>`;
+
+  document.getElementById('q-field').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('a-field').focus(); });
+  document.getElementById('a-field').addEventListener('keydown', e => { if(e.key==='Enter') submitQuestion(); });
+}
+
+// ── Prédicateur : soumet ──
+function submitQuestion() {
+  const q = document.getElementById('q-field')?.value.trim();
+  const a = document.getElementById('a-field')?.value.trim();
+  if (!q) { showToast('⚠️ Écris ta question !', 'error'); return; }
+  if (!a) { showToast('⚠️ Écris la bonne réponse !', 'error'); return; }
+
+  document.getElementById('btn-submit-q').disabled = true;
+  currentQuestion = q;
+  currentAnswer   = a;
+  phase = 'guessing';
+
+  gameChannel.send({ type:'broadcast', event:'question_posted', payload:{ question:q, preacher_session:mySessionId, round:currentRound } });
+  renderPhasePreacherValidate(q, a);
+  startTimer(GUESS_TIME, onGuessTimerEnd);
+  showToast('🎤 Question lancée !', 'gold');
+}
+
+// ── Prédicateur : valide les réponses ──
+function renderPhasePreacherValidate(q, a) {
+  document.getElementById('phase-content').innerHTML = `
+    <div class="phase-guesser">
+      <div class="question-display">${q}</div>
+      <div class="asked-by" style="color:var(--gold-dark);font-weight:600;">🎤 Ta question — Bonne réponse : <em>${a}</em></div>
+      <div class="guesses-zone" id="guesses-zone">
+        <div class="waiting-guess">En attente des réponses des joueurs… 🙏</div>
+      </div>
+    </div>`;
+}
+
+// ── Deviner ──
+function receiveQuestion(payload) {
+  currentQuestion = payload.question;
+  phase = 'guessing';
+  hasGuessed = false;
+  renderPhaseGuesser(payload);
+  startTimer(GUESS_TIME, onGuessTimerEnd);
+}
+
+function renderPhaseGuesser(payload) {
+  const preacher = players.find(p => p.session_id === payload.preacher_session);
+  document.getElementById('phase-content').innerHTML = `
+    <div class="phase-guesser">
+      <div class="question-display">${payload.question}</div>
+      <div class="asked-by">
+        <span style="font-size:16px">${preacher?.avatar||'🎤'}</span>
+        Question de <strong>${preacher?.pseudo||'Prédicateur'}</strong>
+      </div>
+      <div class="guesser-input-wrap">
+        <input class="guess-input" id="guess-field" type="text" maxlength="100" placeholder="Ta réponse…"/>
+        <button class="btn-guess" id="btn-guess" onclick="submitGuess()">Répondre</button>
+      </div>
+      <div class="guesses-zone" id="guesses-zone">
+        <div class="waiting-guess">En attente des réponses… 🙏</div>
+      </div>
+    </div>`;
+
+  document.getElementById('guess-field').addEventListener('keydown', e => { if(e.key==='Enter') submitGuess(); });
+}
+
+function submitGuess() {
+  if (hasGuessed) return;
+  const val = document.getElementById('guess-field')?.value.trim();
+  if (!val) { showToast('⚠️ Écris ta réponse !', 'error'); return; }
+
+  hasGuessed = true;
+  document.getElementById('guess-field').disabled = true;
+  document.getElementById('btn-guess').disabled = true;
+
+  const guess = { session_id: mySessionId, pseudo: playerData.pseudo||'Joueur', avatar: playerData.avatar||'🙏', answer: val, round: currentRound };
+  guesses[mySessionId] = { answer: val, correct: null, pts: 0 };
+
+  gameChannel.send({ type:'broadcast', event:'guess_submitted', payload: guess });
+  renderGuessesZone();
+  showToast('✓ Réponse envoyée !', 'success');
+}
+
+// ── Recevoir une réponse (côté prédicateur) ──
+function receiveGuess(payload) {
+  guesses[payload.session_id] = { answer: payload.answer, correct: null, pts: 0, pseudo: payload.pseudo, avatar: payload.avatar };
+  renderGuessesZonePreacher();
+}
+
+// ── Recevoir une réponse (côté spectateur) ──
+function receiveGuessDisplay(payload) {
+  if (payload.session_id !== mySessionId) {
+    guesses[payload.session_id] = { answer: '…', correct: null, pts: 0, pseudo: payload.pseudo, avatar: payload.avatar };
+    renderGuessesZone();
+  }
+}
+
+// ── Zone réponses côté prédicateur ──
+function renderGuessesZonePreacher() {
+  const zone = document.getElementById('guesses-zone');
+  if (!zone) return;
+  const entries = Object.entries(guesses).filter(([sid]) => sid !== mySessionId);
+  if (!entries.length) { zone.innerHTML = '<div class="waiting-guess">En attente des réponses… 🙏</div>'; return; }
+
+  zone.innerHTML = entries.map(([sid, g]) => `
+    <div class="guess-row ${g.correct===true?'correct':g.correct===false?'wrong':'pending'}" id="gr-${sid.replace(/-/g,'_')}">
+      <div class="gr-av">${g.avatar||'🙏'}</div>
+      <div class="gr-info">
+        <div class="gr-name">${g.pseudo}</div>
+        <div class="gr-answer">${g.answer}</div>
+      </div>
+      ${g.correct===null ? `
+        <button onclick="validateGuess('${sid}',true)"  style="padding:6px 12px;border:none;border-radius:8px;background:rgba(22,163,74,0.1);color:var(--green);cursor:pointer;font-weight:600;font-size:0.85rem;margin-right:4px;">✓</button>
+        <button onclick="validateGuess('${sid}',false)" style="padding:6px 12px;border:none;border-radius:8px;background:rgba(220,38,38,0.08);color:var(--red);cursor:pointer;font-weight:600;font-size:0.85rem;">✗</button>
+      ` : `<div class="gr-result">${g.correct?'✅':'❌'}</div><div class="gr-pts ${g.pts>0?'':'neg'}">${g.pts>0?'+'+g.pts+'pts':''}</div>`}
+    </div>`).join('');
+}
+
+// ── Zone réponses côté devineurs ──
+function renderGuessesZone() {
+  const zone = document.getElementById('guesses-zone');
+  if (!zone) return;
+  const entries = Object.entries(guesses);
+  if (!entries.length) { zone.innerHTML = '<div class="waiting-guess">En attente des réponses… 🙏</div>'; return; }
+
+  zone.innerHTML = entries.map(([sid, g]) => {
+    const isMe = sid === mySessionId;
+    return `
+      <div class="guess-row ${g.correct===true?'correct':g.correct===false?'wrong':'pending'}">
+        <div class="gr-av">${g.avatar||'🙏'}</div>
+        <div class="gr-info">
+          <div class="gr-name">${g.pseudo||''}${isMe?' (Toi)':''}</div>
+          <div class="gr-answer">${isMe?g.answer:'En attente de validation…'}</div>
+        </div>
+        <div class="gr-result">${g.correct===true?'✅':g.correct===false?'❌':'⏳'}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Prédicateur valide ──
+async function validateGuess(sid, correct) {
+  const g = guesses[sid];
+  if (!g || g.correct !== null) return;
+
+  const ptsGuesser  = correct ? PTS_GUESSER  : 0;
+  const ptsPreacher = correct ? PTS_PREACHER : 0;
+
+  guesses[sid].correct = correct;
+  guesses[sid].pts = ptsGuesser;
+
+  scores[sid] = (scores[sid]||0) + ptsGuesser;
+  scores[mySessionId] = (scores[mySessionId]||0) + ptsPreacher;
+
+  gameChannel.send({ type:'broadcast', event:'guess_validated', payload:{ session_id:sid, correct, pts_guesser:ptsGuesser, pts_preacher:ptsPreacher, preacher_session:mySessionId } });
+
+  renderScoreboard();
+  renderGuessesZonePreacher();
+  showToast(correct ? '✅ Bonne réponse validée ! +'+PTS_PREACHER+' pts' : '❌ Réponse invalidée', correct?'success':'error');
+
+  // Si tout le monde a été validé → révélation
+  const nonPreacher = Object.entries(guesses).filter(([sid]) => sid !== mySessionId);
+  const allValidated = nonPreacher.length > 0 && nonPreacher.every(([,g]) => g.correct !== null);
+  if (allValidated) {
+    setTimeout(() => triggerReveal(), 800);
+  }
+}
+
+// ── Recevoir validation ──
+function applyValidation(payload) {
+  if (guesses[payload.session_id]) {
+    guesses[payload.session_id].correct = payload.correct;
+    guesses[payload.session_id].pts = payload.pts_guesser;
+  }
+  scores[payload.session_id] = (scores[payload.session_id]||0) + payload.pts_guesser;
+  scores[payload.preacher_session] = (scores[payload.preacher_session]||0) + payload.pts_preacher;
+  renderScoreboard();
+  if (!myPreacherTurn) renderGuessesZone();
+}
+
+// ── Révélation ──
+function triggerReveal() {
+  const preacher = players[currentRound % players.length];
+  const payload = { question: currentQuestion, answer: currentAnswer, guesses: {...guesses}, scores: {...scores}, round: currentRound, preacher_session: mySessionId };
+  gameChannel.send({ type:'broadcast', event:'reveal_phase', payload });
+  showReveal(payload);
+}
+
+function showReveal(payload) {
+  stopTimer();
+  phase = 'reveal';
+
+  const correctCount = Object.values(payload.guesses||{}).filter(g => g.correct).length;
+  const preacher = players.find(p => p.session_id === payload.preacher_session);
+
+  document.getElementById('phase-content').innerHTML = `
+    <div class="phase-reveal">
+      <div class="reveal-icon">${correctCount > 0 ? '🎉' : '🤔'}</div>
+      <div class="reveal-title">${correctCount > 0 ? `${correctCount} bonne${correctCount>1?'s':''} réponse${correctCount>1?'s':''}!` : 'Personne n\'a trouvé !'}</div>
+      <div class="reveal-answer">Réponse : "${payload.answer}"</div>
+      <div class="reveal-explanation">Question posée par ${preacher?.avatar||''} <strong>${preacher?.pseudo||'Prédicateur'}</strong></div>
+      <div class="reveal-scores" id="reveal-scores-list"></div>
+      ${myPreacherTurn ? `<button class="btn-next-round" onclick="nextRound()">
+        ${currentRound + 1 >= totalRounds ? '🏁 Voir les résultats' : '▶ Tour suivant'}
+      </button>` : '<div style="font-size:0.85rem;color:var(--text-muted);font-style:italic">En attente du Prédicateur…</div>'}
+    </div>`;
+
+  // Afficher points gagnés
+  const rsl = document.getElementById('reveal-scores-list');
+  if (rsl && payload.guesses) {
+    rsl.innerHTML = Object.entries(payload.guesses)
+      .filter(([sid]) => sid !== payload.preacher_session)
+      .map(([sid, g]) => {
+        const p = players.find(x => x.session_id === sid);
+        return `<div class="rs-chip">${p?.avatar||'🙏'} ${p?.pseudo||''} <span class="pts ${g.pts>0?'':' neg'}">${g.pts>0?'+'+g.pts+' pts':'0 pt'}</span></div>`;
+      }).join('');
+  }
+
+  // Timer avant prochain tour (si pas hôte)
+  if (!myPreacherTurn) startTimer(REVEAL_TIME, () => {});
+}
+
+// ── Tour suivant ──
+function nextRound() {
+  const next = currentRound + 1;
+  if (next >= totalRounds) {
+    gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores } });
+    db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
+    showPodium(scores);
+    return;
+  }
+  gameChannel.send({ type:'broadcast', event:'next_round', payload:{ roundIndex: next } });
+  startRound(next);
+}
+
+// ── Timeout devinettes ──
+function onGuessTimerEnd() {
+  if (myPreacherTurn) {
+    // Valider automatiquement les non-répondus comme faux
+    const nonPreacher = players.filter(p => p.session_id !== mySessionId);
+    nonPreacher.forEach(p => {
+      if (!guesses[p.session_id]) {
+        guesses[p.session_id] = { answer:'(aucune réponse)', correct:false, pts:0, pseudo:p.pseudo, avatar:p.avatar };
+      }
+    });
+    triggerReveal();
+  }
+}
+
+// ── Waiting screen ──
+function renderPhaseWaiting(preacher) {
+  document.getElementById('timer-val').textContent = '—';
+  document.getElementById('phase-content').innerHTML = `
+    <div class="phase-waiting">
+      <div class="waiting-cross">🎤</div>
+      <div class="waiting-title">C'est au Prédicateur de parler…</div>
+      <div class="preacher-spotlight">
+        <div class="ps-avatar">${preacher.avatar}</div>
+        <div class="ps-info">
+          <div class="ps-label">Prédicateur ce tour</div>
+          <div class="ps-name">${preacher.pseudo}</div>
+        </div>
+      </div>
+      <div class="waiting-sub">Attends que ${preacher.pseudo} pose sa question biblique 🙏</div>
+    </div>`;
+}
+
+// ── Timer ──
+function startTimer(seconds, onEnd) {
+  stopTimer();
+  timerVal = seconds;
+  updateTimerUI(timerVal, seconds);
+  timerInterval = setInterval(() => {
+    timerVal--;
+    updateTimerUI(timerVal, seconds);
+    if (timerVal <= 0) { stopTimer(); onEnd(); }
+  }, 1000);
+}
+
+function stopTimer() { clearInterval(timerInterval); timerInterval = null; }
+
+function updateTimerUI(val, total) {
+  const numEl = document.getElementById('timer-val');
+  const circle = document.getElementById('timer-circle');
+  if (!numEl || !circle) return;
+  numEl.textContent = val > 0 ? val : '';
+  numEl.classList.toggle('urgent', val <= 8 && val > 0);
+  circle.classList.toggle('urgent', val <= 8 && val > 0);
+  const pct = total > 0 ? ((total - val) / total) : 1;
+  circle.style.strokeDashoffset = Math.round(283 * pct);
+}
+
+// ── UI ──
+function updateRoundUI() {
+  const total = players.length;
+  document.getElementById('round-num').textContent = `Tour ${currentRound + 1} / ${total}`;
+  document.getElementById('pc-round-label').textContent = `Tour ${currentRound+1} / ${total}`;
+
+  const row = document.getElementById('progress-row');
+  row.innerHTML = players.map((_, i) => `
+    <div class="prog-dot ${i < currentRound ? 'done' : i === currentRound ? 'current' : ''}"></div>`).join('');
+}
+
+function renderScoreboard() {
+  const sb = document.getElementById('scoreboard');
+  const maxScore = Math.max(...Object.values(scores), 1);
+  const preacher = players[currentRound % players.length];
+
+  sb.innerHTML = players.map(p => {
+    const score = scores[p.session_id] || 0;
+    const isMe = p.session_id === mySessionId;
+    const isPreacher = p.session_id === preacher?.session_id;
+    return `
+      <div class="score-card ${isMe?'me':''} ${isPreacher?'preacher':''}">
+        <div class="sc-av">${p.avatar}</div>
+        <div class="sc-name">${p.pseudo}${isMe?' (Toi)':''}</div>
+        <div class="sc-score" id="sc-s-${p.session_id.replace(/-/g,'_')}">${score}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderPlayersList() {
+  const list = document.getElementById('players-list-r');
+  const preacher = players[currentRound % players.length];
+  list.innerHTML = players.map(p => {
+    const isMe = p.session_id === mySessionId;
+    const isPreacher = p.session_id === preacher?.session_id;
+    return `
+      <div class="player-row-r ${isPreacher?'current-preacher':''}">
+        <div class="pr-av ${isMe?'me':''}">
+          ${p.avatar}
+          ${isPreacher ? '<span class="pr-crown">🎤</span>' : ''}
+        </div>
+        <div class="pr-info">
+          <div class="pr-name">${p.pseudo}${isMe?' (Toi)':''}</div>
+          <div class="pr-sub">${isPreacher?'Prédicateur ce tour':'Devineur'}</div>
+        </div>
+        <div class="pr-score-badge">${scores[p.session_id]||0}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Podium ──
+function showPodium(finalScores) {
+  stopTimer();
+  const sorted = players.map(p => ({ ...p, score: finalScores[p.session_id]||0 })).sort((a,b) => b.score - a.score);
+  const RANKS = ['🥇','🥈','🥉'];
+  document.getElementById('podium-row').innerHTML = sorted.slice(0,3).map((p,i) => `
+    <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
+      <div class="pod-rank">${RANKS[i]||''}</div>
+      <div class="pod-av">${p.avatar}</div>
+      <div class="pod-name">${p.pseudo}${p.session_id===mySessionId?' (Toi)':''}</div>
+      <div class="pod-score ${i===0?'gold':''}">${p.score} pts</div>
+    </div>`).join('');
+  document.getElementById('podium-overlay').classList.add('active');
+}
+
+function replayGame() {
+  if (gameChannel) gameChannel.unsubscribe();
+  db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
+  window.location.href = `lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+}
+
+function quitGame() {
+  stopTimer();
+  if (gameChannel) gameChannel.unsubscribe();
+  return true;
+}
+
+// ── Toast ──
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show '+type;
+  setTimeout(() => t.className='toast', 2800);
+}
+
+window.addEventListener('beforeunload', () => quitGame());
+init();
+</script>
+</body>
+</html>

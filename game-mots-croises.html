@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Mots Croisés Bibliques</title>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#faf7f2;--white:#ffffff;
+      --ink:#1c1410;--ink2:#2d2520;
+      --sepia:#8b6914;--sepia-light:#c9a84c;--sepia-dim:rgba(139,105,20,0.12);
+      --teal:#0d7377;--teal-light:#14a8b0;--teal-dim:rgba(13,115,119,0.1);
+      --text:#1c1410;--text-muted:#78716c;
+      --border:#d6cfc0;--border2:rgba(28,20,16,0.08);
+      --green:#15803d;--green-dim:rgba(21,128,61,0.1);
+      --red:#b91c1c;--red-dim:rgba(185,28,28,0.1);
+      --cell-size:38px;
+    }
+    html,body{height:100%}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+    .bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:radial-gradient(ellipse 70% 50% at 10% 10%,rgba(139,105,20,0.06) 0%,transparent 55%),
+                 radial-gradient(ellipse 60% 40% at 90% 90%,rgba(13,115,119,0.05) 0%,transparent 50%)}
+    .paper-texture{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.03;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+    .bg-cross{position:fixed;opacity:0.025;font-size:240px;color:var(--sepia);user-select:none;pointer-events:none;z-index:0}
+    .bg-cross.a{top:-40px;right:-20px;transform:rotate(10deg)}
+    .bg-cross.b{bottom:30px;left:-15px;transform:rotate(-7deg);font-size:150px}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeDown{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes popIn{from{opacity:0;transform:scale(0.88)}to{opacity:1;transform:scale(1)}}
+    @keyframes cellCorrect{0%{background:rgba(21,128,61,0.2)}100%{background:transparent}}
+    @keyframes cellWrong{0%{background:rgba(185,28,28,0.18)}100%{background:transparent}}
+    @keyframes scoreFlash{0%{color:var(--green);transform:scale(1.2)}100%{color:var(--text);transform:scale(1)}}
+    @keyframes pulseSepia{0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)}50%{box-shadow:0 0 0 8px rgba(201,168,76,0)}}
+    @keyframes timerUrgent{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+    @keyframes wordFound{0%{transform:scale(1)}30%{transform:scale(1.06)}100%{transform:scale(1)}}
+
+    /* HEADER */
+    header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid rgba(139,105,20,0.2);background:rgba(250,247,242,0.94);backdrop-filter:blur(14px)}
+    .logo{font-family:'Libre Baskerville',serif;font-size:1.4rem;font-weight:700;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px}
+    .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--sepia),var(--sepia-light));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+    .logo span{color:var(--teal)}
+    .h-center{display:flex;align-items:center;gap:10px}
+    .game-badge{font-size:0.78rem;font-weight:600;color:var(--sepia);background:var(--sepia-dim);border:1px solid rgba(139,105,20,0.2);padding:5px 13px;border-radius:9px}
+    .room-badge{font-family:'Libre Baskerville',serif;font-size:0.9rem;color:var(--text-muted);letter-spacing:0.1em}
+    .quit-btn{font-size:0.78rem;color:var(--text-muted);background:none;border:1px solid var(--border);padding:7px 14px;border-radius:8px;cursor:pointer;text-decoration:none;transition:all 0.2s}
+    .quit-btn:hover{color:var(--red);border-color:rgba(185,28,28,0.3)}
+
+    /* LAYOUT */
+    .game-wrap{position:relative;z-index:5;max-width:1100px;margin:0 auto;padding:24px 20px 60px}
+    .page-grid{display:grid;grid-template-columns:1fr 300px;gap:24px}
+
+    /* SCOREBOARD */
+    .scoreboard{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;animation:fadeDown 0.5s ease both;grid-column:1/-1}
+    .sc{flex:1;min-width:80px;background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center;transition:all 0.3s;position:relative}
+    .sc.me{border-color:rgba(13,115,119,0.4)}
+    .sc.leading{border-color:rgba(201,168,76,0.5);animation:pulseSepia 2.5s ease-in-out infinite}
+    .sc.leading::after{content:'👑';position:absolute;top:3px;right:5px;font-size:10px}
+    .sc-av{font-size:16px;margin-bottom:2px}.sc-nm{font-size:0.7rem;font-weight:600;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sc-sc{font-family:'Libre Baskerville',serif;font-size:1.5rem;color:var(--text);line-height:1;margin-top:3px}
+    .sc-sc.flash{animation:scoreFlash 0.4s ease}
+    .sc-words{font-size:0.62rem;color:var(--sepia);font-weight:600}
+
+    /* GRILLE MOTS CROISÉS */
+    .grid-section{animation:fadeUp 0.5s 0.1s ease both}
+    .grid-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .grid-title{font-family:'Libre Baskerville',serif;font-size:1.2rem;font-weight:700;color:var(--text)}
+    .grid-progress{font-size:0.8rem;color:var(--sepia);font-weight:600}
+
+    /* Timer bar */
+    .timer-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .tb-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+    .tb-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--sepia-light));border-radius:3px;transition:width 1s linear}
+    .tb-num{font-family:'Libre Baskerville',serif;font-size:1rem;font-weight:700;color:var(--text);white-space:nowrap;min-width:36px;text-align:right}
+    .tb-num.urgent{color:var(--red);animation:timerUrgent 0.5s ease-in-out infinite}
+
+    /* GRILLE */
+    .crossword-grid{display:inline-block;border:2px solid var(--ink);background:var(--ink);gap:1px;display:grid}
+
+    .cell{
+      width:var(--cell-size);height:var(--cell-size);
+      background:var(--white);
+      display:flex;align-items:center;justify-content:center;
+      position:relative;cursor:pointer;transition:background 0.15s;
+      border:0.5px solid rgba(0,0,0,0.08);
+    }
+    .cell.black{background:var(--ink);cursor:default;pointer-events:none}
+    .cell.active{background:rgba(13,115,119,0.12);outline:2px solid var(--teal);outline-offset:-2px;z-index:2}
+    .cell.highlighted{background:rgba(13,115,119,0.06)}
+    .cell.correct{background:rgba(21,128,61,0.12);animation:cellCorrect 0.8s ease}
+    .cell.wrong{background:rgba(185,28,28,0.12);animation:cellWrong 0.6s ease}
+    .cell.filled-by-me{background:rgba(13,115,119,0.08)}
+    .cell.filled-by-other{background:rgba(201,168,76,0.08)}
+    .cell-num{position:absolute;top:1px;left:2px;font-size:8px;font-weight:700;color:var(--sepia);line-height:1;font-family:'DM Sans',sans-serif}
+    .cell-letter{font-family:'Libre Baskerville',serif;font-size:1rem;font-weight:700;color:var(--ink);text-transform:uppercase;user-select:none}
+    .cell-letter.other-player{color:var(--sepia)}
+
+    /* Input caché */
+    #hidden-input{position:fixed;opacity:0;pointer-events:none;top:-100px;left:-100px;width:1px;height:1px}
+
+    /* CLUES PANEL */
+    .right-col{display:flex;flex-direction:column;gap:14px}
+
+    .clues-card{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:18px;max-height:500px;overflow-y:auto;animation:fadeUp 0.5s 0.15s ease both}
+    .clues-card::-webkit-scrollbar{width:4px}
+    .clues-card::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+    .clue-section{margin-bottom:18px}
+    .clue-section-title{font-family:'Libre Baskerville',serif;font-size:0.9rem;font-weight:700;color:var(--text);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+    .clue-item{display:flex;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;transition:background 0.15s;margin-bottom:3px}
+    .clue-item:hover{background:var(--sepia-dim)}
+    .clue-item.active{background:var(--teal-dim);border:1px solid rgba(13,115,119,0.2)}
+    .clue-item.solved{opacity:0.5}
+    .clue-num{font-size:0.78rem;font-weight:700;color:var(--sepia);min-width:22px;flex-shrink:0;margin-top:1px}
+    .clue-text{font-family:'Libre Baskerville',serif;font-size:0.82rem;line-height:1.45;color:var(--text)}
+    .clue-item.solved .clue-text{text-decoration:line-through;color:var(--text-muted)}
+    .clue-item.solved .clue-num::after{content:' ✓';color:var(--green)}
+
+    /* Selected clue info */
+    .selected-clue-card{background:var(--white);border:1.5px solid rgba(13,115,119,0.3);border-radius:14px;padding:16px;animation:fadeUp 0.3s ease both}
+    .sc-label{font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+    .sc-clue{font-family:'Libre Baskerville',serif;font-size:0.95rem;line-height:1.5;color:var(--text);margin-bottom:10px}
+    .sc-input-wrap{display:flex;gap:8px}
+    .sc-input{flex:1;padding:10px 12px;font-family:'Libre Baskerville',serif;font-size:0.95rem;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);outline:none;transition:all 0.2s;text-transform:uppercase}
+    .sc-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-dim);background:var(--white)}
+    .sc-input::placeholder{text-transform:none;color:#bbb}
+    .sc-submit{padding:10px 18px;font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;border:none;cursor:pointer;border-radius:10px;background:linear-gradient(135deg,var(--teal),var(--teal-light));color:white;box-shadow:0 3px 10px rgba(13,115,119,0.25);transition:all 0.2s}
+    .sc-submit:hover:not(:disabled){transform:translateY(-1px)}
+    .sc-submit:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+
+    /* PLAYERS sidebar */
+    .players-card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:14px}
+    .pc-title{font-family:'Libre Baskerville',serif;font-size:0.9rem;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+    .pc-count{font-size:0.7rem;font-weight:600;background:rgba(21,128,61,0.1);color:var(--green);border:1px solid rgba(21,128,61,0.2);padding:2px 8px;border-radius:6px}
+    .pl-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;transition:background 0.15s;margin-bottom:3px}
+    .pl-row:hover{background:var(--sepia-dim)}
+    .pl-av{width:28px;height:28px;border-radius:7px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+    .pl-av.me{border-color:rgba(13,115,119,0.4)}
+    .pl-nm{font-size:0.78rem;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pl-sc{font-family:'Libre Baskerville',serif;font-size:0.88rem;color:var(--text)}
+    .pl-words{font-size:0.62rem;color:var(--sepia);font-weight:600}
+
+    /* STATUS BAR */
+    .status-bar{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;animation:fadeUp 0.5s 0.2s ease both;grid-column:1/-1}
+    .sb-status{font-family:'Libre Baskerville',serif;font-size:1rem;font-weight:700;color:var(--text)}
+    .sb-sub{font-size:0.78rem;color:var(--text-muted);margin-top:2px}
+    .btn-next-mc{padding:11px 24px;font-family:'DM Sans',sans-serif;font-size:0.87rem;font-weight:600;border:none;cursor:pointer;border-radius:10px;background:linear-gradient(135deg,var(--teal),var(--teal-light));color:white;box-shadow:0 3px 12px rgba(13,115,119,0.25);transition:all 0.22s}
+    .btn-next-mc:hover:not(:disabled){transform:translateY(-2px)}
+    .btn-next-mc:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+
+    /* PODIUM */
+    .pod-overlay{position:fixed;inset:0;z-index:200;background:rgba(250,247,242,0.97);backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0;pointer-events:none;transition:opacity 0.5s;padding:24px}
+    .pod-overlay.active{opacity:1;pointer-events:all}
+    .pod-title{font-family:'Libre Baskerville',serif;font-size:clamp(1.8rem,5vw,3rem);font-weight:700;color:var(--text);text-align:center}
+    .pod-title span{color:var(--sepia);font-style:italic}
+    .pod-verse{font-family:'Libre Baskerville',serif;font-size:0.95rem;font-style:italic;color:var(--text-muted);text-align:center;max-width:420px}
+    .pod-row{display:flex;gap:14px;align-items:flex-end;justify-content:center;flex-wrap:wrap}
+    .pod-card{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:18px 14px;text-align:center;min-width:110px;animation:popIn 0.5s ease both}
+    .pod-card.p1{border-color:rgba(201,168,76,0.5);box-shadow:0 0 24px rgba(201,168,76,0.15)}
+    .pod-rank{font-size:1.8rem;margin-bottom:6px}.pod-av{font-size:2rem;margin-bottom:5px}
+    .pod-name{font-size:0.85rem;font-weight:600;color:var(--text);margin-bottom:3px}
+    .pod-score{font-family:'Libre Baskerville',serif;font-size:1.4rem;font-weight:700;color:var(--sepia)}
+    .pod-words{font-size:0.72rem;color:var(--text-muted);margin-top:3px}
+    .pod-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+    .btn-pod{padding:12px 26px;font-family:'DM Sans',sans-serif;font-size:0.87rem;font-weight:600;border:none;cursor:pointer;border-radius:10px;background:linear-gradient(135deg,var(--teal),var(--teal-light));color:white;box-shadow:0 4px 14px rgba(13,115,119,0.25);transition:all 0.22s;text-decoration:none;display:inline-flex;align-items:center}
+    .btn-pod:hover{transform:translateY(-2px)}
+    .btn-pod.out{background:transparent;border:1px solid var(--border);color:var(--text-muted);box-shadow:none}
+    .btn-pod.out:hover{border-color:var(--sepia-light);color:var(--sepia)}
+
+    .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:75vh;gap:18px;position:relative;z-index:5}
+    .ls-icon{font-size:3rem;animation:pulseSepia 2s ease-in-out infinite}
+    .ls-title{font-family:'Libre Baskerville',serif;font-size:1.5rem;font-weight:700;color:var(--text)}
+    .ls-sub{font-size:0.83rem;color:var(--text-muted)}
+
+    .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--text);color:white;padding:9px 18px;border-radius:9px;font-size:0.82rem;font-weight:500;box-shadow:0 6px 24px rgba(0,0,0,0.18);z-index:300;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .toast.ok{background:var(--green)}.toast.err{background:var(--red)}.toast.inf{background:var(--teal)}
+
+    @media(max-width:760px){.page-grid{grid-template-columns:1fr}header{padding:12px 16px}.h-center{display:none}:root{--cell-size:30px}}
+  </style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="paper-texture"></div>
+<div class="bg-cross a">✝</div>
+<div class="bg-cross b">✝</div>
+<input id="hidden-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">🧩</div>Bible<span>Play</span></a>
+  <div class="h-center">
+    <span class="game-badge">🧩 Mots Croisés Bibliques</span>
+    <span class="room-badge" id="h-room">—</span>
+  </div>
+  <a class="quit-btn" href="index.html" onclick="return quitGame()">✕ Quitter</a>
+</header>
+
+<div class="loading-screen" id="loading-screen">
+  <div class="ls-icon">🧩</div>
+  <div class="ls-title">Mots Croisés Bibliques</div>
+  <div class="ls-sub">Construction de la grille en cours… 📖</div>
+</div>
+
+<div style="display:none" id="game-screen">
+  <div class="game-wrap">
+    <div class="page-grid">
+
+      <div class="scoreboard" id="scoreboard"></div>
+
+      <!-- GAUCHE — Grille -->
+      <div class="grid-section">
+        <div class="grid-header">
+          <div class="grid-title">🧩 Grille Biblique</div>
+          <div class="grid-progress" id="grid-progress">0 / 0 mots trouvés</div>
+        </div>
+
+        <div class="timer-bar">
+          <div class="tb-track"><div class="tb-fill" id="tb-fill" style="width:100%"></div></div>
+          <div class="tb-num" id="tb-num">—</div>
+        </div>
+
+        <div id="grid-wrap" style="overflow-x:auto;padding-bottom:8px">
+          <div class="crossword-grid" id="crossword-grid"></div>
+        </div>
+
+        <!-- Mot sélectionné -->
+        <div class="selected-clue-card" id="selected-clue-card" style="margin-top:14px;display:none">
+          <div class="sc-label" id="sc-label">HORIZONTALE — 1</div>
+          <div class="sc-clue" id="sc-clue">—</div>
+          <div class="sc-input-wrap">
+            <input class="sc-input" id="sc-input" type="text" placeholder="Tape ta réponse…" maxlength="20"/>
+            <button class="sc-submit" onclick="submitWord()">✓</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DROITE -->
+      <div class="right-col">
+
+        <!-- Indices -->
+        <div class="clues-card" id="clues-card">
+          <div class="clue-section">
+            <div class="clue-section-title">→ Horizontales</div>
+            <div id="clues-h"></div>
+          </div>
+          <div class="clue-section">
+            <div class="clue-section-title">↓ Verticales</div>
+            <div id="clues-v"></div>
+          </div>
+        </div>
+
+        <!-- Joueurs -->
+        <div class="players-card">
+          <div class="pc-title">Joueurs <span class="pc-count" id="pc-count">0</span></div>
+          <div id="pl-list"></div>
+        </div>
+
+        <!-- Règles -->
+        <div style="background:var(--sepia-dim);border:1px solid rgba(139,105,20,0.2);border-radius:12px;padding:13px 14px">
+          <div style="font-family:'Libre Baskerville',serif;font-size:0.85rem;font-weight:700;color:var(--sepia);margin-bottom:8px">🧩 Règles</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);line-height:1.65">
+            <div style="margin-bottom:4px">• Grille partagée — tous complètent en même temps !</div>
+            <div style="margin-bottom:4px">• Clique sur une case ou une définition pour sélectionner un mot.</div>
+            <div style="margin-bottom:4px">• <strong style="color:var(--text)">+30 pts</strong> par mot trouvé · <strong style="color:var(--teal)">+50 pts bonus</strong> si tu es le premier.</div>
+            <div style="margin-bottom:4px">• Les lettres des autres joueurs apparaissent en <strong style="color:var(--sepia)">doré</strong>.</div>
+            <div>• La partie se termine quand la grille est complète ou le temps écoulé !</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Status bar -->
+      <div class="status-bar" id="status-bar">
+        <div>
+          <div class="sb-status" id="sb-status">Grille en cours de construction…</div>
+          <div class="sb-sub" id="sb-sub">Travaillez ensemble pour compléter la grille !</div>
+        </div>
+        <div id="sb-actions"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="pod-overlay" id="pod-overlay">
+  <div class="pod-title">🧩 Grille <span>Complète</span> ! 🧩</div>
+  <div class="pod-verse">"Heureux l'homme qui médite la loi de l'Éternel jour et nuit." — Psaumes 1:2</div>
+  <div class="pod-row" id="pod-row"></div>
+  <div class="pod-actions">
+    <button class="btn-pod" onclick="replayGame()">↺ Nouvelle grille</button>
+    <a class="btn-pod out" href="lobby.html" id="back-btn">← Lobby</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const{createClient}=supabase;
+const db=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const params=new URLSearchParams(window.location.search);
+const roomCode=params.get('code')||'';
+let playerData={};
+try{playerData=JSON.parse(sessionStorage.getItem('bp_player')||'{}');}catch(e){}
+const mySessionId=playerData.sessionId||sessionStorage.getItem('bp_session')||'';
+const isHost=playerData.role==='host';
+document.getElementById('h-room').textContent=roomCode;
+const backBtn=document.getElementById('back-btn');
+if(backBtn)backBtn.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+
+// ── 120 MOTS AVEC DÉFINITIONS ──
+const ALL_WORDS=[
+  // PERSONNAGES
+  {word:'MOÏSE',def:'Reçut les 10 commandements au Sinaï',cat:'Personnages'},
+  {word:'DAVID',def:'Roi-berger, tua Goliath avec une fronde',cat:'Personnages'},
+  {word:'SALOMON',def:'Roi connu pour sa sagesse',cat:'Personnages'},
+  {word:'DANIEL',def:'Survécut à la fosse aux lions',cat:'Personnages'},
+  {word:'JONAS',def:'Passa 3 jours dans un grand poisson',cat:'Personnages'},
+  {word:'ÉLIE',def:'Prophète emporté au ciel dans un char de feu',cat:'Personnages'},
+  {word:'PIERRE',def:'Apôtre qui renia Jésus trois fois',cat:'Personnages'},
+  {word:'PAUL',def:'Apôtre des nations, converti à Damas',cat:'Personnages'},
+  {word:'RUTH',def:'Dit "là où tu mourras, je mourrai"',cat:'Personnages'},
+  {word:'ESTHER',def:'Reine qui sauva le peuple juif',cat:'Personnages'},
+  {word:'SAMSON',def:'Sa force était dans ses cheveux',cat:'Personnages'},
+  {word:'JOSEPH',def:'Vendu par ses frères, devint vizir',cat:'Personnages'},
+  {word:'THOMAS',def:'Apôtre du doute, dit "Mon Seigneur"',cat:'Personnages'},
+  {word:'JEAN',def:'Disciple bien-aimé, écrivit l\'Apocalypse',cat:'Personnages'},
+  {word:'MARIE',def:'Mère de Jésus, bénie entre toutes',cat:'Personnages'},
+  {word:'AARON',def:'Frère aîné de Moïse, premier grand prêtre',cat:'Personnages'},
+  {word:'NOÉMIE',def:'Belle-mère de Ruth, rentra à Bethléem',cat:'Personnages'},
+  {word:'GÉDÉON',def:'Vainquit les Madianites avec 300 hommes',cat:'Personnages'},
+  {word:'DÉBORAH',def:'Seule femme juge d\'Israël',cat:'Personnages'},
+  {word:'LUC',def:'Médecin, auteur d\'un évangile et des Actes',cat:'Personnages'},
+  // LIEUX
+  {word:'EDEN',def:'Jardin des origines, demeure d\'Adam et Ève',cat:'Lieux'},
+  {word:'SINAI',def:'Montagne où Moïse reçut la Loi',cat:'Lieux'},
+  {word:'DAMAS',def:'Ville de la conversion de Paul',cat:'Lieux'},
+  {word:'CANAAN',def:'Terre promise aux descendants d\'Abraham',cat:'Lieux'},
+  {word:'BABEL',def:'Ville de la grande tour et de la confusion des langues',cat:'Lieux'},
+  {word:'PATMOS',def:'Île où Jean écrivit l\'Apocalypse',cat:'Lieux'},
+  {word:'GALILÉE',def:'Région du ministère principal de Jésus',cat:'Lieux'},
+  {word:'GOLGOTHA',def:'Lieu du crâne, site de la crucifixion',cat:'Lieux'},
+  {word:'NAZARETH',def:'Ville où Jésus grandit',cat:'Lieux'},
+  {word:'BETHLÉEM',def:'Ville de naissance de Jésus et de David',cat:'Lieux'},
+  // CONCEPTS
+  {word:'FOI',def:'Ferme assurance des choses espérées (Hébreux 11:1)',cat:'Concepts'},
+  {word:'GRÂCE',def:'Don gratuit de Dieu, non mérité',cat:'Concepts'},
+  {word:'SALUT',def:'Délivrance du péché par Jésus-Christ',cat:'Concepts'},
+  {word:'ALLIANCE',def:'Pacte solennel entre Dieu et l\'homme',cat:'Concepts'},
+  {word:'PARDON',def:'Remise de la faute, réconciliation',cat:'Concepts'},
+  {word:'PRIÈRE',def:'Communication entre l\'homme et Dieu',cat:'Concepts'},
+  {word:'ÉVANGILE',def:'Bonne nouvelle du salut en Christ',cat:'Concepts'},
+  {word:'BAPTÊME',def:'Rite d\'eau symbolisant la mort et la résurrection',cat:'Concepts'},
+  {word:'TRINITÉ',def:'Père, Fils et Saint-Esprit : un seul Dieu',cat:'Concepts'},
+  {word:'LOUANGE',def:'Adoration de Dieu pour qui il est',cat:'Concepts'},
+  // LIVRES
+  {word:'GENÈSE',def:'Premier livre de la Bible, la création',cat:'Livres'},
+  {word:'EXODE',def:'Sortie d\'Égypte et la Loi de Moïse',cat:'Livres'},
+  {word:'PSAUMES',def:'150 poèmes et chants bibliques',cat:'Livres'},
+  {word:'PROVERBES',def:'Sagesse pratique attribuée à Salomon',cat:'Livres'},
+  {word:'MATTHIEU',def:'Premier évangile, écrit pour les Juifs',cat:'Livres'},
+  {word:'HÉBREUX',def:'Épître sur la supériorité du Christ',cat:'Livres'},
+  {word:'ACTES',def:'Histoire de l\'Église primitive',cat:'Livres'},
+  {word:'RUTH',def:'Récit de fidélité et de rédemption',cat:'Livres'},
+  {word:'DANIEL',def:'Visions prophétiques de l\'exil à Babylone',cat:'Livres'},
+  {word:'JOB',def:'Livre sur la souffrance et la justice divine',cat:'Livres'},
+  // VERSETS
+  {word:'AMEN',def:'Mot hébreu signifiant "qu\'il en soit ainsi"',cat:'Versets'},
+  {word:'ALLÉLUIA',def:'Cri de louange : "Louez le Seigneur"',cat:'Versets'},
+  {word:'MARANA',def:'Premier mot de la prière "Viens, Seigneur Jésus"',cat:'Versets'},
+  {word:'SHALOM',def:'Mot hébreu pour paix et plénitude',cat:'Versets'},
+  {word:'AGAPE',def:'Amour inconditionnel en grec biblique',cat:'Versets'},
+];
+
+// ── GRILLES PRÉDÉFINIES (3 grilles de difficulté croissante) ──
+// Grille 12x12 simplifiée — positions des mots
+// Format: {word, row, col, dir:'H'|'V', num, clue}
+const GRIDS=[
+  // GRILLE 1 — débutant (10 mots)
+  [
+    {word:'MOÏSE',row:0,col:0,dir:'H',num:1},
+    {word:'EDEN',row:0,col:0,dir:'V',num:1},
+    {word:'FOI',row:2,col:3,dir:'H',num:2},
+    {word:'RUTH',row:0,col:6,dir:'V',num:3},
+    {word:'PAUL',row:4,col:0,dir:'H',num:4},
+    {word:'JEAN',row:2,col:3,dir:'V',num:5},
+    {word:'LUC',row:6,col:2,dir:'H',num:6},
+    {word:'ACTES',row:4,col:4,dir:'V',num:7},
+    {word:'PSAUMES',row:8,col:0,dir:'H',num:8},
+    {word:'GRÂCE',row:0,col:9,dir:'V',num:9},
+  ],
+  // GRILLE 2 — intermédiaire (12 mots)
+  [
+    {word:'DAVID',row:0,col:0,dir:'H',num:1},
+    {word:'DAMAS',row:0,col:0,dir:'V',num:1},
+    {word:'PIERRE',row:0,col:5,dir:'V',num:2},
+    {word:'GENÈSE',row:2,col:2,dir:'H',num:3},
+    {word:'SALUT',row:4,col:0,dir:'H',num:4},
+    {word:'AMEN',row:2,col:2,dir:'V',num:5},
+    {word:'THOMAS',row:6,col:3,dir:'H',num:6},
+    {word:'BABEL',row:4,col:5,dir:'V',num:7},
+    {word:'MARIE',row:8,col:1,dir:'H',num:8},
+    {word:'NOÉMIE',row:0,col:9,dir:'V',num:9},
+    {word:'ÉVANGILE',row:10,col:0,dir:'H',num:10},
+    {word:'TRINITÉ',row:2,col:8,dir:'V',num:11},
+  ],
+  // GRILLE 3 — avancé (14 mots)
+  [
+    {word:'SALOMON',row:0,col:0,dir:'H',num:1},
+    {word:'SINAI',row:0,col:0,dir:'V',num:1},
+    {word:'DANIEL',row:0,col:6,dir:'V',num:2},
+    {word:'NAZARETH',row:2,col:2,dir:'H',num:3},
+    {word:'ALLIANCE',row:4,col:0,dir:'H',num:4},
+    {word:'LOUANGE',row:2,col:9,dir:'V',num:5},
+    {word:'JEAN',row:6,col:2,dir:'V',num:6},
+    {word:'BAPTÊME',row:6,col:4,dir:'H',num:7},
+    {word:'EXODE',row:8,col:0,dir:'H',num:8},
+    {word:'ESTHER',row:8,col:5,dir:'V',num:9},
+    {word:'GALILÉE',row:10,col:1,dir:'H',num:10},
+    {word:'GÉDÉON',row:4,col:8,dir:'V',num:11},
+    {word:'PROVERBES',row:12,col:0,dir:'H',num:12},
+    {word:'MATTHIEU',row:0,col:11,dir:'V',num:13},
+  ],
+];
+
+const GRID_SIZE=14;
+const GAME_TIME=600; // 10 minutes
+const PTS_WORD=30;
+const PTS_FIRST=50;
+
+// ── État ──
+let players=[],scores={},wordCounts={};
+let grid=[];
+let cellStates=[];  // {letter:'', foundBy:null, correct:false}
+let words=[];       // mots de la grille avec définitions
+let solvedWords=new Set();
+let selectedWordIdx=null;
+let selectedDir=null;
+let timerVal=0,timerInt=null;
+let gameChannel=null;
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+
+function norm(s){return s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z]/g,'');}
+
+async function init(){
+  if(!roomCode){window.location.href='index.html';return;}
+  const{data:pData}=await db.from('players').select('*').eq('room_code',roomCode).order('joined_at');
+  players=pData||[];
+  players.forEach(p=>{scores[p.session_id]=0;wordCounts[p.session_id]=0;});
+
+  gameChannel=db.channel(`mots-croises-${roomCode}`)
+    .on('broadcast',{event:'word_found'},({payload})=>{if(payload.session_id!==mySessionId)receiveWord(payload);})
+    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores,payload.wordCounts))
+    .subscribe();
+
+  // Choisir une grille aléatoire
+  const gridDef=shuffle([...GRIDS])[0];
+  buildGrid(gridDef);
+
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('game-screen').style.display='block';
+  document.getElementById('pc-count').textContent=players.length;
+  renderScoreboard();renderPlayers();renderClues();
+  startTimer();
+  updateStatusBar();
+
+  // Écouter input clavier
+  document.getElementById('sc-input').addEventListener('keydown',e=>{if(e.key==='Enter')submitWord();});
+}
+
+// ── CONSTRUIRE LA GRILLE ──
+function buildGrid(gridDef){
+  // Initialiser la grille vide
+  grid=Array.from({length:GRID_SIZE},()=>Array(GRID_SIZE).fill(null));
+  cellStates=Array.from({length:GRID_SIZE},()=>Array.from({length:GRID_SIZE},()=>({letter:'',foundBy:null,correct:false,black:true})));
+
+  words=[];
+
+  gridDef.forEach(entry=>{
+    const wordData=ALL_WORDS.find(w=>norm(w.word)===norm(entry.word));
+    const def=wordData?.def||'Définition inconnue';
+    const wordNorm=norm(entry.word);
+    const w={...entry,wordNorm,def,len:wordNorm.length,solved:false};
+    words.push(w);
+    for(let i=0;i<wordNorm.length;i++){
+      const r=entry.dir==='H'?entry.row:entry.row+i;
+      const c=entry.dir==='H'?entry.col+i:entry.col;
+      if(r<GRID_SIZE&&c<GRID_SIZE){
+        grid[r][c]=wordNorm[i];
+        cellStates[r][c].black=false;
+        cellStates[r][c].answer=wordNorm[i];
+      }
+    }
+  });
+  renderGrid();
+}
+
+// ── RENDER GRILLE ──
+function renderGrid(){
+  const container=document.getElementById('crossword-grid');
+  // Trouver les dimensions réelles
+  let maxR=0,maxC=0;
+  for(let r=0;r<GRID_SIZE;r++)for(let c=0;c<GRID_SIZE;c++)if(!cellStates[r][c].black){maxR=Math.max(maxR,r);maxC=Math.max(maxC,c);}
+  const rows=maxR+1,cols=maxC+1;
+  container.style.gridTemplateColumns=`repeat(${cols},var(--cell-size))`;
+  container.style.gridTemplateRows=`repeat(${rows},var(--cell-size))`;
+
+  // Numéros de cases
+  const cellNums={};
+  words.forEach(w=>{const key=`${w.row}-${w.col}`;if(!cellNums[key])cellNums[key]=w.num;else if(cellNums[key]!==w.num){/* keep first */}});
+
+  let html='';
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const s=cellStates[r][c];
+      const key=`${r}-${c}`;
+      const num=cellNums[key];
+      if(s.black){html+=`<div class="cell black" data-r="${r}" data-c="${c}"></div>`;}
+      else{
+        const letter=s.letter||'';
+        const letterClass=s.foundBy===mySessionId?'cell-letter':s.foundBy?'cell-letter other-player':'cell-letter';
+        html+=`<div class="cell" data-r="${r}" data-c="${c}" onclick="selectCell(${r},${c})">
+          ${num?`<span class="cell-num">${num}</span>`:''}
+          <span class="${letterClass}">${letter}</span>
+        </div>`;
+      }
+    }
+  }
+  container.innerHTML=html;
+  updateProgress();
+}
+
+function refreshCell(r,c){
+  const el=document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+  if(!el)return;
+  const s=cellStates[r][c];
+  const letterEl=el.querySelector('.cell-letter,.other-player');
+  if(letterEl){
+    letterEl.textContent=s.letter||'';
+    letterEl.className=s.foundBy===mySessionId?'cell-letter':s.foundBy?'cell-letter other-player':'cell-letter';
+  }
+  el.classList.remove('correct','wrong','filled-by-me','filled-by-other');
+  if(s.correct){el.classList.add('correct');}
+  else if(s.foundBy===mySessionId)el.classList.add('filled-by-me');
+  else if(s.foundBy)el.classList.add('filled-by-other');
+}
+
+// ── SÉLECTIONNER UNE CELLULE ──
+function selectCell(r,c){
+  const s=cellStates[r][c];
+  if(s.black)return;
+  // Trouver le mot qui passe par cette case
+  const matching=words.filter(w=>{
+    if(w.solved)return false;
+    if(w.dir==='H')return w.row===r&&c>=w.col&&c<w.col+w.len;
+    return w.col===c&&r>=w.row&&r<w.row+w.len;
+  });
+  if(!matching.length){
+    // Essayer l'autre direction
+    const all=words.filter(w=>!w.solved&&(w.dir==='H'?w.row===r&&c>=w.col&&c<w.col+w.len:w.col===c&&r>=w.row&&r<w.row+w.len));
+    if(!all.length)return;
+    selectWord(all[0]);return;
+  }
+  // Toggle direction si on clique sur la même cellule
+  if(selectedWordIdx!==null&&matching.find((w,i)=>words.indexOf(w)===selectedWordIdx)){
+    const other=matching.find(w=>words.indexOf(w)!==selectedWordIdx);
+    if(other){selectWord(other);return;}
+  }
+  selectWord(matching[0]);
+}
+
+function selectWord(w){
+  selectedWordIdx=words.indexOf(w);
+  selectedDir=w.dir;
+  // Mettre à jour UI
+  highlightWord(w);
+  const card=document.getElementById('selected-clue-card');
+  card.style.display='block';
+  document.getElementById('sc-label').textContent=`${w.dir==='H'?'→ HORIZONTALE':'↓ VERTICALE'} — ${w.num}`;
+  document.getElementById('sc-clue').textContent=w.def;
+  document.getElementById('sc-input').value='';
+  document.getElementById('sc-input').focus();
+  // Highlight dans les indices
+  document.querySelectorAll('.clue-item').forEach(el=>el.classList.remove('active'));
+  const clueEl=document.querySelector(`.clue-item[data-widx="${selectedWordIdx}"]`);
+  if(clueEl){clueEl.classList.add('active');clueEl.scrollIntoView({behavior:'smooth',block:'nearest'});}
+}
+
+function highlightWord(w){
+  document.querySelectorAll('.cell').forEach(el=>{el.classList.remove('active','highlighted');});
+  for(let i=0;i<w.len;i++){
+    const r=w.dir==='H'?w.row:w.row+i;
+    const c=w.dir==='H'?w.col+i:w.col;
+    const el=document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+    if(el)el.classList.add(i===0?'active':'highlighted');
+  }
+}
+
+// ── SOUMETTRE UN MOT ──
+function submitWord(){
+  if(selectedWordIdx===null)return;
+  const input=document.getElementById('sc-input').value.trim();
+  if(!input){showToast('⚠️ Tape ta réponse !','err');return;}
+  const w=words[selectedWordIdx];
+  if(!w||w.solved)return;
+  const answer=norm(input);
+  const correct=answer===w.wordNorm;
+  if(correct){
+    const isFirst=!solvedWords.has(selectedWordIdx);
+    const pts=PTS_WORD+(isFirst?PTS_FIRST:0);
+    solvedWords.add(selectedWordIdx);
+    w.solved=true;
+    scores[mySessionId]=(scores[mySessionId]||0)+pts;
+    wordCounts[mySessionId]=(wordCounts[mySessionId]||0)+1;
+    // Remplir les cases
+    for(let i=0;i<w.len;i++){
+      const r=w.dir==='H'?w.row:w.row+i;
+      const c=w.dir==='H'?w.col+i:w.col;
+      if(r<GRID_SIZE&&c<GRID_SIZE){cellStates[r][c].letter=w.wordNorm[i];cellStates[r][c].foundBy=mySessionId;cellStates[r][c].correct=true;}
+    }
+    gameChannel.send({type:'broadcast',event:'word_found',payload:{session_id:mySessionId,wordIdx:selectedWordIdx,word:w.wordNorm,row:w.row,col:w.col,dir:w.dir,pts}});
+    showToast(`✓ ${w.word} — +${pts} pts${isFirst?' (Premier !)':''}!`,'ok');
+    renderGrid();renderScoreboard();renderPlayers();renderClues();updateStatusBar();
+    document.getElementById('sc-input').value='';
+    checkCompletion();
+  } else {
+    showToast('✗ Mauvaise réponse, réessaie !','err');
+    document.getElementById('sc-input').select();
+    // Flash rouge
+    const card=document.getElementById('selected-clue-card');
+    card.style.borderColor='rgba(185,28,28,0.5)';
+    setTimeout(()=>card.style.borderColor='',800);
+  }
+}
+
+function receiveWord(payload){
+  const w=words[payload.wordIdx];
+  if(!w||w.solved)return;
+  w.solved=true;
+  solvedWords.add(payload.wordIdx);
+  scores[payload.session_id]=(scores[payload.session_id]||0)+payload.pts;
+  wordCounts[payload.session_id]=(wordCounts[payload.session_id]||0)+1;
+  for(let i=0;i<w.len;i++){
+    const r=w.dir==='H'?w.row:w.row+i;
+    const c=w.dir==='H'?w.col+i:w.col;
+    if(r<GRID_SIZE&&c<GRID_SIZE){cellStates[r][c].letter=w.wordNorm[i];cellStates[r][c].foundBy=payload.session_id;cellStates[r][c].correct=true;}
+  }
+  const p=players.find(x=>x.session_id===payload.session_id);
+  showToast(`${p?.avatar||'🙏'} ${p?.pseudo||''} a trouvé ${w.word} !`,'inf');
+  renderGrid();renderScoreboard();renderPlayers();renderClues();updateStatusBar();
+  checkCompletion();
+}
+
+// ── INDICES ──
+function renderClues(){
+  const horiz=words.filter(w=>w.dir==='H').sort((a,b)=>a.num-b.num);
+  const vert=words.filter(w=>w.dir==='V').sort((a,b)=>a.num-b.num);
+  const mkClue=(w,i)=>{
+    const widx=words.indexOf(w);
+    return`<div class="clue-item ${w.solved?'solved':''} ${widx===selectedWordIdx?'active':''}" data-widx="${widx}" onclick="selectWord(words[${widx}])">
+      <span class="clue-num">${w.num}.</span>
+      <span class="clue-text">${w.def} (${w.len} lettres)</span>
+    </div>`;
+  };
+  document.getElementById('clues-h').innerHTML=horiz.map(mkClue).join('');
+  document.getElementById('clues-v').innerHTML=vert.map(mkClue).join('');
+}
+
+// ── PROGRESS ──
+function updateProgress(){
+  const total=words.length,found=words.filter(w=>w.solved).length;
+  document.getElementById('grid-progress').textContent=`${found} / ${total} mots trouvés`;
+}
+
+function checkCompletion(){
+  if(words.every(w=>w.solved)){
+    stopTimer();
+    if(isHost){
+      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,wordCounts}});
+      db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+    }
+    setTimeout(()=>showPodium(scores,wordCounts),600);
+  }
+}
+
+// ── STATUS BAR ──
+function updateStatusBar(){
+  const total=words.length,found=words.filter(w=>w.solved).length;
+  const statusEl=document.getElementById('sb-status');
+  const subEl=document.getElementById('sb-sub');
+  const actEl=document.getElementById('sb-actions');
+  statusEl.textContent=found===total?'Grille complète ! 🎉':`${found} / ${total} mots trouvés`;
+  subEl.textContent=found===total?'Félicitations à tous !':'Travaillez ensemble, chaque mot compte !';
+  actEl.innerHTML=(isHost&&found===total)?`<button class="btn-next-mc" onclick="endGame()">🏁 Voir les résultats</button>`:'';
+}
+
+function endGame(){
+  stopTimer();
+  gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,wordCounts}});
+  db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+  showPodium(scores,wordCounts);
+}
+
+// ── TIMER ──
+function startTimer(){
+  stopTimer();timerVal=GAME_TIME;updateTimerUI(timerVal);
+  timerInt=setInterval(()=>{
+    timerVal--;updateTimerUI(timerVal);
+    if(timerVal<=0){stopTimer();if(isHost)endGame();}
+  },1000);
+}
+function stopTimer(){clearInterval(timerInt);timerInt=null;}
+function updateTimerUI(val){
+  const n=document.getElementById('tb-num'),f=document.getElementById('tb-fill');
+  if(!n||!f)return;
+  const min=Math.floor(val/60),sec=val%60;
+  n.textContent=`${min}:${sec.toString().padStart(2,'0')}`;
+  n.classList.toggle('urgent',val<=60&&val>0);
+  f.style.width=`${(val/GAME_TIME)*100}%`;
+}
+
+// ── SCOREBOARD & PLAYERS ──
+function renderScoreboard(){
+  const max=Math.max(...Object.values(scores),1);
+  document.getElementById('scoreboard').innerHTML=players.map(p=>{
+    const s=scores[p.session_id]||0,isMe=p.session_id===mySessionId,lead=s===max&&s>0;
+    return`<div class="sc ${isMe?'me':''} ${lead?'leading':''}">
+      <div class="sc-av">${p.avatar}</div>
+      <div class="sc-nm">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div class="sc-sc">${s}</div>
+      <div class="sc-words">${wordCounts[p.session_id]||0} mots</div>
+    </div>`;
+  }).join('');
+}
+function renderPlayers(){
+  document.getElementById('pl-list').innerHTML=players.map(p=>{
+    const isMe=p.session_id===mySessionId;
+    return`<div class="pl-row">
+      <div class="pl-av ${isMe?'me':''}">${p.avatar}</div>
+      <div class="pl-nm">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div>
+        <div class="pl-sc">${scores[p.session_id]||0}</div>
+        <div class="pl-words">${wordCounts[p.session_id]||0} mots</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── PODIUM ──
+function showPodium(finalScores,finalWords){
+  stopTimer();
+  const sorted=players.map(p=>({...p,score:finalScores[p.session_id]||0,words:finalWords[p.session_id]||0})).sort((a,b)=>b.score-a.score);
+  const RANKS=['🥇','🥈','🥉'];
+  document.getElementById('pod-row').innerHTML=sorted.slice(0,3).map((p,i)=>`
+    <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
+      <div class="pod-rank">${RANKS[i]||''}</div>
+      <div class="pod-av">${p.avatar}</div>
+      <div class="pod-name">${p.pseudo}${p.session_id===mySessionId?' (Toi)':''}</div>
+      <div class="pod-score">${p.score} pts</div>
+      <div class="pod-words">${p.words} mot${p.words>1?'s':''} trouvé${p.words>1?'s':''}</div>
+    </div>`).join('');
+  document.getElementById('pod-overlay').classList.add('active');
+}
+
+async function replayGame(){
+  if(gameChannel)gameChannel.unsubscribe();
+  await db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+  window.location.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+}
+function quitGame(){stopTimer();if(gameChannel)gameChannel.unsubscribe();return true;}
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',2800);
+}
+window.addEventListener('beforeunload',()=>quitGame());
+init();
+</script>
+</body>
+</html>

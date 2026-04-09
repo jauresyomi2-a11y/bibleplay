@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Où est-il écrit ?</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#0a0f1e;
+      --bg2:#111827;
+      --bg3:#1f2937;
+      --indigo:#6366f1;
+      --indigo-light:#818cf8;
+      --indigo-dim:rgba(99,102,241,0.15);
+      --sky:#38bdf8;
+      --sky-dim:rgba(56,189,248,0.12);
+      --gold:#f59e0b;
+      --gold-dim:rgba(245,158,11,0.12);
+      --text:#f1f5f9;
+      --text-muted:#94a3b8;
+      --border:rgba(99,102,241,0.18);
+      --border2:rgba(255,255,255,0.06);
+      --green:#22d3ee;
+      --red:#f43f5e;
+      --correct:#10b981;
+      --wrong:#f43f5e;
+    }
+    html,body { height:100%; }
+    body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+    /* ── STARFIELD BG ── */
+    .bg {
+      position:fixed; inset:0; z-index:0; pointer-events:none;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -5%, rgba(99,102,241,0.12) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 90% 90%, rgba(56,189,248,0.07) 0%, transparent 50%),
+        radial-gradient(ellipse 40% 50% at 0% 60%, rgba(245,158,11,0.06) 0%, transparent 50%);
+    }
+    .stars {
+      position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+    }
+    .star { position:absolute; border-radius:50%; background:white; animation:twinkle linear infinite; }
+    @keyframes twinkle { 0%,100%{opacity:0.1} 50%{opacity:0.8} }
+
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes popIn    { from{opacity:0;transform:scale(0.84)} to{opacity:1;transform:scale(1)} }
+    @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,0.4)} 50%{box-shadow:0 0 0 10px rgba(99,102,241,0)} }
+    @keyframes slideIn  { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes correctGlow { 0%{box-shadow:0 0 0 0 rgba(16,185,129,0.5)} 100%{box-shadow:0 0 0 20px rgba(16,185,129,0)} }
+    @keyframes wrongGlow   { 0%{box-shadow:0 0 0 0 rgba(244,63,94,0.5)} 100%{box-shadow:0 0 0 20px rgba(244,63,94,0)} }
+    @keyframes timerUrgent { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+    @keyframes scoreFlash  { 0%{color:var(--correct);transform:scale(1.2)} 100%{color:var(--text);transform:scale(1)} }
+    @keyframes verseReveal { from{opacity:0;letter-spacing:0.3em} to{opacity:1;letter-spacing:normal} }
+
+    /* ── HEADER ── */
+    header {
+      position:relative; z-index:10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 36px;
+      border-bottom:1px solid var(--border);
+      background:rgba(10,15,30,0.92); backdrop-filter:blur(16px);
+    }
+    .logo { font-family:'Cinzel',serif; font-size:1.3rem; font-weight:700; color:var(--text); text-decoration:none; display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:32px; height:32px; background:linear-gradient(135deg,var(--indigo),var(--indigo-light)); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+    .logo span { color:var(--indigo-light); }
+    .h-center { display:flex; align-items:center; gap:10px; }
+    .game-badge { font-size:0.78rem; font-weight:600; color:var(--indigo-light); background:var(--indigo-dim); border:1px solid var(--border); padding:5px 13px; border-radius:9px; }
+    .room-badge { font-family:'Cinzel',serif; font-size:0.9rem; color:var(--text-muted); letter-spacing:0.14em; }
+    .quit-btn { font-size:0.78rem; color:var(--text-muted); background:none; border:1px solid var(--border2); padding:7px 14px; border-radius:8px; cursor:pointer; text-decoration:none; transition:all 0.2s; }
+    .quit-btn:hover { color:var(--red); border-color:rgba(244,63,94,0.3); }
+
+    /* ── GAME WRAP ── */
+    .game-wrap { position:relative; z-index:5; max-width:960px; margin:0 auto; padding:28px 24px 60px; }
+    .page-grid { display:grid; grid-template-columns:1fr 270px; gap:22px; }
+
+    /* ── SCOREBOARD ── */
+    .scoreboard { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; animation:fadeDown 0.5s ease both; }
+    .sc { flex:1; min-width:80px; background:var(--bg2); border:1px solid var(--border2); border-radius:12px; padding:10px 8px; text-align:center; transition:all 0.3s; }
+    .sc.me { border-color:rgba(56,189,248,0.35); }
+    .sc.leading { border-color:rgba(99,102,241,0.5); animation:pulse-ring 2.5s ease-in-out infinite; }
+    .sc-av { font-size:16px; margin-bottom:3px; }
+    .sc-nm { font-size:0.7rem; font-weight:600; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sc-sc { font-family:'Cinzel',serif; font-size:1.4rem; font-weight:700; color:var(--text); line-height:1; margin-top:3px; }
+    .sc-sc.flash { animation:scoreFlash 0.4s ease; }
+
+    /* ── PROGRESS ── */
+    .prog-row { display:flex; align-items:center; gap:10px; margin-bottom:18px; animation:fadeDown 0.5s 0.05s ease both; }
+    .pr-label { font-size:0.68rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap; }
+    .pr-track { flex:1; height:4px; background:var(--bg3); border-radius:2px; overflow:hidden; }
+    .pr-fill { height:100%; background:linear-gradient(90deg,var(--indigo),var(--indigo-light)); border-radius:2px; transition:width 0.6s ease; }
+    .pr-num { font-family:'Cinzel',serif; font-size:0.85rem; font-weight:600; color:var(--indigo-light); white-space:nowrap; }
+
+    /* ── MAIN CARD ── */
+    .main-card {
+      background:var(--bg2); border:1px solid var(--border); border-radius:20px;
+      padding:34px 38px; margin-bottom:18px; position:relative; overflow:hidden;
+      animation:fadeUp 0.5s 0.1s ease both;
+    }
+    .main-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--indigo),var(--sky),var(--indigo),transparent); }
+
+    /* Header question */
+    .q-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; gap:12px; }
+    .q-meta {}
+    .q-step { font-size:0.68rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--indigo-light); margin-bottom:4px; }
+    .q-phase-label { font-family:'Cinzel',serif; font-size:1rem; font-weight:600; color:var(--text); }
+
+    /* Timer */
+    .timer-box { display:flex; flex-direction:column; align-items:center; gap:2px; flex-shrink:0; }
+    .t-svg { transform:rotate(-90deg); }
+    .t-bg { fill:none; stroke:var(--bg3); stroke-width:4; }
+    .t-fg { fill:none; stroke:var(--indigo-light); stroke-width:4; stroke-linecap:round; stroke-dasharray:226; stroke-dashoffset:0; transition:stroke-dashoffset 1s linear, stroke 0.3s; }
+    .t-fg.urgent { stroke:var(--red); }
+    .t-num { font-family:'Cinzel',serif; font-size:0.95rem; font-weight:700; color:var(--text); }
+    .t-num.urgent { color:var(--red); animation:timerUrgent 0.5s ease-in-out infinite; }
+
+    /* Verset */
+    .verse-card {
+      background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(56,189,248,0.04));
+      border:1px solid rgba(99,102,241,0.2); border-radius:14px;
+      padding:22px 24px; margin-bottom:24px; position:relative;
+    }
+    .verse-text {
+      font-family:'Cinzel',serif; font-size:1.15rem; font-style:normal;
+      line-height:1.7; color:var(--text); text-align:center;
+      animation:verseReveal 0.8s ease both;
+    }
+    .verse-hint { margin-top:10px; text-align:center; font-size:0.76rem; color:var(--text-muted); }
+    .star-icon { position:absolute; top:10px; right:12px; font-size:1.2rem; opacity:0.4; }
+
+    /* Phase LIVRE — 4 choix */
+    .phase-title { font-family:'Cinzel',serif; font-size:1.1rem; font-weight:700; color:var(--text); margin-bottom:6px; text-align:center; }
+    .phase-sub { font-size:0.8rem; color:var(--text-muted); text-align:center; margin-bottom:20px; }
+
+    .books-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+    .book-btn {
+      padding:14px 16px; font-family:'Cinzel',serif; font-size:0.9rem; font-weight:600;
+      border:1.5px solid var(--border2); border-radius:13px;
+      background:var(--bg3); color:var(--text);
+      cursor:pointer; text-align:center; transition:all 0.2s;
+      animation:popIn 0.3s ease both;
+    }
+    .book-btn:nth-child(1){animation-delay:0.05s} .book-btn:nth-child(2){animation-delay:0.1s}
+    .book-btn:nth-child(3){animation-delay:0.15s} .book-btn:nth-child(4){animation-delay:0.2s}
+    .book-btn:hover:not(:disabled) { border-color:var(--indigo-light); background:var(--indigo-dim); color:var(--indigo-light); transform:translateY(-2px); }
+    .book-btn.selected { border-color:var(--sky); background:var(--sky-dim); color:var(--sky); }
+    .book-btn.correct  { border-color:var(--correct)!important; background:rgba(16,185,129,0.1)!important; color:var(--correct)!important; animation:correctGlow 0.6s ease; }
+    .book-btn.wrong    { border-color:var(--wrong)!important;   background:rgba(244,63,94,0.08)!important; color:var(--wrong)!important;   animation:wrongGlow 0.6s ease; }
+    .book-btn:disabled { cursor:default; }
+
+    /* Phase CHAPITRE — slider */
+    .chapter-zone { animation:fadeUp 0.35s ease both; }
+    .chapter-display {
+      font-family:'Cinzel',serif; font-size:5rem; font-weight:900;
+      color:var(--indigo-light); text-align:center; line-height:1;
+      margin:20px 0; transition:all 0.15s;
+      text-shadow:0 0 40px rgba(99,102,241,0.4);
+    }
+    .chapter-controls { display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:20px; }
+    .ch-btn {
+      width:50px; height:50px; border-radius:12px; border:1.5px solid var(--border);
+      background:var(--bg3); color:var(--text); font-size:1.4rem; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; transition:all 0.18s;
+      font-family:'Cinzel',serif; font-weight:700;
+    }
+    .ch-btn:hover { border-color:var(--indigo-light); background:var(--indigo-dim); color:var(--indigo-light); transform:scale(1.08); }
+    .ch-btn:active { transform:scale(0.95); }
+    input[type=range]#chapter-slider {
+      width:240px; height:6px; border-radius:3px; cursor:pointer;
+      -webkit-appearance:none; background:var(--bg3);
+      outline:none; margin:0 10px;
+    }
+    input[type=range]#chapter-slider::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--indigo-light); cursor:pointer; box-shadow:0 0 12px rgba(99,102,241,0.5); }
+    .chapter-hint { text-align:center; font-size:0.78rem; color:var(--text-muted); margin-bottom:18px; }
+    .btn-validate-ch {
+      display:block; width:100%; padding:14px; font-family:'DM Sans',sans-serif; font-size:0.92rem; font-weight:600;
+      border:none; cursor:pointer; border-radius:12px;
+      background:linear-gradient(135deg,var(--indigo),var(--indigo-light));
+      color:white; letter-spacing:0.04em;
+      box-shadow:0 4px 16px rgba(99,102,241,0.3); transition:all 0.25s;
+    }
+    .btn-validate-ch:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 24px rgba(99,102,241,0.4); }
+    .btn-validate-ch:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+
+    /* Résultat round */
+    .result-card {
+      background:var(--bg2); border:1px solid var(--border2); border-radius:14px;
+      padding:18px 22px; margin-bottom:16px; display:none;
+      animation:slideIn 0.3s ease both;
+    }
+    .result-card.visible { display:block; }
+    .rc-top { display:flex; align-items:center; gap:14px; margin-bottom:10px; }
+    .rc-icon { font-size:2rem; flex-shrink:0; }
+    .rc-info { flex:1; }
+    .rc-title { font-family:'Cinzel',serif; font-size:1rem; font-weight:700; color:var(--text); margin-bottom:2px; }
+    .rc-sub { font-size:0.78rem; color:var(--text-muted); line-height:1.5; }
+    .rc-pts { font-family:'Cinzel',serif; font-size:1.4rem; font-weight:700; }
+    .rc-pts.pos { color:var(--correct); }
+    .rc-pts.zero { color:var(--text-muted); }
+    .rc-answers { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .rca-chip { display:flex; align-items:center; gap:5px; padding:4px 10px; border-radius:8px; font-size:0.76rem; font-weight:600; }
+    .rca-chip.ok  { background:rgba(16,185,129,0.1);  border:1px solid rgba(16,185,129,0.3); color:var(--correct); }
+    .rca-chip.bad { background:rgba(244,63,94,0.08);  border:1px solid rgba(244,63,94,0.25); color:var(--wrong); }
+
+    /* Turn panel */
+    .turn-panel { background:var(--bg2); border:1px solid var(--border2); border-radius:14px; padding:18px 22px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; animation:fadeUp 0.5s 0.2s ease both; }
+    .tp-status { font-family:'Cinzel',serif; font-size:1rem; font-weight:600; color:var(--text); margin-bottom:3px; }
+    .tp-sub { font-size:0.78rem; color:var(--text-muted); }
+    .btn-next-l { padding:11px 26px; font-family:'DM Sans',sans-serif; font-size:0.87rem; font-weight:600; border:none; cursor:pointer; border-radius:10px; background:linear-gradient(135deg,var(--indigo),var(--indigo-light)); color:white; box-shadow:0 3px 12px rgba(99,102,241,0.3); transition:all 0.22s; }
+    .btn-next-l:hover:not(:disabled) { transform:translateY(-2px); }
+    .btn-next-l:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+
+    /* RIGHT */
+    .right-col { display:flex; flex-direction:column; gap:14px; }
+    .players-card { background:var(--bg2); border:1px solid var(--border2); border-radius:14px; padding:16px; position:sticky; top:16px; }
+    .pc-title { font-family:'Cinzel',serif; font-size:0.95rem; font-weight:700; color:var(--text); margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; }
+    .pc-count { font-size:0.7rem; font-weight:600; background:rgba(34,211,238,0.1); color:var(--green); border:1px solid rgba(34,211,238,0.2); padding:2px 8px; border-radius:6px; }
+    .pl-row { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:9px; transition:background 0.15s; margin-bottom:3px; }
+    .pl-row:hover { background:var(--bg3); }
+    .pl-row.answered { background:rgba(16,185,129,0.05); }
+    .pl-av { width:30px; height:30px; border-radius:8px; background:var(--bg3); border:1px solid var(--border2); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+    .pl-av.me { border-color:rgba(56,189,248,0.4); }
+    .pl-nm { font-size:0.8rem; font-weight:600; color:var(--text); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pl-sc { font-family:'Cinzel',serif; font-size:0.88rem; font-weight:700; color:var(--text); }
+    .pl-check { font-size:12px; color:var(--correct); flex-shrink:0; }
+
+    .rules-card { background:rgba(99,102,241,0.04); border:1px solid var(--border); border-radius:12px; padding:13px 14px; }
+    .rc-t { font-family:'Cinzel',serif; font-size:0.83rem; font-weight:600; color:var(--indigo-light); margin-bottom:8px; }
+    .rc-i { display:flex; gap:6px; font-size:0.73rem; color:var(--text-muted); line-height:1.5; margin-bottom:4px; }
+    .rc-n { width:15px; height:15px; border-radius:50%; background:var(--indigo-dim); color:var(--indigo-light); font-size:0.58rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+
+    /* PODIUM */
+    .pod-overlay { position:fixed; inset:0; z-index:200; background:rgba(10,15,30,0.97); backdrop-filter:blur(16px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; opacity:0; pointer-events:none; transition:opacity 0.5s; padding:24px; }
+    .pod-overlay.active { opacity:1; pointer-events:all; }
+    .pod-title { font-family:'Cinzel',serif; font-size:clamp(1.6rem,5vw,2.6rem); font-weight:900; color:var(--text); text-align:center; }
+    .pod-title span { color:var(--indigo-light); }
+    .pod-verse { font-size:0.9rem; font-style:italic; color:var(--text-muted); text-align:center; max-width:380px; font-family:'Cinzel',serif; }
+    .pod-row { display:flex; gap:12px; align-items:flex-end; justify-content:center; flex-wrap:wrap; }
+    .pod-card { background:var(--bg2); border:1px solid var(--border2); border-radius:14px; padding:16px 12px; text-align:center; min-width:100px; animation:popIn 0.5s ease both; }
+    .pod-card.p1 { border-color:rgba(99,102,241,0.5); box-shadow:0 0 24px rgba(99,102,241,0.15); }
+    .pod-rank { font-size:1.6rem; margin-bottom:5px; }
+    .pod-av { font-size:1.8rem; margin-bottom:5px; }
+    .pod-name { font-size:0.82rem; font-weight:600; color:var(--text); margin-bottom:3px; }
+    .pod-score { font-family:'Cinzel',serif; font-size:1.3rem; font-weight:700; color:var(--indigo-light); }
+    .pod-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+    .btn-pod { padding:12px 26px; font-family:'DM Sans',sans-serif; font-size:0.87rem; font-weight:600; border:none; cursor:pointer; border-radius:10px; background:linear-gradient(135deg,var(--indigo),var(--indigo-light)); color:white; box-shadow:0 4px 14px rgba(99,102,241,0.3); transition:all 0.22s; text-decoration:none; display:inline-flex; align-items:center; }
+    .btn-pod:hover { transform:translateY(-2px); }
+    .btn-pod.out { background:transparent; border:1px solid var(--border2); color:var(--text-muted); box-shadow:none; }
+    .btn-pod.out:hover { border-color:var(--indigo-light); color:var(--indigo-light); }
+
+    /* Loading */
+    .loading-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:80vh; gap:18px; position:relative; z-index:5; }
+    .ls-icon { font-size:3rem; animation:pulse-ring 2s ease-in-out infinite; }
+    .ls-title { font-family:'Cinzel',serif; font-size:1.5rem; font-weight:700; color:var(--text); }
+    .ls-sub { font-size:0.83rem; color:var(--text-muted); }
+
+    .toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--bg2); color:var(--text); border:1px solid var(--border); padding:9px 18px; border-radius:9px; font-size:0.82rem; font-weight:500; box-shadow:0 6px 24px rgba(0,0,0,0.5); z-index:300; opacity:0; transition:all 0.3s; pointer-events:none; white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.ok  { border-color:rgba(16,185,129,0.4); color:var(--correct); }
+    .toast.err { border-color:rgba(244,63,94,0.35); color:var(--wrong); }
+    .toast.inf { border-color:rgba(99,102,241,0.35); color:var(--indigo-light); }
+
+    @media(max-width:740px) { .page-grid{grid-template-columns:1fr} .right-col{display:none} header{padding:12px 16px} .h-center{display:none} .main-card{padding:22px 16px} .books-grid{grid-template-columns:1fr 1fr} }
+  </style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="stars" id="stars"></div>
+
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">🗺️</div>Bible<span>Play</span></a>
+  <div class="h-center">
+    <span class="game-badge">🗺️ Où est-il écrit ?</span>
+    <span class="room-badge" id="h-room">—</span>
+  </div>
+  <a class="quit-btn" href="index.html" onclick="return quitGame()">✕ Quitter</a>
+</header>
+
+<!-- Loading -->
+<div class="loading-screen" id="loading-screen">
+  <div class="ls-icon">🗺️</div>
+  <div class="ls-title">Chargement…</div>
+  <div class="ls-sub">Préparation des versets 📖</div>
+</div>
+
+<!-- Jeu -->
+<div style="display:none" id="game-screen">
+  <div class="game-wrap">
+    <div class="page-grid">
+
+      <div>
+        <!-- Scores -->
+        <div class="scoreboard" id="scoreboard"></div>
+        <!-- Progress -->
+        <div class="prog-row">
+          <span class="pr-label">Verset</span>
+          <div class="pr-track"><div class="pr-fill" id="pr-fill" style="width:0%"></div></div>
+          <span class="pr-num" id="pr-num">1 / 10</span>
+        </div>
+
+        <!-- Résultat -->
+        <div class="result-card" id="result-card">
+          <div class="rc-top">
+            <div class="rc-icon" id="rc-icon">—</div>
+            <div class="rc-info">
+              <div class="rc-title" id="rc-title">—</div>
+              <div class="rc-sub" id="rc-sub">—</div>
+            </div>
+            <div class="rc-pts" id="rc-pts">—</div>
+          </div>
+          <div class="rc-answers" id="rc-answers"></div>
+        </div>
+
+        <!-- Carte principale -->
+        <div class="main-card" id="main-card">
+          <div class="q-header">
+            <div class="q-meta">
+              <div class="q-step" id="q-step">ÉTAPE 1 / 2 — LIVRE</div>
+              <div class="q-phase-label" id="q-phase-label">Choisis le bon livre</div>
+            </div>
+            <div class="timer-box">
+              <svg class="t-svg" width="52" height="52" viewBox="0 0 76 76">
+                <circle class="t-bg" cx="38" cy="38" r="36"/>
+                <circle class="t-fg" id="timer-circle" cx="38" cy="38" r="36"/>
+              </svg>
+              <div class="t-num" id="t-num">—</div>
+            </div>
+          </div>
+
+          <!-- Verset affiché -->
+          <div class="verse-card">
+            <div class="star-icon">✦</div>
+            <div class="verse-text" id="verse-text">Chargement…</div>
+            <div class="verse-hint" id="verse-hint"></div>
+          </div>
+
+          <!-- Contenu dynamique -->
+          <div id="phase-content"></div>
+        </div>
+
+        <!-- Turn panel -->
+        <div class="turn-panel" id="turn-panel">
+          <div>
+            <div class="tp-status" id="tp-status">En attente…</div>
+            <div class="tp-sub" id="tp-sub">—</div>
+          </div>
+          <div id="tp-actions"></div>
+        </div>
+      </div>
+
+      <!-- Right -->
+      <div class="right-col">
+        <div class="players-card">
+          <div class="pc-title">Joueurs <span class="pc-count" id="pc-count">0</span></div>
+          <div id="pl-list"></div>
+        </div>
+        <div class="rules-card">
+          <div class="rc-t">🗺️ Règles</div>
+          <div class="rc-i"><div class="rc-n">1</div><span>Un verset s'affiche sans sa référence.</span></div>
+          <div class="rc-i"><div class="rc-n">2</div><span>Étape 1 : Choisis le bon <strong>livre</strong> parmi 4 propositions.</span></div>
+          <div class="rc-i"><div class="rc-n">3</div><span>Étape 2 : Devine le <strong>chapitre</strong> exact avec le curseur.</span></div>
+          <div class="rc-i"><div class="rc-n">4</div><span><strong>+80 pts</strong> livre correct · <strong>+70 pts</strong> chapitre exact · <strong>+30 pts</strong> si ±1 chapitre.</span></div>
+          <div class="rc-i"><div class="rc-n">5</div><span>10 versets par partie. Rapidité = bonus points !</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Podium -->
+<div class="pod-overlay" id="pod-overlay">
+  <div class="pod-title">✦ <span>Hall of Fame</span> ✦</div>
+  <div class="pod-verse">"Heureux ceux qui gardent ses préceptes." — Psaumes 119:2</div>
+  <div class="pod-row" id="pod-row"></div>
+  <div class="pod-actions">
+    <button class="btn-pod" onclick="replayGame()">↺ Rejouer</button>
+    <a class="btn-pod out" href="lobby.html" id="back-btn">← Lobby</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Supabase ──
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── Session ──
+const params = new URLSearchParams(window.location.search);
+const roomCode = params.get('code') || '';
+let playerData = {};
+try { playerData = JSON.parse(sessionStorage.getItem('bp_player') || '{}'); } catch(e) {}
+const mySessionId = playerData.sessionId || sessionStorage.getItem('bp_session') || '';
+const isHost = playerData.role === 'host';
+document.getElementById('h-room').textContent = roomCode;
+const backBtn = document.getElementById('back-btn');
+if (backBtn) backBtn.href = `lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+
+// ── Starfield ──
+(function() {
+  const c = document.getElementById('stars');
+  for (let i=0;i<80;i++) {
+    const s=document.createElement('div');
+    s.className='star';
+    const sz=Math.random()*2+0.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;animation-duration:${2+Math.random()*4}s;animation-delay:${Math.random()*4}s`;
+    c.appendChild(s);
+  }
+})();
+
+// ── Questions — versets avec leur vraie référence ──
+const VERSES_DB = [
+  { text:'Car Dieu a tant aimé le monde qu\'il a donné son Fils unique.', book:'Jean', bookOptions:['Matthieu','Jean','Luc','Romains'], chapter:3 },
+  { text:'L\'Éternel est mon berger : je ne manquerai de rien.', book:'Psaumes', bookOptions:['Proverbes','Job','Psaumes','Ésaïe'], chapter:23 },
+  { text:'Je puis tout par celui qui me fortifie.', book:'Philippiens', bookOptions:['Galates','Éphésiens','Philippiens','Colossiens'], chapter:4 },
+  { text:'Ta parole est une lampe à mes pieds, et une lumière sur mon sentier.', book:'Psaumes', bookOptions:['Proverbes','Psaumes','Job','Deutéronome'], chapter:119 },
+  { text:'Je suis le chemin, la vérité, et la vie. Nul ne vient au Père que par moi.', book:'Jean', bookOptions:['Jean','Marc','Matthieu','Actes'], chapter:14 },
+  { text:'Toutes choses concourent au bien de ceux qui aiment Dieu.', book:'Romains', bookOptions:['1 Corinthiens','Éphésiens','Romains','Hébreux'], chapter:8 },
+  { text:'Car je connais les projets que j\'ai formés sur vous, projets de paix et non de malheur.', book:'Jérémie', bookOptions:['Ésaïe','Jérémie','Ézéchiel','Zacharie'], chapter:29 },
+  { text:'Confie-toi en l\'Éternel de tout ton cœur, et ne t\'appuie pas sur ta propre sagesse.', book:'Proverbes', bookOptions:['Psaumes','Proverbes','Ecclésiaste','Job'], chapter:3 },
+  { text:'Cherchez premièrement le royaume et la justice de Dieu.', book:'Matthieu', bookOptions:['Luc','Marc','Matthieu','Jean'], chapter:6 },
+  { text:'Ne crains rien, car je suis avec toi. Ne promène pas des regards inquiets, car je suis ton Dieu.', book:'Ésaïe', bookOptions:['Jérémie','Psaumes','Ésaïe','Nahum'], chapter:41 },
+  { text:'Car ce n\'est pas un esprit de timidité que Dieu nous a donné, mais un esprit de force, d\'amour et de sagesse.', book:'2 Timothée', bookOptions:['1 Timothée','2 Timothée','Tite','2 Pierre'], chapter:1 },
+  { text:'Venez à moi, vous tous qui êtes fatigués et chargés, et je vous donnerai du repos.', book:'Matthieu', bookOptions:['Jean','Matthieu','Marc','Luc'], chapter:11 },
+  { text:'Dieu est pour nous un refuge et un appui, un secours qui ne manque jamais dans la détresse.', book:'Psaumes', bookOptions:['Deutéronome','Psaumes','Nahum','Habacuc'], chapter:46 },
+  { text:'Je suis la résurrection et la vie. Celui qui croit en moi vivra, quand même il serait mort.', book:'Jean', bookOptions:['Jean','Luc','Actes','1 Corinthiens'], chapter:11 },
+  { text:'Au commencement était la Parole, et la Parole était avec Dieu, et la Parole était Dieu.', book:'Jean', bookOptions:['Genèse','Jean','Hébreux','1 Jean'], chapter:1 },
+  { text:'Or la foi est une ferme assurance des choses qu\'on espère, une démonstration de celles qu\'on ne voit pas.', book:'Hébreux', bookOptions:['Romains','Jacques','Hébreux','Galates'], chapter:11 },
+  { text:'Voici, je me tiens à la porte, et je frappe. Si quelqu\'un entend ma voix et ouvre la porte, j\'entrerai chez lui.', book:'Apocalypse', bookOptions:['Apocalypse','Jean','Matthieu','Ésaïe'], chapter:3 },
+  { text:'L\'Éternel est ma lumière et mon salut : de qui aurais-je crainte ?', book:'Psaumes', bookOptions:['Psaumes','Ésaïe','Michée','Habacuc'], chapter:27 },
+  { text:'Ceux qui se confient en l\'Éternel renouvellent leur force. Ils prennent le vol comme les aigles.', book:'Ésaïe', bookOptions:['Ésaïe','Psaumes','Joël','Zacharie'], chapter:40 },
+  { text:'Ne vous inquiétez de rien ; mais en toute chose faites connaître vos besoins à Dieu par des prières.', book:'Philippiens', bookOptions:['Colossiens','Philippiens','1 Thessaloniciens','1 Pierre'], chapter:4 },
+];
+
+const TOTAL_ROUNDS = 10;
+const BOOK_TIME    = 20;
+const CHAPTER_TIME = 25;
+const PTS_BOOK     = 80;
+const PTS_CHAPTER_EXACT = 70;
+const PTS_CHAPTER_NEAR  = 30;
+const PTS_SPEED_BONUS   = 20;
+
+// ── État ──
+let players=[], scores={}, currentRound=0, questions=[];
+let phase='book'; // 'book' | 'chapter' | 'result' | 'waiting'
+let answered=false, answeredList=[];
+let selectedBook=null, selectedChapter=1;
+let timerVal=0, timerInt=null;
+let bookCorrect=false, bookPts=0, chapterPts=0;
+let roundPts=0;
+let gameChannel=null;
+let maxChapter=150;
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+
+// ── Init ──
+async function init() {
+  if (!roomCode) { window.location.href='index.html'; return; }
+  const {data:pData} = await db.from('players').select('*').eq('room_code',roomCode).order('joined_at');
+  players = pData||[];
+  players.forEach(p => scores[p.session_id]=0);
+  questions = shuffle([...VERSES_DB]).slice(0, TOTAL_ROUNDS);
+
+  gameChannel = db.channel(`localise-${roomCode}`)
+    .on('broadcast',{event:'round_answer'},({payload}) => {
+      if (payload.session_id !== mySessionId) receiveAnswer(payload);
+    })
+    .on('broadcast',{event:'next_round'},({payload}) => {
+      if (!isHost) loadRound(payload.index);
+    })
+    .on('broadcast',{event:'game_over'},({payload}) => showPodium(payload.scores))
+    .subscribe();
+
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('game-screen').style.display='block';
+  renderScoreboard(); renderPlayers();
+  loadRound(0);
+}
+
+// ── Charger un round ──
+function loadRound(index) {
+  currentRound=index; answered=false; answeredList=[];
+  selectedBook=null; selectedChapter=1; bookCorrect=false;
+  bookPts=0; chapterPts=0; roundPts=0; phase='book';
+
+  const q = questions[index];
+  maxChapter = q.chapter > 50 ? Math.max(q.chapter+30, 150) : Math.min(q.chapter+20, 50);
+
+  document.getElementById('verse-text').textContent = `"${q.text}"`;
+  document.getElementById('verse-hint').textContent = '';
+  document.getElementById('pr-fill').style.width = `${((index+1)/TOTAL_ROUNDS)*100}%`;
+  document.getElementById('pr-num').textContent = `${index+1} / ${TOTAL_ROUNDS}`;
+  document.getElementById('result-card').className = 'result-card';
+  document.getElementById('q-step').textContent = 'ÉTAPE 1 / 2 — LIVRE';
+  document.getElementById('q-phase-label').textContent = 'Quel livre de la Bible ?';
+
+  renderPhaseBook(q);
+  renderScoreboard(); renderPlayers();
+  updateTurnPanel();
+  startTimer(BOOK_TIME, onBookTimeout);
+}
+
+// ── Phase Livre ──
+function renderPhaseBook(q) {
+  const opts = q.bookOptions;
+  document.getElementById('phase-content').innerHTML = `
+    <div class="books-grid" id="books-grid">
+      ${opts.map((b,i) => `
+        <button class="book-btn" data-book="${b}" style="animation-delay:${i*0.06}s" onclick="selectBook('${b}',this)">
+          ${b}
+        </button>`).join('')}
+    </div>`;
+}
+
+function selectBook(book, el) {
+  if (answered || phase!=='book') return;
+  selectedBook = book;
+  document.querySelectorAll('.book-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+
+  // Valider immédiatement
+  validateBook();
+}
+
+function validateBook() {
+  if (answered || phase!=='book') return;
+  stopTimer();
+  const q = questions[currentRound];
+  bookCorrect = selectedBook === q.book;
+  bookPts = bookCorrect ? PTS_BOOK + (timerVal > 10 ? PTS_SPEED_BONUS : 0) : 0;
+
+  // Afficher correct/wrong
+  document.querySelectorAll('.book-btn').forEach(b => {
+    b.disabled = true;
+    if (b.dataset.book === q.book) b.classList.add('correct');
+    else if (b.dataset.book === selectedBook && !bookCorrect) b.classList.add('wrong');
+  });
+
+  if (bookCorrect) {
+    showToast('✓ Bon livre ! +' + bookPts + ' pts', 'ok');
+    setTimeout(() => { phase='chapter'; enterChapterPhase(q); }, 1000);
+  } else {
+    showToast('✗ Mauvais livre — c\'était ' + q.book, 'err');
+    // Passer directement au résultat final pour ce joueur
+    roundPts = 0;
+    finishRound();
+  }
+}
+
+function onBookTimeout() {
+  if (answered || phase!=='book') return;
+  if (!selectedBook) {
+    const q=questions[currentRound];
+    showToast('⏰ Temps écoulé ! C\'était '+q.book, 'err');
+    roundPts = 0;
+    finishRound();
+  }
+}
+
+// ── Phase Chapitre ──
+function enterChapterPhase(q) {
+  stopTimer();
+  selectedChapter = Math.floor(maxChapter/2);
+  document.getElementById('q-step').textContent='ÉTAPE 2 / 2 — CHAPITRE';
+  document.getElementById('q-phase-label').textContent='Quel chapitre ?';
+  document.getElementById('verse-hint').textContent=`Livre : ${q.book} · Chapitres disponibles : 1 – ${maxChapter}`;
+
+  document.getElementById('phase-content').innerHTML = `
+    <div class="chapter-zone">
+      <div class="chapter-display" id="ch-display">${selectedChapter}</div>
+      <div class="chapter-controls">
+        <button class="ch-btn" onclick="changeChapter(-10)">−10</button>
+        <button class="ch-btn" onclick="changeChapter(-1)">−</button>
+        <input type="range" id="chapter-slider" min="1" max="${maxChapter}" value="${selectedChapter}" oninput="sliderChange(this.value)"/>
+        <button class="ch-btn" onclick="changeChapter(1)">+</button>
+        <button class="ch-btn" onclick="changeChapter(10)">+10</button>
+      </div>
+      <div class="chapter-hint">Utilise les boutons ou le curseur pour choisir le chapitre</div>
+      <button class="btn-validate-ch" id="btn-validate-ch" onclick="validateChapter()">
+        ✓ Valider le chapitre ${selectedChapter}
+      </button>
+    </div>`;
+  startTimer(CHAPTER_TIME, onChapterTimeout);
+}
+
+function changeChapter(delta) {
+  selectedChapter = Math.max(1, Math.min(maxChapter, selectedChapter + delta));
+  updateChapterUI();
+}
+
+function sliderChange(val) {
+  selectedChapter = parseInt(val);
+  updateChapterUI();
+}
+
+function updateChapterUI() {
+  const disp = document.getElementById('ch-display');
+  const slider = document.getElementById('chapter-slider');
+  const btn = document.getElementById('btn-validate-ch');
+  if (disp) disp.textContent = selectedChapter;
+  if (slider) slider.value = selectedChapter;
+  if (btn) btn.textContent = `✓ Valider le chapitre ${selectedChapter}`;
+}
+
+function validateChapter() {
+  if (answered || phase!=='chapter') return;
+  stopTimer();
+  const q = questions[currentRound];
+  const diff = Math.abs(selectedChapter - q.chapter);
+
+  if (diff === 0) {
+    chapterPts = PTS_CHAPTER_EXACT + (timerVal > 12 ? PTS_SPEED_BONUS : 0);
+    showToast('🎯 Chapitre exact ! +' + chapterPts + ' pts', 'ok');
+  } else if (diff <= 1) {
+    chapterPts = PTS_CHAPTER_NEAR;
+    showToast(`✓ Proche ! (±${diff}) +${chapterPts} pts`, 'inf');
+  } else {
+    chapterPts = 0;
+    showToast(`✗ C\'était le chapitre ${q.chapter}`, 'err');
+  }
+  roundPts = bookPts + chapterPts;
+  finishRound();
+}
+
+function onChapterTimeout() {
+  if (answered || phase!=='chapter') return;
+  showToast('⏰ Temps écoulé !', 'err');
+  const q = questions[currentRound];
+  const diff = Math.abs(selectedChapter - q.chapter);
+  chapterPts = diff===0 ? PTS_CHAPTER_EXACT : diff<=1 ? PTS_CHAPTER_NEAR : 0;
+  roundPts = bookPts + chapterPts;
+  finishRound();
+}
+
+// ── Fin du round ──
+function finishRound() {
+  answered = true;
+  phase = 'result';
+  scores[mySessionId] = (scores[mySessionId]||0) + roundPts;
+
+  const q = questions[currentRound];
+  showResultCard(q, roundPts);
+  renderScoreboard();
+  answeredList.push(mySessionId);
+
+  gameChannel.send({type:'broadcast',event:'round_answer',payload:{
+    session_id:mySessionId, pseudo:playerData.pseudo, avatar:playerData.avatar,
+    pts:roundPts, book_correct:bookCorrect, chapter_pts:chapterPts, round:currentRound
+  }});
+
+  updateTurnPanel();
+  renderPlayers();
+  if (isHost) checkAllAnswered();
+}
+
+function showResultCard(q, pts) {
+  const rc = document.getElementById('result-card');
+  rc.className = 'result-card visible';
+  document.getElementById('rc-icon').textContent = pts > 0 ? (pts >= 100 ? '🎯' : '✓') : '✗';
+  document.getElementById('rc-title').textContent = pts >= 100 ? 'Parfait !' : pts > 0 ? 'Pas mal !' : 'Raté…';
+  document.getElementById('rc-sub').textContent = `Bonne réponse : ${q.book} chapitre ${q.chapter}`;
+  const ptsEl = document.getElementById('rc-pts');
+  ptsEl.textContent = pts > 0 ? `+${pts}` : '0 pt';
+  ptsEl.className = 'rc-pts ' + (pts > 0 ? 'pos' : 'zero');
+  document.getElementById('rc-answers').innerHTML = `
+    <div class="rca-chip ${bookCorrect?'ok':'bad'}">${bookCorrect?'✓':'✗'} Livre : ${bookCorrect?'Correct':''+q.book}</div>
+    <div class="rca-chip ${chapterPts>0?'ok':'bad'}">${chapterPts>0?'✓':'✗'} Chapitre ${q.chapter} ${Math.abs(selectedChapter-q.chapter)<=1&&!bookCorrect===false?'(±'+Math.abs(selectedChapter-q.chapter)+')':''}</div>`;
+}
+
+function receiveAnswer(payload) {
+  scores[payload.session_id] = (scores[payload.session_id]||0) + payload.pts;
+  answeredList.push(payload.session_id);
+  renderScoreboard(); renderPlayers(); updateTurnPanel();
+  if (isHost) checkAllAnswered();
+}
+
+function checkAllAnswered() {
+  if (answeredList.length >= players.length) setTimeout(() => nextRound(), 2500);
+}
+
+function nextRound() {
+  const next = currentRound + 1;
+  if (next >= TOTAL_ROUNDS) {
+    if (isHost) {
+      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores}});
+      db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+    }
+    setTimeout(()=>showPodium(scores), 400);
+    return;
+  }
+  if (isHost) gameChannel.send({type:'broadcast',event:'next_round',payload:{index:next}});
+  loadRound(next);
+}
+
+// ── Turn panel ──
+function updateTurnPanel() {
+  const remaining = players.length - answeredList.length;
+  const statusEl = document.getElementById('tp-status');
+  const subEl = document.getElementById('tp-sub');
+  const actEl = document.getElementById('tp-actions');
+
+  if (!answered) {
+    statusEl.textContent = phase==='book' ? 'Choisis le bon livre !' : 'Devine le chapitre !';
+    subEl.textContent = phase==='book' ? '4 choix disponibles — sois rapide !' : 'Plus tu es proche, plus tu gagnes de points.';
+  } else if (remaining > 0) {
+    statusEl.textContent = `${remaining} joueur${remaining>1?'s':''} encore en cours…`;
+    subEl.textContent = 'En attente 🙏';
+  } else {
+    statusEl.textContent = 'Tout le monde a répondu !';
+    subEl.textContent = isHost ? 'Lance le verset suivant.' : 'En attente de l\'hôte…';
+  }
+
+  actEl.innerHTML = (isHost && answered) ? `
+    <button class="btn-next-l" onclick="nextRound()">
+      ${currentRound+1>=TOTAL_ROUNDS?'🏁 Résultats':'▶ Verset suivant'}
+    </button>` : '';
+}
+
+// ── Timer ──
+function startTimer(sec, onEnd) {
+  stopTimer(); timerVal=sec; updateTimerUI(timerVal,sec);
+  timerInt = setInterval(()=>{timerVal--;updateTimerUI(timerVal,sec);if(timerVal<=0){stopTimer();onEnd();}},1000);
+}
+function stopTimer(){clearInterval(timerInt);timerInt=null;}
+function updateTimerUI(val,total){
+  const n=document.getElementById('t-num'),c=document.getElementById('timer-circle');
+  if(!n||!c)return;
+  n.textContent=val; n.classList.toggle('urgent',val<=7&&val>0);
+  c.classList.toggle('urgent',val<=7&&val>0);
+  c.style.strokeDashoffset=Math.round(226*(1-(val/total)));
+}
+
+// ── Scoreboard ──
+function renderScoreboard(){
+  const max=Math.max(...Object.values(scores),1);
+  document.getElementById('scoreboard').innerHTML=players.map(p=>{
+    const s=scores[p.session_id]||0,isMe=p.session_id===mySessionId,lead=s===max&&s>0;
+    return`<div class="sc ${isMe?'me':''} ${lead?'leading':''}">
+      <div class="sc-av">${p.avatar}</div>
+      <div class="sc-nm">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div class="sc-sc" id="sc-${p.session_id.replace(/-/g,'_')}">${s}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderPlayers(){
+  document.getElementById('pc-count').textContent=players.length;
+  document.getElementById('pl-list').innerHTML=players.map(p=>{
+    const isMe=p.session_id===mySessionId,done=answeredList.includes(p.session_id);
+    return`<div class="pl-row ${done?'answered':''}">
+      <div class="pl-av ${isMe?'me':''}">${p.avatar}</div>
+      <div class="pl-nm">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div class="pl-sc">${scores[p.session_id]||0}</div>
+      ${done?'<div class="pl-check">✓</div>':''}
+    </div>`;
+  }).join('');
+}
+
+// ── Podium ──
+function showPodium(finalScores){
+  stopTimer();
+  const sorted=players.map(p=>({...p,score:finalScores[p.session_id]||0})).sort((a,b)=>b.score-a.score);
+  const RANKS=['🥇','🥈','🥉'];
+  document.getElementById('pod-row').innerHTML=sorted.slice(0,3).map((p,i)=>`
+    <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
+      <div class="pod-rank">${RANKS[i]||''}</div>
+      <div class="pod-av">${p.avatar}</div>
+      <div class="pod-name">${p.pseudo}${p.session_id===mySessionId?' (Toi)':''}</div>
+      <div class="pod-score">${p.score} pts</div>
+    </div>`).join('');
+  document.getElementById('pod-overlay').classList.add('active');
+}
+
+async function replayGame(){
+  if(gameChannel)gameChannel.unsubscribe();
+  await db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+  window.location.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+}
+
+function quitGame(){stopTimer();if(gameChannel)gameChannel.unsubscribe();return true;}
+
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',2600);
+}
+
+window.addEventListener('beforeunload',()=>quitGame());
+init();
+</script>
+</body>
+</html>

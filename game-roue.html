@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Roue Biblique</title>
+  <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=DM+Sans:wght@300;400;500;600&family=Crimson+Pro:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0b1120;--bg2:#111827;--bg3:#1a2232;
+      --orange:#f97316;--orange-dim:rgba(249,115,22,0.12);
+      --yellow:#fbbf24;--yellow-dim:rgba(251,191,36,0.12);
+      --teal:#14b8a6;--teal-dim:rgba(20,184,166,0.12);
+      --pink:#ec4899;--pink-dim:rgba(236,72,153,0.1);
+      --purple:#8b5cf6;--purple-dim:rgba(139,92,246,0.12);
+      --green:#22c55e;--green-dim:rgba(34,197,94,0.1);
+      --text:#f1f5f9;--text-muted:#64748b;
+      --border:rgba(255,255,255,0.07);
+      --red:#ef4444;
+      /* Couleurs roue */
+      --w1:#f97316;--w2:#8b5cf6;--w3:#14b8a6;--w4:#ec4899;--w5:#fbbf24;--w6:#22c55e;--w7:#3b82f6;--w8:#f43f5e;
+    }
+    html,body{height:100%}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+    .bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:radial-gradient(ellipse 70% 50% at 30% 50%,rgba(249,115,22,0.07) 0%,transparent 55%),
+                 radial-gradient(ellipse 60% 40% at 80% 20%,rgba(139,92,246,0.07) 0%,transparent 50%),
+                 radial-gradient(ellipse 50% 40% at 60% 90%,rgba(20,184,166,0.06) 0%,transparent 50%)}
+    .confetti-canvas{position:fixed;inset:0;z-index:1;pointer-events:none}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeDown{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes popIn{from{opacity:0;transform:scale(0.85)}to{opacity:1;transform:scale(1)}}
+    @keyframes spinWheel{from{transform:rotate(0deg)}to{transform:rotate(var(--spin-deg))}}
+    @keyframes pointerBounce{0%,100%{transform:translateX(-50%) rotate(0deg)}25%{transform:translateX(-50%) rotate(-8deg)}75%{transform:translateX(-50%) rotate(8deg)}}
+    @keyframes categoryReveal{0%{transform:scale(0.7);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+    @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0.4)}50%{box-shadow:0 0 20px 8px rgba(249,115,22,0.1)}}
+    @keyframes timerUrgent{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+    @keyframes voteReveal{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes glow{0%,100%{text-shadow:0 0 20px rgba(251,191,36,0.3)}50%{text-shadow:0 0 40px rgba(251,191,36,0.7)}}
+    @keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-5deg)}75%{transform:rotate(5deg)}}
+
+    /* HEADER */
+    header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid var(--border);background:rgba(11,17,32,0.94);backdrop-filter:blur(16px)}
+    .logo{font-family:'Abril Fatface',serif;font-size:1.5rem;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px}
+    .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--orange),var(--yellow));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+    .logo span{color:var(--yellow)}
+    .h-center{display:flex;align-items:center;gap:10px}
+    .game-badge{font-size:0.78rem;font-weight:600;color:var(--yellow);background:var(--yellow-dim);border:1px solid rgba(251,191,36,0.25);padding:5px 13px;border-radius:9px}
+    .room-badge{font-family:'Abril Fatface',serif;font-size:1rem;color:var(--text-muted);letter-spacing:0.06em}
+    .quit-btn{font-size:0.78rem;color:var(--text-muted);background:none;border:1px solid var(--border);padding:7px 14px;border-radius:8px;cursor:pointer;text-decoration:none;transition:all 0.2s}
+    .quit-btn:hover{color:var(--red);border-color:rgba(239,68,68,0.3)}
+
+    /* LAYOUT */
+    .game-wrap{position:relative;z-index:5;max-width:1060px;margin:0 auto;padding:24px 20px 60px}
+    .page-grid{display:grid;grid-template-columns:340px 1fr;gap:24px}
+
+    /* SCOREBOARD */
+    .scoreboard{display:flex;gap:7px;margin-bottom:16px;flex-wrap:wrap;animation:fadeDown 0.5s ease both;grid-column:1/-1}
+    .sc{flex:1;min-width:80px;background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center;transition:all 0.3s;position:relative}
+    .sc.me{border-color:rgba(20,184,166,0.4)}
+    .sc.leading{border-color:rgba(251,191,36,0.5);box-shadow:0 0 14px rgba(251,191,36,0.1)}
+    .sc.leading::after{content:'👑';position:absolute;top:3px;right:5px;font-size:10px}
+    .sc-av{font-size:16px;margin-bottom:2px}.sc-nm{font-size:0.68rem;font-weight:600;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sc-sc{font-family:'Abril Fatface',serif;font-size:1.5rem;color:var(--text);line-height:1;margin-top:3px}
+    .sc-sc.flash{animation:categoryReveal 0.4s ease}
+
+    /* COLONNE ROUE */
+    .wheel-col{display:flex;flex-direction:column;align-items:center;gap:16px}
+
+    /* ROUE */
+    .wheel-container{position:relative;width:300px;height:300px;flex-shrink:0}
+    .wheel-svg{width:100%;height:100%;filter:drop-shadow(0 0 20px rgba(249,115,22,0.3))}
+    .wheel-pointer{position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:2rem;z-index:5;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5))}
+    .wheel-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:52px;height:52px;border-radius:50%;background:var(--bg);border:3px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:1.4rem;z-index:4;box-shadow:0 0 0 6px rgba(0,0,0,0.3)}
+    .wheel-spinning .wheel-svg{transition:transform 4s cubic-bezier(0.17,0.67,0.12,0.99)}
+    .wheel-pointer.spinning{animation:pointerBounce 0.3s ease-in-out infinite}
+
+    /* Bouton spin */
+    .btn-spin{padding:14px 36px;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;border:none;cursor:pointer;border-radius:14px;background:linear-gradient(135deg,var(--orange),#dc2626);color:white;letter-spacing:0.06em;box-shadow:0 4px 20px rgba(249,115,22,0.4);transition:all 0.25s;animation:pulseGlow 2.5s ease-in-out infinite}
+    .btn-spin:hover:not(:disabled){transform:translateY(-3px) scale(1.04);box-shadow:0 8px 28px rgba(249,115,22,0.5)}
+    .btn-spin:disabled{opacity:0.35;cursor:not-allowed;transform:none;animation:none;box-shadow:none}
+    .spin-hint{font-size:0.78rem;color:var(--text-muted);text-align:center}
+
+    /* CATÉGORIE ACTUELLE */
+    .cat-reveal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px 20px;text-align:center;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%}
+    .cr-label{font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
+    .cr-cat{font-family:'Abril Fatface',serif;font-size:1.6rem;animation:categoryReveal 0.6s ease both;letter-spacing:0.04em}
+    .cr-sub{font-size:0.8rem;color:var(--text-muted);margin-top:4px}
+
+    /* COLONNE DROITE */
+    .right-col{display:flex;flex-direction:column;gap:16px}
+
+    /* DÉFI CARD */
+    .defi-card{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:26px 28px;position:relative;overflow:hidden;animation:fadeUp 0.5s 0.1s ease both}
+    .defi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--orange),var(--yellow),var(--teal))}
+    .dc-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:12px}
+    .dc-meta{}
+    .dc-round{font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px}
+    .dc-cat-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:8px;font-size:0.8rem;font-weight:600}
+    .dc-question{font-family:'Crimson Pro',serif;font-size:1.3rem;line-height:1.55;color:var(--text);margin-bottom:20px}
+    .dc-instruction{font-size:0.78rem;color:var(--text-muted);margin-bottom:14px;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:8px;border-left:3px solid var(--orange)}
+
+    /* Timer */
+    .timer-row{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+    .t-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
+    .t-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--yellow),var(--orange),var(--red));border-radius:3px;transition:width 1s linear}
+    .t-num{font-family:'Abril Fatface',serif;font-size:1.1rem;color:var(--text);white-space:nowrap}
+    .t-num.urgent{color:var(--red);animation:timerUrgent 0.5s ease-in-out infinite}
+
+    /* Zone réponse libre */
+    .answer-zone{margin-bottom:16px}
+    .answer-input{width:100%;padding:13px 16px;font-family:'Crimson Pro',serif;font-size:1rem;border:1.5px solid var(--border);border-radius:12px;background:var(--bg3);color:var(--text);outline:none;transition:all 0.2s;resize:none}
+    .answer-input:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(249,115,22,0.12);background:var(--bg2)}
+    .answer-input:disabled{opacity:0.4;cursor:not-allowed}
+    .answer-input.ok{border-color:var(--green)!important;background:rgba(34,197,94,0.06)!important}
+    .action-row{display:flex;gap:10px}
+    .btn-submit-r{flex:1;padding:12px;font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:600;border:none;cursor:pointer;border-radius:11px;background:linear-gradient(135deg,var(--orange),#dc2626);color:white;box-shadow:0 4px 14px rgba(249,115,22,0.3);transition:all 0.25s}
+    .btn-submit-r:hover:not(:disabled){transform:translateY(-2px)}
+    .btn-submit-r:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+    .btn-pass-r{padding:12px 20px;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;border:1px solid var(--border);cursor:pointer;border-radius:11px;background:transparent;color:var(--text-muted);transition:all 0.2s}
+    .btn-pass-r:hover{border-color:rgba(239,68,68,0.3);color:var(--red)}
+
+    /* VOTES */
+    .votes-section{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;display:none}
+    .votes-section.visible{display:block}
+    .vs-title{font-family:'Abril Fatface',serif;font-size:1rem;color:var(--text);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+    .vs-sub{font-size:0.72rem;color:var(--text-muted);font-weight:normal}
+    .vote-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:6px;animation:voteReveal 0.3s ease both;background:var(--bg3)}
+    .vr-av{font-size:16px;flex-shrink:0}
+    .vr-info{flex:1;min-width:0}
+    .vr-name{font-size:0.8rem;font-weight:600;color:var(--text);margin-bottom:2px}
+    .vr-answer{font-family:'Crimson Pro',serif;font-size:0.9rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .vote-btns{display:flex;gap:6px}
+    .vb{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:14px;transition:all 0.18s;display:flex;align-items:center;justify-content:center}
+    .vb:hover{transform:scale(1.1)}
+    .vb.yes:hover,.vb.yes.voted{background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.4)}
+    .vb.no:hover,.vb.no.voted{background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3)}
+    .vr-result{font-size:0.75rem;font-weight:600;padding:3px 8px;border-radius:6px;flex-shrink:0}
+    .vr-result.valid{background:rgba(34,197,94,0.12);color:var(--green)}
+    .vr-result.invalid{background:rgba(239,68,68,0.1);color:var(--red)}
+    .vr-result.pending{background:rgba(251,191,36,0.1);color:var(--yellow)}
+
+    /* STATUS BAR */
+    .status-bar{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;animation:fadeUp 0.5s 0.2s ease both;grid-column:1/-1}
+    .sb-status{font-family:'Abril Fatface',serif;font-size:1.1rem;color:var(--text)}
+    .sb-sub{font-size:0.78rem;color:var(--text-muted);margin-top:2px}
+    .btn-next-r{padding:11px 24px;font-family:'DM Sans',sans-serif;font-size:0.87rem;font-weight:600;border:none;cursor:pointer;border-radius:10px;background:linear-gradient(135deg,var(--orange),#dc2626);color:white;box-shadow:0 3px 12px rgba(249,115,22,0.3);transition:all 0.22s}
+    .btn-next-r:hover:not(:disabled){transform:translateY(-2px)}
+    .btn-next-r:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+
+    /* PLAYERS SIDEBAR */
+    .players-sidebar{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;grid-column:1/-1;display:none}
+    .ps-title{font-family:'Abril Fatface',serif;font-size:0.95rem;color:var(--text);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+    .ps-count{font-size:0.7rem;font-weight:600;background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);padding:2px 8px;border-radius:6px}
+    .pl-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;transition:background 0.15s;margin-bottom:3px}
+    .pl-row:hover{background:var(--bg3)}
+    .pl-av{width:28px;height:28px;border-radius:7px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+    .pl-av.me{border-color:rgba(20,184,166,0.4)}
+    .pl-nm{font-size:0.78rem;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pl-sc{font-family:'Abril Fatface',serif;font-size:0.88rem;color:var(--text)}
+
+    /* PODIUM */
+    .pod-overlay{position:fixed;inset:0;z-index:200;background:rgba(11,17,32,0.97);backdrop-filter:blur(16px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0;pointer-events:none;transition:opacity 0.5s;padding:24px}
+    .pod-overlay.active{opacity:1;pointer-events:all}
+    .pod-title{font-family:'Abril Fatface',serif;font-size:clamp(2rem,6vw,3.5rem);color:var(--text);text-align:center;animation:glow 2s ease-in-out infinite}
+    .pod-title span{color:var(--yellow)}
+    .pod-verse{font-family:'Crimson Pro',serif;font-size:0.95rem;font-style:italic;color:var(--text-muted);text-align:center;max-width:420px}
+    .pod-row{display:flex;gap:14px;align-items:flex-end;justify-content:center;flex-wrap:wrap}
+    .pod-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px 14px;text-align:center;min-width:110px;animation:popIn 0.5s ease both}
+    .pod-card.p1{border-color:rgba(251,191,36,0.5);box-shadow:0 0 28px rgba(251,191,36,0.15)}
+    .pod-rank{font-size:1.8rem;margin-bottom:6px}.pod-av{font-size:2rem;margin-bottom:5px}
+    .pod-name{font-size:0.85rem;font-weight:600;color:var(--text);margin-bottom:3px}
+    .pod-score{font-family:'Abril Fatface',serif;font-size:1.4rem;color:var(--yellow)}
+    .pod-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+    .btn-pod{padding:12px 26px;font-family:'DM Sans',sans-serif;font-size:0.87rem;font-weight:600;border:none;cursor:pointer;border-radius:10px;background:linear-gradient(135deg,var(--orange),#dc2626);color:white;box-shadow:0 4px 14px rgba(249,115,22,0.3);transition:all 0.22s;text-decoration:none;display:inline-flex;align-items:center}
+    .btn-pod:hover{transform:translateY(-2px)}
+    .btn-pod.out{background:transparent;border:1px solid var(--border);color:var(--text-muted);box-shadow:none}
+    .btn-pod.out:hover{border-color:var(--yellow);color:var(--yellow)}
+
+    .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:75vh;gap:18px;position:relative;z-index:5}
+    .ls-icon{font-size:3.5rem;animation:shake 1.5s ease-in-out infinite}
+    .ls-title{font-family:'Abril Fatface',serif;font-size:1.8rem;color:var(--text)}
+    .ls-sub{font-size:0.83rem;color:var(--text-muted)}
+
+    .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--bg2);color:var(--text);border:1px solid var(--border);padding:9px 18px;border-radius:9px;font-size:0.82rem;font-weight:500;box-shadow:0 6px 24px rgba(0,0,0,0.5);z-index:300;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .toast.ok{border-color:rgba(34,197,94,0.4);color:var(--green)}
+    .toast.err{border-color:rgba(239,68,68,0.35);color:var(--red)}
+    .toast.inf{border-color:rgba(251,191,36,0.4);color:var(--yellow)}
+
+    @media(max-width:740px){.page-grid{grid-template-columns:1fr}.wheel-col{order:2}.right-col{order:1}header{padding:12px 16px}.h-center{display:none}}
+  </style>
+</head>
+<body>
+<canvas class="confetti-canvas" id="confetti-canvas"></canvas>
+<div class="bg"></div>
+
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">🎲</div>Bible<span>Play</span></a>
+  <div class="h-center">
+    <span class="game-badge">🎲 Roue Biblique</span>
+    <span class="room-badge" id="h-room">—</span>
+  </div>
+  <a class="quit-btn" href="index.html" onclick="return quitGame()">✕ Quitter</a>
+</header>
+
+<div class="loading-screen" id="loading-screen">
+  <div class="ls-icon">🎲</div>
+  <div class="ls-title">Roue Biblique</div>
+  <div class="ls-sub">Prépare-toi à tourner la roue de la Parole !</div>
+</div>
+
+<div style="display:none" id="game-screen">
+  <div class="game-wrap">
+    <div class="page-grid">
+
+      <!-- Scoreboard full width -->
+      <div class="scoreboard" id="scoreboard"></div>
+
+      <!-- COL GAUCHE — ROUE -->
+      <div class="wheel-col">
+
+        <div class="wheel-container" id="wheel-container">
+          <svg class="wheel-svg" id="wheel-svg" viewBox="0 0 300 300"></svg>
+          <div class="wheel-pointer" id="wheel-pointer">▼</div>
+          <div class="wheel-center">🎲</div>
+        </div>
+
+        <button class="btn-spin" id="btn-spin" onclick="spinWheel()" disabled>
+          🎲 Tourner la Roue !
+        </button>
+        <div class="spin-hint" id="spin-hint">En attente de la partie…</div>
+
+        <div class="cat-reveal" id="cat-reveal">
+          <div class="cr-label">Catégorie active</div>
+          <div class="cr-cat" id="cr-cat" style="color:var(--yellow)">—</div>
+          <div class="cr-sub" id="cr-sub">Lance la roue pour commencer !</div>
+        </div>
+
+        <!-- Players -->
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;width:100%">
+          <div style="font-family:'Abril Fatface',serif;font-size:0.9rem;color:var(--text);margin-bottom:10px;display:flex;justify-content:space-between">
+            Joueurs <span style="font-size:0.7rem;font-weight:600;background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);padding:2px 8px;border-radius:6px" id="pc-count">0</span>
+          </div>
+          <div id="pl-list"></div>
+        </div>
+
+      </div>
+
+      <!-- COL DROITE — DÉFI -->
+      <div class="right-col">
+
+        <!-- Défi -->
+        <div class="defi-card" id="defi-card">
+          <div class="dc-header">
+            <div class="dc-meta">
+              <div class="dc-round" id="dc-round">Tour 1 / 8</div>
+              <div class="dc-cat-badge" id="dc-cat-badge">—</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+              <svg width="50" height="50" viewBox="0 0 76 76" style="transform:rotate(-90deg)">
+                <circle fill="none" stroke="var(--bg3)" stroke-width="5" cx="38" cy="38" r="36"/>
+                <circle class="tc-fg" id="timer-circle" fill="none" stroke="var(--orange)" stroke-width="5" stroke-linecap="round" stroke-dasharray="226" stroke-dashoffset="0" cx="38" cy="38" r="36" style="transition:stroke-dashoffset 1s linear,stroke 0.3s"/>
+              </svg>
+              <div class="t-num" id="t-num" style="font-family:'Abril Fatface',serif;font-size:1rem">—</div>
+            </div>
+          </div>
+
+          <div class="dc-question" id="dc-question">Lance la roue pour révéler un défi biblique !</div>
+          <div class="dc-instruction" id="dc-instruction" style="display:none"></div>
+
+          <!-- Réponse -->
+          <div class="answer-zone" id="answer-zone" style="display:none">
+            <textarea class="answer-input" id="answer-input" rows="2" placeholder="Ta réponse…" maxlength="200"></textarea>
+            <div class="action-row" style="margin-top:8px">
+              <button class="btn-submit-r" id="btn-submit" onclick="submitAnswer()">✓ Soumettre</button>
+              <button class="btn-pass-r" onclick="passRound()">↷ Passer</button>
+            </div>
+          </div>
+
+          <!-- Réponse soumise (lecture) -->
+          <div id="answer-submitted" style="display:none;padding:10px 12px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);border-radius:10px;font-family:'Crimson Pro',serif;font-size:0.95rem;color:var(--green)"></div>
+
+          <!-- Strip participants -->
+          <div class="answered-strip" id="answered-strip" style="display:flex;align-items:center;gap:6px;margin-top:12px;flex-wrap:wrap">
+            <span style="font-size:0.7rem;color:var(--text-muted)">A répondu :</span>
+          </div>
+        </div>
+
+        <!-- Votes -->
+        <div class="votes-section" id="votes-section">
+          <div class="vs-title">
+            🗳️ Votes de la communauté
+            <span class="vs-sub">Les autres joueurs valident les réponses</span>
+          </div>
+          <div id="votes-list"></div>
+        </div>
+
+        <!-- Rules mini -->
+        <div style="background:rgba(249,115,22,0.04);border:1px solid rgba(249,115,22,0.15);border-radius:12px;padding:13px 14px">
+          <div style="font-family:'Abril Fatface',serif;font-size:0.88rem;color:var(--orange);margin-bottom:8px">🎲 Règles</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);line-height:1.6">
+            <div style="margin-bottom:4px">• L'hôte tourne la roue pour révéler une catégorie.</div>
+            <div style="margin-bottom:4px">• <strong style="color:var(--text)">Tous les joueurs</strong> répondent au défi en 45 secondes.</div>
+            <div style="margin-bottom:4px">• Les autres <strong style="color:var(--text)">votent</strong> ✓/✗ pour valider chaque réponse.</div>
+            <div style="margin-bottom:4px">• <strong style="color:var(--yellow)">+80 pts</strong> si ta réponse est validée · <strong style="color:var(--teal)">+10 pts</strong> par bon vote.</div>
+            <div>• 8 tours par partie, 8 catégories différentes !</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Status bar -->
+      <div class="status-bar" id="status-bar">
+        <div>
+          <div class="sb-status" id="sb-status">En attente du lancement…</div>
+          <div class="sb-sub" id="sb-sub">L'hôte va tourner la roue pour commencer.</div>
+        </div>
+        <div id="sb-actions"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="pod-overlay" id="pod-overlay">
+  <div class="pod-title">🎲 FIN DE LA <span>ROUE</span> ! 🎲</div>
+  <div class="pod-verse">"Heureux celui qui craint l'Éternel et se complaît en ses commandements." — Psaumes 112:1</div>
+  <div class="pod-row" id="pod-row"></div>
+  <div class="pod-actions">
+    <button class="btn-pod" onclick="replayGame()">↺ Rejouer</button>
+    <a class="btn-pod out" href="lobby.html" id="back-btn">← Lobby</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const{createClient}=supabase;
+const db=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const params=new URLSearchParams(window.location.search);
+const roomCode=params.get('code')||'';
+let playerData={};
+try{playerData=JSON.parse(sessionStorage.getItem('bp_player')||'{}');}catch(e){}
+const mySessionId=playerData.sessionId||sessionStorage.getItem('bp_session')||'';
+const isHost=playerData.role==='host';
+document.getElementById('h-room').textContent=roomCode;
+const backBtn=document.getElementById('back-btn');
+if(backBtn)backBtn.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+
+// ── CATÉGORIES & COULEURS ROUE ──
+const WHEEL_CATS=[
+  {name:'Personnages',icon:'👤',color:'#f97316',short:'PERS'},
+  {name:'Lieux Saints',icon:'📍',color:'#8b5cf6',short:'LIEU'},
+  {name:'Versets',icon:'📖',color:'#14b8a6',short:'VERS'},
+  {name:'Événements',icon:'⚡',color:'#ec4899',short:'EVEN'},
+  {name:'Livres',icon:'📚',color:'#fbbf24',short:'LIVR'},
+  {name:'Concepts',icon:'✨',color:'#22c55e',short:'CONC'},
+  {name:'Miracles',icon:'🌟',color:'#3b82f6',short:'MIRC'},
+  {name:'Chiffres',icon:'🔢',color:'#f43f5e',short:'CHIF'},
+];
+
+// ── 120+ DÉFIS PAR CATÉGORIE ──
+const DEFIS={
+  'Personnages':[
+    {q:'Cite un roi d\'Israël connu pour sa sagesse.',inst:'Ex : Salomon'},
+    {q:'Nomme un prophète de l\'Ancien Testament.',inst:'Ex : Ésaïe, Jérémie…'},
+    {q:'Cite une femme courageuse de la Bible.',inst:'Ex : Esther, Déborah, Ruth…'},
+    {q:'Qui était le père de douze fils dont Joseph ?',inst:'Réponse attendue : Jacob'},
+    {q:'Cite un apôtre de Jésus.',inst:'Ex : Pierre, Jean, Paul…'},
+    {q:'Nomme un personnage qui vécut plus de 500 ans selon la Bible.',inst:'Ex : Noé, Mathusalem…'},
+    {q:'Cite un juge d\'Israël mentionné dans le livre des Juges.',inst:'Ex : Gédéon, Samson, Déborah…'},
+    {q:'Qui était le frère aîné de Moïse ?',inst:'Réponse : Aaron'},
+    {q:'Nomme un patriarche de la Bible.',inst:'Ex : Abraham, Isaac, Jacob…'},
+    {q:'Cite un personnage qui fut jeté dans une fosse.',inst:'Ex : Joseph, Daniel…'},
+    {q:'Qui fut le premier martyr chrétien selon les Actes ?',inst:'Réponse : Étienne'},
+    {q:'Nomme un médecin mentionné dans le Nouveau Testament.',inst:'Réponse : Luc'},
+    {q:'Cite un personnage biblique connu pour sa patience.',inst:'Ex : Job'},
+    {q:'Qui était la belle-mère de Ruth ?',inst:'Réponse : Naomi'},
+    {q:'Nomme le disciple qui trahit Jésus.',inst:'Réponse : Judas Iscariote'},
+    {q:'Cite un homme qui fut emporté au ciel sans mourir selon la Bible.',inst:'Ex : Élie, Hénoc'},
+    {q:'Qui construisit l\'arche selon la Bible ?',inst:'Réponse : Noé'},
+    {q:'Nomme le plus jeune fils de Jacob.',inst:'Réponse : Benjamin'},
+    {q:'Cite une femme prophétesse de l\'Ancien Testament.',inst:'Ex : Myriam, Déborah, Houlda'},
+    {q:'Qui fut le successeur de Moïse pour entrer en Canaan ?',inst:'Réponse : Josué'},
+  ],
+  'Lieux Saints':[
+    {q:'Dans quelle ville Jésus est-il né ?',inst:'Réponse : Bethléem'},
+    {q:'Cite une montagne importante dans la Bible.',inst:'Ex : Sinaï, Carmel, Sion…'},
+    {q:'Dans quel pays Moïse a-t-il grandi ?',inst:'Réponse : Égypte'},
+    {q:'Nomme un fleuve biblique important.',inst:'Ex : Jourdain, Nil, Euphrate…'},
+    {q:'Dans quelle ville Paul fut-il converti ?',inst:'Réponse : Damas'},
+    {q:'Cite une ville où Jésus a accompli des miracles.',inst:'Ex : Capernaüm, Béthanie, Cana…'},
+    {q:'Où Jean a-t-il écrit l\'Apocalypse ?',inst:'Réponse : île de Patmos'},
+    {q:'Dans quelle ville la tour de Babel fut-elle construite ?',inst:'Réponse : Babylone (ou la plaine de Shinéar)'},
+    {q:'Nomme la "terre promise" dans la Bible.',inst:'Réponse : Canaan'},
+    {q:'Dans quelle ville Salomon construisit-il le Temple ?',inst:'Réponse : Jérusalem'},
+    {q:'Où Jonas fut-il envoyé prêcher ?',inst:'Réponse : Ninive'},
+    {q:'Cite un lieu saint en Israël encore visité aujourd\'hui.',inst:'Ex : Jérusalem, Nazareth, Bethléem…'},
+    {q:'Dans quelle mer les Israélites traversèrent-ils à pied sec ?',inst:'Réponse : mer Rouge'},
+    {q:'Où Jésus passa-t-il 40 jours de jeûne ?',inst:'Réponse : le désert (désert de Judée)'},
+    {q:'Nomme la ville natale de l\'apôtre Paul.',inst:'Réponse : Tarse'},
+    {q:'Dans quel jardin Jésus fut-il arrêté ?',inst:'Réponse : Gethsémani'},
+    {q:'Cite un pays mentionné dans l\'histoire de Joseph.',inst:'Ex : Égypte, Canaan…'},
+    {q:'Où les disciples furent-ils appelés "chrétiens" pour la première fois ?',inst:'Réponse : Antioche'},
+    {q:'Dans quelle ville Paul et Silas chantèrent-ils en prison ?',inst:'Réponse : Philippes'},
+    {q:'Nomme une montagne où Jésus enseigna ou pria.',inst:'Ex : Mont des Oliviers, Thabor, Hermon…'},
+  ],
+  'Versets':[
+    {q:'Complète : "Car Dieu a tant aimé le monde qu\'il a donné…"',inst:'Réponse : son Fils unique (Jean 3:16)'},
+    {q:'Cite un verset sur la paix.',inst:'Ex : Philippiens 4:7, Jean 14:27, Ésaïe 26:3…'},
+    {q:'Quel verset dit "Je suis le chemin, la vérité et la vie" ?',inst:'Réponse : Jean 14:6'},
+    {q:'Complète : "Ta parole est une lampe à mes pieds…"',inst:'Réponse : et une lumière sur mon sentier (Ps 119:105)'},
+    {q:'Cite un verset sur la foi.',inst:'Ex : Hébreux 11:1, Romains 1:17, Marc 9:23…'},
+    {q:'Quel livre contient "Je puis tout par celui qui me fortifie" ?',inst:'Réponse : Philippiens (4:13)'},
+    {q:'Complète : "L\'Éternel est mon berger…"',inst:'Réponse : je ne manquerai de rien (Psaumes 23:1)'},
+    {q:'Cite un verset sur l\'amour de Dieu.',inst:'Ex : Jean 3:16, 1 Jean 4:8, Romains 5:8…'},
+    {q:'Quel verset commence par "Au commencement…" ?',inst:'Réponse : Genèse 1:1 ou Jean 1:1'},
+    {q:'Cite un verset des Béatitudes (Matthieu 5).',inst:'Ex : Heureux les pauvres en esprit, les doux…'},
+    {q:'Complète : "Ne vous inquiétez de rien…"',inst:'Réponse : mais en toute chose, priez (Philippiens 4:6)'},
+    {q:'Quel verset dit "Jésus pleura" ?',inst:'Réponse : Jean 11:35 — le verset le plus court de la Bible'},
+    {q:'Cite un verset sur la prière.',inst:'Ex : Matthieu 7:7, 1 Thessaloniciens 5:17…'},
+    {q:'Complète : "Car sans moi vous ne pouvez…"',inst:'Réponse : rien faire (Jean 15:5)'},
+    {q:'Cite un verset sur l\'espérance.',inst:'Ex : Jérémie 29:11, Romains 8:28, Psaumes 27:14…'},
+    {q:'Quel verset dit "Dieu est amour" ?',inst:'Réponse : 1 Jean 4:8'},
+    {q:'Complète : "Cherchez premièrement le royaume…"',inst:'Réponse : et la justice de Dieu (Matthieu 6:33)'},
+    {q:'Cite un verset sur le pardon.',inst:'Ex : Matthieu 18:22, Éphésiens 4:32, Luc 23:34…'},
+    {q:'Quel livre contient le Psaume 23 ?',inst:'Réponse : Psaumes'},
+    {q:'Complète : "Voici, je me tiens à la porte…"',inst:'Réponse : et je frappe (Apocalypse 3:20)'},
+  ],
+  'Événements':[
+    {q:'Décris en une phrase la Pentecôte biblique.',inst:'Descente de l\'Esprit Saint sur les disciples'},
+    {q:'Que se passa-t-il lors de la Transfiguration ?',inst:'Jésus rayonna de gloire devant Pierre, Jacques et Jean'},
+    {q:'Quel événement suit directement la Résurrection de Jésus ?',inst:'Ex : Apparitions, Ascension…'},
+    {q:'Décris en une phrase la construction de la Tour de Babel.',inst:'Les hommes voulurent atteindre le ciel, Dieu confondit leur langage'},
+    {q:'Qu\'est-ce que la Pâque juive commémore ?',inst:'La sortie d\'Égypte et la libération des Hébreux'},
+    {q:'Décris le miracle de la multiplication des pains.',inst:'Jésus nourrit 5000 personnes avec 5 pains et 2 poissons'},
+    {q:'Que se passa-t-il lors du Déluge ?',inst:'Dieu fit pleuvoir 40 jours, seul Noé et sa famille furent sauvés'},
+    {q:'Décris la conversion de Paul.',inst:'Sur le chemin de Damas, une lumière l\'aveugla et il entendit la voix de Jésus'},
+    {q:'Qu\'est-ce que l\'Ascension de Jésus ?',inst:'Jésus monta au ciel 40 jours après sa résurrection'},
+    {q:'Décris la chute des murs de Jéricho.',inst:'Les Israélites marchèrent autour 7 jours et les murs s\'écroulèrent'},
+    {q:'Que se passa-t-il lors de la nuit de Gethsémani ?',inst:'Jésus pria avec angoisse, Judas arriva avec des soldats'},
+    {q:'Décris la délivrance de Daniel des lions.',inst:'Daniel fut jeté dans la fosse aux lions mais Dieu ferma leur gueule'},
+    {q:'Que se passa-t-il lors du passage de la mer Rouge ?',inst:'Moïse étendit la main, l\'eau se sépara, les Hébreux passèrent'},
+    {q:'Décris le baptême de Jésus.',inst:'Jean baptisa Jésus dans le Jourdain, une colombe descendit, une voix se fit entendre'},
+    {q:'Qu\'est-ce que la Résurrection de Lazare ?',inst:'Jésus ressuscita Lazare 4 jours après sa mort'},
+    {q:'Décris la tentation de Jésus au désert.',inst:'Satan tenta Jésus 3 fois pendant 40 jours, Jésus répondit avec l\'Écriture'},
+    {q:'Que se passa-t-il lors de la Création du monde (résumé) ?',inst:'Dieu créa tout en 6 jours et se reposa le 7e'},
+    {q:'Décris l\'offrande d\'Isaac par Abraham.',inst:'Dieu demanda à Abraham de sacrifier Isaac, puis arrêta sa main'},
+    {q:'Qu\'est-ce que la chute d\'Adam et Ève ?',inst:'Ils mangèrent le fruit défendu et furent chassés du jardin'},
+    {q:'Décris la Pentecôte en une phrase.',inst:'L\'Esprit Saint descendit comme langues de feu et 3000 personnes se convertirent'},
+  ],
+  'Livres':[
+    {q:'Cite le premier livre de la Bible.',inst:'Réponse : Genèse'},
+    {q:'Quel est le dernier livre de la Bible ?',inst:'Réponse : Apocalypse'},
+    {q:'Nomme un livre poétique de la Bible.',inst:'Ex : Psaumes, Proverbes, Job, Ecclésiaste, Cantique…'},
+    {q:'Dans quel livre trouve-t-on les 10 commandements ?',inst:'Ex : Exode (20) ou Deutéronome (5)'},
+    {q:'Cite un livre prophétique majeur.',inst:'Ex : Ésaïe, Jérémie, Ézéchiel, Daniel'},
+    {q:'Quel livre suit immédiatement la Genèse ?',inst:'Réponse : Exode'},
+    {q:'Cite un évangile du Nouveau Testament.',inst:'Ex : Matthieu, Marc, Luc, Jean'},
+    {q:'Dans quel livre est racontée l\'histoire de Ruth ?',inst:'Réponse : Le livre de Ruth'},
+    {q:'Quel livre contient les Psaumes ?',inst:'Réponse : Psaumes (150 psaumes)'},
+    {q:'Nomme une épître de Paul aux Corinthiens.',inst:'Ex : 1 Corinthiens ou 2 Corinthiens'},
+    {q:'Quel livre de la Bible est entièrement poétique et amoureux ?',inst:'Réponse : Cantique des cantiques'},
+    {q:'Cite un livre des Rois dans la Bible.',inst:'Ex : 1 Rois ou 2 Rois'},
+    {q:'Quel livre raconte la création du monde ?',inst:'Réponse : Genèse'},
+    {q:'Dans quel livre Moïse reçoit-il la Loi ?',inst:'Réponse : Exode'},
+    {q:'Cite un livre de Sagesse de l\'Ancien Testament.',inst:'Ex : Proverbes, Job, Ecclésiaste'},
+    {q:'Quel livre de la Bible ne mentionne pas le nom de Dieu ?',inst:'Réponse : Esther (ou Cantique selon certaines versions)'},
+    {q:'Dans quel livre trouve-t-on l\'histoire de Jonas ?',inst:'Réponse : Jonas'},
+    {q:'Nomme le livre qui décrit la vie de l\'Église primitive.',inst:'Réponse : Actes des Apôtres'},
+    {q:'Quel livre contient les lamentations de Jérémie ?',inst:'Réponse : Lamentations'},
+    {q:'Cite un livre des Chroniques.',inst:'Ex : 1 Chroniques ou 2 Chroniques'},
+  ],
+  'Concepts':[
+    {q:'Explique ce qu\'est la grâce de Dieu en une phrase.',inst:'Don gratuit de Dieu, non mérité par l\'homme'},
+    {q:'Qu\'est-ce que la foi selon Hébreux 11:1 ?',inst:'Ferme assurance des choses espérées, démonstration de celles qu\'on ne voit pas'},
+    {q:'Explique la justification par la foi.',inst:'Être déclaré juste devant Dieu par la foi, non par les œuvres'},
+    {q:'Qu\'est-ce que la sanctification ?',inst:'Processus d\'être mis à part et transformé à l\'image de Christ'},
+    {q:'Explique ce qu\'est une alliance biblique.',inst:'Pacte solennel et engageant entre Dieu et l\'homme'},
+    {q:'Qu\'est-ce que la rédemption ?',inst:'Rachat et libération du péché par le sang de Christ'},
+    {q:'Explique la Trinité en une phrase.',inst:'Dieu en trois personnes : Père, Fils et Esprit Saint, un seul Dieu'},
+    {q:'Qu\'est-ce que le baptême symbolise ?',inst:'Mort au péché et nouvelle vie en Christ, identification à la mort et résurrection de Jésus'},
+    {q:'Explique ce qu\'est la Pentecôte dans le NT.',inst:'Effusion de l\'Esprit Saint sur les croyants, naissance de l\'Église'},
+    {q:'Qu\'est-ce que le péché originel ?',inst:'La désobéissance d\'Adam et Ève qui a introduit le péché dans le monde'},
+    {q:'Explique ce que signifie "être né de nouveau".',inst:'Conversion spirituelle, nouvelle naissance par l\'Esprit (Jean 3:3)'},
+    {q:'Qu\'est-ce que l\'intercession ?',inst:'Prier Dieu en faveur d\'une autre personne'},
+    {q:'Explique le concept d\'alliance nouvelle.',inst:'Alliance scellée par le sang de Christ, remplaçant l\'ancienne loi'},
+    {q:'Qu\'est-ce que la miséricorde divine ?',inst:'Compassion et bonté de Dieu envers les pécheurs qui ne méritent pas'},
+    {q:'Explique ce qu\'est la Parole de Dieu.',inst:'La Bible, révélation inspirée de Dieu pour l\'humanité'},
+    {q:'Qu\'est-ce que la communion (Cène) ?',inst:'Repas commémoratif avec pain et vin en mémoire de la mort de Christ'},
+    {q:'Explique le concept de résurrection.',inst:'Retour à la vie après la mort, espérance centrale du christianisme'},
+    {q:'Qu\'est-ce que l\'Évangile ?',inst:'La bonne nouvelle du salut en Jésus-Christ, mort et ressuscité'},
+    {q:'Explique ce qu\'est la prière.',inst:'Communication avec Dieu, dialogue avec le Père céleste'},
+    {q:'Qu\'est-ce que la louange biblique ?',inst:'Reconnaissance et adoration de Dieu pour qui il est'},
+  ],
+  'Miracles':[
+    {q:'Décris le premier miracle de Jésus.',inst:'Transformation de l\'eau en vin aux noces de Cana (Jean 2)'},
+    {q:'Cite un miracle de Jésus impliquant une guérison.',inst:'Ex : aveugle de naissance, dix lépreux, paralytique…'},
+    {q:'Quel miracle Élie accomplit-il sur le mont Carmel ?',inst:'Il fit descendre le feu du ciel pour consumer l\'offrande'},
+    {q:'Décris le miracle de la multiplication des pains.',inst:'5 pains et 2 poissons nourrirent 5000 hommes avec 12 paniers restants'},
+    {q:'Quel miracle Moïse accomplit-il avec son bâton ?',inst:'Ex : séparation de la mer Rouge, eau du rocher, serpent d\'airain…'},
+    {q:'Cite un miracle de résurrection dans la Bible.',inst:'Ex : Lazare, fille de Jaïrus, fils de la veuve de Naïn…'},
+    {q:'Décris le miracle de Josué au Jourdain.',inst:'Les eaux s\'arrêtèrent pour que le peuple traverse à pied sec'},
+    {q:'Quel miracle Pierre accomplit-il à la Porte Belle ?',inst:'Il guérit un paralytique de naissance au nom de Jésus (Actes 3)'},
+    {q:'Décris la miraculeuse capture de poissons (Luc 5).',inst:'Après une nuit blanche, Jésus dit de jeter à droite, les filets se remplirent'},
+    {q:'Quel miracle Paul accomplit-il à Lystres ?',inst:'Il guérit un boiteux de naissance (Actes 14)'},
+    {q:'Décris comment Élie ressuscita le fils de la veuve.',inst:'Il s\'étendit trois fois sur l\'enfant et l\'Éternel l\'exauça (1 Rois 17)'},
+    {q:'Quel miracle Élisée accomplit-il avec l\'huile ?',inst:'L\'huile d\'une veuve ne s\'épuisa pas jusqu\'à remplir tous les vases (2 Rois 4)'},
+    {q:'Décris la marche de Pierre sur l\'eau.',inst:'Jésus l\'invita, Pierre marcha, puis coula quand il douta'},
+    {q:'Comment Josué fit-il tomber les murs de Jéricho ?',inst:'En marchant autour 7 jours et en sonnant des trompettes au 7e jour'},
+    {q:'Quel miracle Daniel vécut-il dans la fosse aux lions ?',inst:'Dieu envoya son ange fermer la gueule des lions'},
+    {q:'Décris le miracle de la manne dans le désert.',inst:'Dieu envoya chaque matin une nourriture céleste sur le camp'},
+    {q:'Comment Paul et Silas furent-ils libérés de prison ?',inst:'Un tremblement de terre ouvrit les portes et brisa les chaînes'},
+    {q:'Décris la guérison des dix lépreux.',inst:'Jésus les envoya aux sacrificateurs et ils furent purifiés en chemin'},
+    {q:'Quel miracle Jésus accomplit-il à Béthanie ?',inst:'Il ressuscita Lazare 4 jours après sa mort (Jean 11)'},
+    {q:'Décris la guérison de l\'aveugle-né (Jean 9).',inst:'Jésus fit de la boue, l\'appliqua sur ses yeux et lui dit de se laver'},
+  ],
+  'Chiffres':[
+    {q:'Combien de jours Jésus jeûna-t-il dans le désert ?',inst:'Réponse : 40 jours'},
+    {q:'Combien d\'apôtres Jésus choisit-il ?',inst:'Réponse : 12'},
+    {q:'Combien de psaumes compte la Bible ?',inst:'Réponse : 150'},
+    {q:'Combien de jours dura le déluge selon la Bible ?',inst:'Réponse : 40 jours et 40 nuits'},
+    {q:'Combien de commandements Dieu donna-t-il à Moïse ?',inst:'Réponse : 10 commandements'},
+    {q:'Combien d\'années les Hébreux errèrent-ils dans le désert ?',inst:'Réponse : 40 ans'},
+    {q:'Combien de fils Jacob avait-il ?',inst:'Réponse : 12 fils (les 12 tribus d\'Israël)'},
+    {q:'Combien de livres compte la Bible selon le canon protestant ?',inst:'Réponse : 66 livres'},
+    {q:'Combien de jours Lazare était-il au tombeau ?',inst:'Réponse : 4 jours'},
+    {q:'Combien de jours Jonas passa-t-il dans le poisson ?',inst:'Réponse : 3 jours'},
+    {q:'Combien de pièces d\'argent Judas reçut-il ?',inst:'Réponse : 30 pièces d\'argent'},
+    {q:'Combien d\'années Mathusalem vécut-il ?',inst:'Réponse : 969 ans'},
+    {q:'Combien de fois Pierre renia-t-il Jésus ?',inst:'Réponse : 3 fois'},
+    {q:'Combien de plaies Dieu envoya-t-il sur l\'Égypte ?',inst:'Réponse : 10 plaies'},
+    {q:'Combien de pains Jésus utilisa-t-il pour nourrir 5000 personnes ?',inst:'Réponse : 5 pains (et 2 poissons)'},
+    {q:'En combien de jours Dieu créa-t-il le monde ?',inst:'Réponse : 6 jours (se reposa le 7e)'},
+    {q:'Combien d\'hommes Gédéon garda-t-il pour combattre les Madianites ?',inst:'Réponse : 300 hommes'},
+    {q:'Combien de fois faut-il pardonner selon Jésus (Matthieu 18) ?',inst:'Réponse : 70 fois 7 fois (= toujours)'},
+    {q:'Combien de langues Dieu créa-t-il à Babel ?',inst:'Réponse : Plusieurs (la Bible ne donne pas de nombre exact)'},
+    {q:'Combien de tours les Israélites firent-ils autour de Jéricho ?',inst:'Réponse : 13 tours (1 par jour pendant 6 jours, 7 le dernier jour)'},
+  ]
+};
+
+const TOTAL_TURNS=8;
+const ANSWER_TIME=45;
+const PTS_VALIDATED=80;
+const PTS_VOTE=10;
+
+// ── État ──
+let players=[],scores={},currentTurn=0,catOrder=[];
+let timerVal=0,timerInt=null;
+let currentCat=null,currentDefi=null;
+let answers={};  // {session_id: {answer, votes:{sid:bool}, validated:null}}
+let phase='waiting'; // 'spin'|'answer'|'vote'|'result'
+let wheelAngle=0;
+let wheelSpinning=false;
+let gameChannel=null;
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+
+// ── INIT ──
+async function init(){
+  if(!roomCode){window.location.href='index.html';return;}
+  const{data:pData}=await db.from('players').select('*').eq('room_code',roomCode).order('joined_at');
+  players=pData||[];
+  players.forEach(p=>scores[p.session_id]=0);
+  catOrder=shuffle([...WHEEL_CATS]).slice(0,TOTAL_TURNS);
+
+  gameChannel=db.channel(`roue-${roomCode}`)
+    .on('broadcast',{event:'spin_result'},({payload})=>{if(!isHost)receiveSpin(payload);})
+    .on('broadcast',{event:'answer_sub'},({payload})=>{if(payload.session_id!==mySessionId)receiveAnswer(payload);})
+    .on('broadcast',{event:'vote_cast'},({payload})=>{if(payload.voter!==mySessionId)receiveVote(payload);})
+    .on('broadcast',{event:'next_turn'},({payload})=>{if(!isHost)loadTurn(payload.index);})
+    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores))
+    .subscribe();
+
+  buildWheel();
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('game-screen').style.display='block';
+  document.getElementById('pc-count').textContent=players.length;
+  renderScoreboard();renderPlayers();
+
+  if(isHost){
+    document.getElementById('btn-spin').disabled=false;
+    document.getElementById('spin-hint').textContent='L\'hôte tourne la roue pour commencer !';
+  } else {
+    document.getElementById('spin-hint').textContent='En attente que l\'hôte tourne la roue…';
+  }
+  updateStatusBar();
+}
+
+// ── ROUE SVG ──
+function buildWheel(){
+  const svg=document.getElementById('wheel-svg');
+  const n=WHEEL_CATS.length;
+  const cx=150,cy=150,r=140;
+  let html='';
+  for(let i=0;i<n;i++){
+    const startAngle=(i/n)*2*Math.PI-Math.PI/2;
+    const endAngle=((i+1)/n)*2*Math.PI-Math.PI/2;
+    const x1=cx+r*Math.cos(startAngle),y1=cy+r*Math.sin(startAngle);
+    const x2=cx+r*Math.cos(endAngle),y2=cy+r*Math.sin(endAngle);
+    const laf=1/n>0.5?1:0;
+    const midAngle=(startAngle+endAngle)/2;
+    const tx=cx+(r*0.62)*Math.cos(midAngle),ty=cy+(r*0.62)*Math.sin(midAngle);
+    html+=`<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${laf},1 ${x2},${y2} Z" fill="${WHEEL_CATS[i].color}" stroke="rgba(0,0,0,0.3)" stroke-width="2"/>`;
+    html+=`<text x="${tx}" y="${ty}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="700" fill="white" transform="rotate(${(midAngle*180/Math.PI+90)},${tx},${ty})">${WHEEL_CATS[i].short}</text>`;
+    html+=`<text x="${tx}" y="${ty+14}" text-anchor="middle" dominant-baseline="middle" font-size="16" transform="rotate(${(midAngle*180/Math.PI+90)},${tx},${ty+14})">${WHEEL_CATS[i].icon}</text>`;
+  }
+  svg.innerHTML=html;
+}
+
+// ── SPIN ──
+function spinWheel(){
+  if(!isHost||wheelSpinning)return;
+  wheelSpinning=true;
+  document.getElementById('btn-spin').disabled=true;
+  document.getElementById('wheel-pointer').classList.add('spinning');
+
+  const targetIdx=WHEEL_CATS.findIndex(c=>c.name===catOrder[currentTurn]?.name);
+  const segSize=360/WHEEL_CATS.length;
+  const targetAngle=360-targetIdx*segSize-segSize/2;
+  const totalSpin=1440+targetAngle-((wheelAngle)%360);
+  const finalAngle=wheelAngle+totalSpin;
+
+  const svg=document.getElementById('wheel-svg');
+  svg.style.transition='transform 4s cubic-bezier(0.17,0.67,0.12,0.99)';
+  svg.style.transform=`rotate(${finalAngle}deg)`;
+  wheelAngle=finalAngle;
+
+  setTimeout(()=>{
+    wheelSpinning=false;
+    document.getElementById('wheel-pointer').classList.remove('spinning');
+    const cat=catOrder[currentTurn];
+    gameChannel.send({type:'broadcast',event:'spin_result',payload:{catName:cat.name,turn:currentTurn}});
+    revealCategory(cat);
+  },4200);
+}
+
+function receiveSpin(payload){
+  const cat=WHEEL_CATS.find(c=>c.name===payload.catName);
+  if(cat) revealCategory(cat);
+}
+
+function revealCategory(cat){
+  currentCat=cat;
+  const allDefis=DEFIS[cat.name]||[];
+  currentDefi=shuffle([...allDefis])[0];
+
+  // Mettre à jour UI roue
+  document.getElementById('cr-cat').textContent=`${cat.icon} ${cat.name}`;
+  document.getElementById('cr-cat').style.color=cat.color;
+  document.getElementById('cr-sub').textContent='Défi révélé !';
+
+  // Badge catégorie
+  const badge=document.getElementById('dc-cat-badge');
+  badge.textContent=`${cat.icon} ${cat.name}`;
+  badge.style.background=cat.color+'25';
+  badge.style.color=cat.color;
+  badge.style.border=`1px solid ${cat.color}50`;
+
+  // Défi
+  document.getElementById('dc-round').textContent=`Tour ${currentTurn+1} / ${TOTAL_TURNS}`;
+  document.getElementById('dc-question').textContent=currentDefi.q;
+  document.getElementById('dc-instruction').textContent=`💡 ${currentDefi.inst}`;
+  document.getElementById('dc-instruction').style.display='block';
+  document.getElementById('answer-zone').style.display='block';
+  document.getElementById('answer-submitted').style.display='none';
+  document.getElementById('answer-input').value='';
+  document.getElementById('answer-input').disabled=false;
+  document.getElementById('btn-submit').disabled=false;
+  document.getElementById('answered-strip').innerHTML='<span style="font-size:0.7rem;color:var(--text-muted)">A répondu :</span>';
+  document.getElementById('votes-section').className='votes-section';
+  document.getElementById('votes-list').innerHTML='';
+
+  answers={};
+  phase='answer';
+  updateStatusBar();
+  startTimer();
+  showToast(`🎲 Catégorie : ${cat.icon} ${cat.name} !`,'inf');
+}
+
+// ── RÉPONSE ──
+function submitAnswer(){
+  const val=document.getElementById('answer-input').value.trim();
+  if(!val){showToast('⚠️ Écris ta réponse !','err');return;}
+  stopTimer();
+  answers[mySessionId]={answer:val,votes:{},validated:null,pseudo:playerData.pseudo,avatar:playerData.avatar};
+  document.getElementById('answer-input').disabled=true;
+  document.getElementById('btn-submit').disabled=true;
+  document.getElementById('answer-zone').style.display='none';
+  document.getElementById('answer-submitted').style.display='block';
+  document.getElementById('answer-submitted').textContent=`✓ Ta réponse : "${val}"`;
+  addAnsweredChip(playerData.avatar,playerData.pseudo);
+  gameChannel.send({type:'broadcast',event:'answer_sub',payload:{session_id:mySessionId,pseudo:playerData.pseudo,avatar:playerData.avatar,answer:val,turn:currentTurn}});
+  checkAllAnswered();
+}
+
+function passRound(){
+  stopTimer();
+  answers[mySessionId]={answer:'(passé)',votes:{},validated:null,pseudo:playerData.pseudo,avatar:playerData.avatar};
+  document.getElementById('answer-zone').style.display='none';
+  document.getElementById('answer-input').disabled=true;
+  gameChannel.send({type:'broadcast',event:'answer_sub',payload:{session_id:mySessionId,pseudo:playerData.pseudo,avatar:playerData.avatar,answer:'(passé)',turn:currentTurn}});
+  checkAllAnswered();
+  showToast('↷ Tour passé','');
+}
+
+function receiveAnswer(payload){
+  if(payload.turn!==currentTurn)return;
+  answers[payload.session_id]={answer:payload.answer,votes:{},validated:null,pseudo:payload.pseudo,avatar:payload.avatar};
+  addAnsweredChip(payload.avatar,payload.pseudo);
+  checkAllAnswered();
+}
+
+function addAnsweredChip(av,pseudo){
+  const strip=document.getElementById('answered-strip');
+  const chip=document.createElement('div');
+  chip.style.cssText='width:26px;height:26px;border-radius:7px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.25);display:flex;align-items:center;justify-content:center;font-size:13px';
+  chip.title=pseudo;chip.textContent=av;
+  strip.appendChild(chip);
+}
+
+function checkAllAnswered(){
+  const count=Object.keys(answers).length;
+  if(count>=players.length){
+    stopTimer();
+    phase='vote';
+    renderVotes();
+    updateStatusBar();
+  }
+}
+
+// ── VOTES ──
+function renderVotes(){
+  const vs=document.getElementById('votes-section');
+  vs.className='votes-section visible';
+  const list=document.getElementById('votes-list');
+  list.innerHTML=Object.entries(answers).map(([sid,a])=>{
+    const isMe=sid===mySessionId;
+    return`<div class="vote-row" id="vrow-${sid.replace(/-/g,'_')}">
+      <div class="vr-av">${a.avatar||'🙏'}</div>
+      <div class="vr-info">
+        <div class="vr-name">${a.pseudo||''}${isMe?' (Toi)':''}</div>
+        <div class="vr-answer">${a.answer}</div>
+      </div>
+      ${!isMe?`<div class="vote-btns">
+        <button class="vb yes" onclick="castVote('${sid}',true,this)" title="Valider">✓</button>
+        <button class="vb no" onclick="castVote('${sid}',false,this)" title="Invalider">✗</button>
+      </div>`:''}
+      <div class="vr-result pending" id="vres-${sid.replace(/-/g,'_')}">En attente</div>
+    </div>`;
+  }).join('');
+}
+
+function castVote(targetSid,valid,btn){
+  if(!answers[targetSid])return;
+  if(answers[targetSid].votes[mySessionId]!==undefined)return;
+  answers[targetSid].votes[mySessionId]=valid;
+  btn.parentElement.querySelectorAll('.vb').forEach(b=>b.classList.remove('voted'));
+  btn.classList.add('voted');
+  gameChannel.send({type:'broadcast',event:'vote_cast',payload:{voter:mySessionId,target:targetSid,valid,turn:currentTurn}});
+  evaluateVotes(targetSid);
+}
+
+function receiveVote(payload){
+  if(!answers[payload.target])return;
+  answers[payload.target].votes[payload.voter]=payload.valid;
+  evaluateVotes(payload.target);
+}
+
+function evaluateVotes(sid){
+  const a=answers[sid];
+  if(!a)return;
+  const voterCount=players.length-1;
+  const voteCount=Object.keys(a.votes).length;
+  const yesVotes=Object.values(a.votes).filter(Boolean).length;
+  const resEl=document.getElementById(`vres-${sid.replace(/-/g,'_')}`);
+  if(voteCount>=voterCount){
+    const validated=yesVotes>voterCount/2;
+    a.validated=validated;
+    if(validated){
+      scores[sid]=(scores[sid]||0)+PTS_VALIDATED;
+      if(resEl){resEl.className='vr-result valid';resEl.textContent=`✓ +${PTS_VALIDATED} pts`;}
+    } else {
+      if(resEl){resEl.className='vr-result invalid';resEl.textContent='✗ 0 pt';}
+    }
+    // Pts pour les bons votants
+    Object.entries(a.votes).forEach(([voter,vote])=>{
+      if(vote===validated) scores[voter]=(scores[voter]||0)+PTS_VOTE;
+    });
+    renderScoreboard();
+  } else {
+    if(resEl){resEl.textContent=`${voteCount}/${voterCount} votes`;}
+  }
+  checkAllVoted();
+}
+
+function checkAllVoted(){
+  const allValidated=Object.values(answers).every(a=>a.validated!==null||a.answer==='(passé)');
+  if(allValidated){phase='result';updateStatusBar();}
+}
+
+// ── SUIVANT ──
+function nextTurn(){
+  const next=currentTurn+1;
+  if(next>=TOTAL_TURNS){
+    if(isHost){
+      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores}});
+      db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+    }
+    setTimeout(()=>showPodium(scores),400);
+    return;
+  }
+  if(isHost){
+    gameChannel.send({type:'broadcast',event:'next_turn',payload:{index:next}});
+    loadTurn(next);
+  }
+}
+
+function loadTurn(index){
+  currentTurn=index;
+  phase='spin';
+  answers={};
+  document.getElementById('dc-question').textContent='Lance la roue pour révéler un défi biblique !';
+  document.getElementById('dc-instruction').style.display='none';
+  document.getElementById('answer-zone').style.display='none';
+  document.getElementById('answer-submitted').style.display='none';
+  document.getElementById('votes-section').className='votes-section';
+  document.getElementById('answered-strip').innerHTML='<span style="font-size:0.7rem;color:var(--text-muted)">A répondu :</span>';
+  document.getElementById('cr-cat').textContent='—';
+  document.getElementById('cr-sub').textContent='Lance la roue pour commencer !';
+  document.getElementById('dc-round').textContent=`Tour ${index+1} / ${TOTAL_TURNS}`;
+  if(isHost){document.getElementById('btn-spin').disabled=false;}
+  stopTimer();
+  updateStatusBar();
+  renderScoreboard();
+}
+
+// ── STATUS BAR ──
+function updateStatusBar(){
+  const statusEl=document.getElementById('sb-status');
+  const subEl=document.getElementById('sb-sub');
+  const actEl=document.getElementById('sb-actions');
+  if(phase==='waiting'||phase==='spin'){
+    statusEl.textContent=isHost?'À toi de tourner la roue !':'En attente de la roue…';
+    subEl.textContent=`Tour ${currentTurn+1} / ${TOTAL_TURNS}`;
+    actEl.innerHTML='';
+  } else if(phase==='answer'){
+    statusEl.textContent='Répondez au défi !';
+    subEl.textContent=`${Object.keys(answers).length} / ${players.length} réponses reçues`;
+    actEl.innerHTML='';
+  } else if(phase==='vote'){
+    statusEl.textContent='Votez pour valider les réponses !';
+    subEl.textContent='Chaque bonne réponse validée rapporte +80 pts · Voter juste rapporte +10 pts';
+    actEl.innerHTML='';
+  } else if(phase==='result'){
+    statusEl.textContent='Résultats du tour ✦';
+    subEl.textContent=isHost?'Lance le tour suivant.':'En attente de l\'hôte…';
+    actEl.innerHTML=(isHost)?`<button class="btn-next-r" onclick="nextTurn()">${currentTurn+1>=TOTAL_TURNS?'🏁 Résultats finaux':'▶ Tour suivant'}</button>`:'';
+  }
+}
+
+// ── TIMER ──
+function startTimer(){
+  stopTimer();timerVal=ANSWER_TIME;updateTimerUI(timerVal);
+  timerInt=setInterval(()=>{
+    timerVal--;updateTimerUI(timerVal);
+    if(timerVal<=0){stopTimer();if(phase==='answer'){passRound();}}
+  },1000);
+}
+function stopTimer(){clearInterval(timerInt);timerInt=null;}
+function updateTimerUI(val){
+  const n=document.getElementById('t-num'),c=document.getElementById('timer-circle');
+  if(!n||!c)return;
+  n.textContent=val>0?val:'';n.classList.toggle('urgent',val<=8&&val>0);
+  c.classList.toggle('urgent',val<=8&&val>0);
+  c.style.strokeDashoffset=Math.round(226*(1-(val/ANSWER_TIME)));
+}
+
+// ── SCOREBOARD & PLAYERS ──
+function renderScoreboard(){
+  const max=Math.max(...Object.values(scores),1);
+  document.getElementById('scoreboard').innerHTML=players.map(p=>{
+    const s=scores[p.session_id]||0,isMe=p.session_id===mySessionId,lead=s===max&&s>0;
+    return`<div class="sc ${isMe?'me':''} ${lead?'leading':''}">
+      <div class="sc-av">${p.avatar}</div>
+      <div class="sc-nm">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div class="sc-sc">${s}</div>
+    </div>`;
+  }).join('');
+}
+function renderPlayers(){
+  document.getElementById('pl-list').innerHTML=players.map(p=>{
+    const isMe=p.session_id===mySessionId;
+    return`<div class="pl-row">
+      <div class="pl-av ${isMe?'me':''}">${p.avatar}</div>
+      <div class="pl-nm">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div class="pl-sc">${scores[p.session_id]||0}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── CONFETTI ──
+function launchConfetti(){
+  const canvas=document.getElementById('confetti-canvas');
+  const ctx=canvas.getContext('2d');
+  canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+  const particles=Array.from({length:120},()=>({x:Math.random()*canvas.width,y:-20,r:Math.random()*6+3,c:['#f97316','#fbbf24','#22c55e','#3b82f6','#ec4899','#8b5cf6'][Math.floor(Math.random()*6)],vx:(Math.random()-0.5)*4,vy:Math.random()*4+2,rot:Math.random()*360,drot:(Math.random()-0.5)*8}));
+  let frame=0;
+  const anim=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.rot+=p.drot;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);ctx.fillStyle=p.c;ctx.fillRect(-p.r,-p.r/2,p.r*2,p.r);ctx.restore();});frame++;if(frame<180)requestAnimationFrame(anim);else ctx.clearRect(0,0,canvas.width,canvas.height);};
+  anim();
+}
+
+// ── PODIUM ──
+function showPodium(finalScores){
+  stopTimer();launchConfetti();
+  const sorted=players.map(p=>({...p,score:finalScores[p.session_id]||0})).sort((a,b)=>b.score-a.score);
+  const RANKS=['🥇','🥈','🥉'];
+  document.getElementById('pod-row').innerHTML=sorted.slice(0,3).map((p,i)=>`
+    <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
+      <div class="pod-rank">${RANKS[i]||''}</div>
+      <div class="pod-av">${p.avatar}</div>
+      <div class="pod-name">${p.pseudo}${p.session_id===mySessionId?' (Toi)':''}</div>
+      <div class="pod-score">${p.score} pts</div>
+    </div>`).join('');
+  document.getElementById('pod-overlay').classList.add('active');
+}
+
+async function replayGame(){
+  if(gameChannel)gameChannel.unsubscribe();
+  await db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+  window.location.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+}
+function quitGame(){stopTimer();if(gameChannel)gameChannel.unsubscribe();return true;}
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',2600);
+}
+window.addEventListener('beforeunload',()=>quitGame());
+init();
+</script>
+</body>
+</html>

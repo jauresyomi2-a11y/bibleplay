@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Duel de Versets</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Crimson+Pro:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#080c14;--bg2:#0f1623;--bg3:#182030;
+      --red:#ef4444;--red-dim:rgba(239,68,68,0.12);--red-glow:rgba(239,68,68,0.3);
+      --blue:#3b82f6;--blue-dim:rgba(59,130,246,0.12);--blue-glow:rgba(59,130,246,0.3);
+      --gold:#f59e0b;--gold-dim:rgba(245,158,11,0.12);
+      --text:#f8fafc;--text-muted:#64748b;
+      --border:rgba(255,255,255,0.07);
+      --green:#22c55e;--green-dim:rgba(34,197,94,0.12);
+    }
+    html,body{height:100%}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+    /* BG */
+    .bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+    .bg::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 0% 50%,rgba(239,68,68,0.07) 0%,transparent 55%),radial-gradient(ellipse 60% 50% at 100% 50%,rgba(59,130,246,0.07) 0%,transparent 55%),radial-gradient(ellipse 50% 30% at 50% 100%,rgba(245,158,11,0.06) 0%,transparent 50%)}
+    .vs-divider-bg{position:fixed;left:50%;top:0;bottom:0;width:2px;background:linear-gradient(180deg,transparent,rgba(245,158,11,0.3),rgba(245,158,11,0.5),rgba(245,158,11,0.3),transparent);transform:translateX(-50%);z-index:0;pointer-events:none}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeDown{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes popIn{from{opacity:0;transform:scale(0.85)}to{opacity:1;transform:scale(1)}}
+    @keyframes correctFlash{0%{background:rgba(34,197,94,0.15)}100%{background:transparent}}
+    @keyframes wrongFlash{0%{background:rgba(239,68,68,0.15)}100%{background:transparent}}
+    @keyframes vsShake{0%,100%{transform:translateX(-50%) scale(1)}25%{transform:translateX(-50%) scale(1.3)}50%{transform:translateX(-50%) scale(1)}75%{transform:translateX(-50%) scale(1.15)}}
+    @keyframes swordSlash{0%{transform:rotate(-45deg) scale(0);opacity:0}50%{transform:rotate(0deg) scale(1.2);opacity:1}100%{transform:rotate(45deg) scale(0);opacity:0}}
+    @keyframes timerUrgent{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+    @keyframes scoreUp{0%{transform:translateY(0);opacity:1}100%{transform:translateY(-36px);opacity:0}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    @keyframes victoryBurst{0%{transform:scale(0.8);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+    @keyframes glow-red{0%,100%{box-shadow:0 0 0 0 var(--red-glow)}50%{box-shadow:0 0 20px 6px var(--red-glow)}}
+    @keyframes glow-blue{0%,100%{box-shadow:0 0 0 0 var(--blue-glow)}50%{box-shadow:0 0 20px 6px var(--blue-glow)}}
+
+    /* HEADER */
+    header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid var(--border);background:rgba(8,12,20,0.94);backdrop-filter:blur(16px)}
+    .logo{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:0.08em;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px}
+    .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--red),var(--blue));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+    .logo span{color:var(--gold)}
+    .h-center{display:flex;align-items:center;gap:10px}
+    .game-badge{font-size:0.78rem;font-weight:600;color:var(--gold);background:var(--gold-dim);border:1px solid rgba(245,158,11,0.25);padding:5px 13px;border-radius:9px;letter-spacing:0.04em}
+    .room-badge{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--text-muted);letter-spacing:0.12em}
+    .quit-btn{font-size:0.78rem;color:var(--text-muted);background:none;border:1px solid var(--border);padding:7px 14px;border-radius:8px;cursor:pointer;text-decoration:none;transition:all 0.2s}
+    .quit-btn:hover{color:var(--red);border-color:rgba(239,68,68,0.3)}
+
+    /* LAYOUT DUEL */
+    .duel-wrap{position:relative;z-index:5;max-width:1100px;margin:0 auto;padding:24px 20px 60px}
+
+    /* ROUND INFO */
+    .round-info{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;animation:fadeDown 0.5s ease both}
+    .ri-label{font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted)}
+    .ri-round{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.08em;color:var(--text)}
+    .ri-track{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin:0 20px}
+    .ri-fill{height:100%;background:linear-gradient(90deg,var(--red),var(--gold),var(--blue));border-radius:2px;transition:width 0.6s ease}
+    .ri-timer{display:flex;flex-direction:column;align-items:center;gap:2px}
+    .timer-svg{transform:rotate(-90deg)}
+    .tc-bg{fill:none;stroke:var(--bg3);stroke-width:5}
+    .tc-fg{fill:none;stroke:var(--gold);stroke-width:5;stroke-linecap:round;stroke-dasharray:226;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear,stroke 0.3s}
+    .tc-fg.urgent{stroke:var(--red)}
+    .timer-val{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--text)}
+    .timer-val.urgent{color:var(--red);animation:timerUrgent 0.5s ease-in-out infinite}
+
+    /* DUEL ARENA */
+    .duel-arena{display:grid;grid-template-columns:1fr auto 1fr;gap:0;margin-bottom:20px;animation:fadeUp 0.5s 0.1s ease both}
+
+    /* PLAYER PANELS */
+    .player-panel{background:var(--bg2);border:1px solid var(--border);padding:20px 22px;position:relative;overflow:hidden}
+    .player-panel.left{border-radius:18px 0 0 18px;border-right:none}
+    .player-panel.right{border-radius:0 18px 18px 0;border-left:none}
+    .player-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+    .player-panel.left::before{background:linear-gradient(90deg,var(--red),transparent)}
+    .player-panel.right::before{background:linear-gradient(90deg,transparent,var(--blue))}
+    .player-panel.me-panel.left{border-color:rgba(239,68,68,0.3);animation:glow-red 3s ease-in-out infinite}
+    .player-panel.me-panel.right{border-color:rgba(59,130,246,0.3);animation:glow-blue 3s ease-in-out infinite}
+    .player-panel.correct-flash{animation:correctFlash 0.8s ease!important}
+    .player-panel.wrong-flash{animation:wrongFlash 0.8s ease!important}
+
+    /* Infos joueur */
+    .pp-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+    .player-panel.right .pp-header{flex-direction:row-reverse}
+    .pp-av{width:44px;height:44px;border-radius:12px;background:var(--bg3);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .player-panel.left .pp-av{border-color:rgba(239,68,68,0.3)}
+    .player-panel.right .pp-av{border-color:rgba(59,130,246,0.3)}
+    .pp-info{}
+    .player-panel.right .pp-info{text-align:right}
+    .pp-name{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.06em;color:var(--text)}
+    .pp-you{font-size:0.65rem;font-weight:600;color:var(--gold);background:var(--gold-dim);padding:1px 6px;border-radius:4px;margin-left:4px}
+    .pp-score{font-family:'Bebas Neue',sans-serif;font-size:2.8rem;line-height:1;letter-spacing:0.04em;color:var(--text);margin-bottom:4px}
+    .player-panel.left .pp-score{color:var(--red)}
+    .player-panel.right .pp-score{color:var(--blue)}
+    .pp-wins{font-size:0.72rem;color:var(--text-muted)}
+
+    /* Zone de saisie joueur */
+    .pp-input-zone{margin-top:14px}
+    .pp-input{
+      width:100%;padding:12px 14px;font-family:'Crimson Pro',serif;font-size:1rem;
+      border:1.5px solid var(--border);border-radius:11px;background:var(--bg3);
+      color:var(--text);outline:none;transition:all 0.2s;
+    }
+    .player-panel.left .pp-input:focus{border-color:var(--red);box-shadow:0 0 0 3px var(--red-dim)}
+    .player-panel.right .pp-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim)}
+    .pp-input:disabled{opacity:0.4;cursor:not-allowed}
+    .pp-input.answered-ok{border-color:var(--green)!important;background:var(--green-dim)!important;color:var(--green)!important}
+    .pp-input.answered-wrong{border-color:var(--red)!important;opacity:0.6}
+
+    .pp-submit{
+      width:100%;margin-top:8px;padding:11px;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;
+      border:none;cursor:pointer;border-radius:10px;transition:all 0.22s;letter-spacing:0.04em;
+    }
+    .player-panel.left .pp-submit{background:linear-gradient(135deg,var(--red),#b91c1c);color:white;box-shadow:0 4px 14px var(--red-glow)}
+    .player-panel.right .pp-submit{background:linear-gradient(135deg,var(--blue),#1d4ed8);color:white;box-shadow:0 4px 14px var(--blue-glow)}
+    .pp-submit:hover:not(:disabled){transform:translateY(-2px)}
+    .pp-submit:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+
+    /* Résultat round */
+    .pp-result{margin-top:10px;padding:10px 12px;border-radius:10px;font-size:0.8rem;display:none;animation:popIn 0.3s ease both}
+    .pp-result.visible{display:block}
+    .pp-result.correct{background:var(--green-dim);border:1px solid rgba(34,197,94,0.3);color:var(--green)}
+    .pp-result.wrong{background:var(--red-dim);border:1px solid rgba(239,68,68,0.25);color:var(--red)}
+    .pp-result.timeout{background:var(--gold-dim);border:1px solid rgba(245,158,11,0.25);color:var(--gold)}
+    .pp-result-pts{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:0.06em}
+
+    /* VS CENTER */
+    .vs-center{width:80px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:20px;position:relative;z-index:2}
+    .vs-badge{font-family:'Bebas Neue',sans-serif;font-size:2.4rem;letter-spacing:0.1em;color:var(--gold);line-height:1;text-shadow:0 0 20px rgba(245,158,11,0.5)}
+    .vs-sword{font-size:1.4rem;margin-top:6px;animation:pulse 2s ease-in-out infinite}
+    .vs-round-dots{display:flex;flex-direction:column;gap:5px;margin-top:16px}
+    .vs-dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--border);transition:all 0.3s}
+    .vs-dot.won-left{background:var(--red);border-color:var(--red)}
+    .vs-dot.won-right{background:var(--blue);border-color:var(--blue)}
+    .vs-dot.draw{background:var(--gold);border-color:var(--gold)}
+
+    /* VERSET CARD */
+    .verse-card{background:var(--bg2);border:1px solid rgba(245,158,11,0.2);border-radius:18px;padding:28px 32px;margin-bottom:16px;position:relative;overflow:hidden;animation:fadeUp 0.5s 0.15s ease both;text-align:center}
+    .verse-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--red),var(--gold),var(--blue))}
+    .vc-eyebrow{font-size:0.68rem;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+    .vc-text{font-family:'Crimson Pro',serif;font-size:1.4rem;font-style:italic;line-height:1.6;color:var(--text);margin-bottom:10px}
+    .vc-blank{display:inline-block;min-width:120px;border-bottom:3px solid var(--gold);margin:0 6px;vertical-align:bottom;text-align:center;font-style:normal;font-weight:600;color:var(--gold);letter-spacing:0.08em;padding:0 8px}
+    .vc-ref{font-size:0.78rem;color:var(--text-muted);font-style:italic}
+
+    /* BOTTOM PANEL */
+    .bottom-panel{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;animation:fadeUp 0.5s 0.2s ease both}
+    .bp-status{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:0.06em;color:var(--text)}
+    .bp-sub{font-size:0.78rem;color:var(--text-muted);margin-top:2px}
+    .btn-next-d{padding:11px 26px;font-family:'DM Sans',sans-serif;font-size:0.87rem;font-weight:600;border:none;cursor:pointer;border-radius:10px;background:linear-gradient(135deg,var(--gold),#d97706);color:#0a0a0a;box-shadow:0 3px 12px rgba(245,158,11,0.3);transition:all 0.22s}
+    .btn-next-d:hover:not(:disabled){transform:translateY(-2px)}
+    .btn-next-d:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+
+    /* WAITING SCREEN */
+    .waiting-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;gap:20px;position:relative;z-index:5}
+    .ws-icon{font-size:3rem;animation:pulse 1.8s ease-in-out infinite}
+    .ws-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--text)}
+    .ws-sub{font-size:0.85rem;color:var(--text-muted)}
+    .ws-waiting-for{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--bg2);border:1px solid var(--border);border-radius:14px}
+    .ws-av{font-size:2rem}
+    .ws-info{}
+    .ws-label{font-size:0.7rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px}
+    .ws-player-name{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--gold)}
+
+    /* Spectateurs */
+    .spectators-bar{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;animation:fadeDown 0.5s ease both}
+    .sp-label{font-size:0.7rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted)}
+    .sp-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:0.78rem;color:var(--text-muted)}
+
+    /* PODIUM */
+    .pod-overlay{position:fixed;inset:0;z-index:200;background:rgba(8,12,20,0.98);backdrop-filter:blur(16px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0;pointer-events:none;transition:opacity 0.5s;padding:24px}
+    .pod-overlay.active{opacity:1;pointer-events:all}
+    .pod-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,6vw,3.5rem);letter-spacing:0.1em;color:var(--text);text-align:center}
+    .pod-title span{color:var(--gold)}
+    .pod-verse{font-family:'Crimson Pro',serif;font-size:0.95rem;font-style:italic;color:var(--text-muted);text-align:center;max-width:400px}
+    .pod-duel{display:flex;gap:20px;align-items:center;justify-content:center;flex-wrap:wrap}
+    .pod-fighter{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px 20px;text-align:center;min-width:160px;animation:victoryBurst 0.6s ease both}
+    .pod-fighter.winner{border-color:rgba(245,158,11,0.5);box-shadow:0 0 30px rgba(245,158,11,0.15)}
+    .pod-rank{font-size:2rem;margin-bottom:8px}
+    .pod-av{font-size:2.4rem;margin-bottom:8px}
+    .pod-name{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:0.08em;color:var(--text);margin-bottom:4px}
+    .pod-score{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.06em}
+    .pod-fighter.winner .pod-score{color:var(--gold)}
+    .pod-fighter:not(.winner) .pod-score{color:var(--text-muted)}
+    .pod-wins{font-size:0.72rem;color:var(--text-muted);margin-top:4px}
+    .pod-vs{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--text-muted)}
+    .pod-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+    .btn-pod{padding:12px 26px;font-family:'DM Sans',sans-serif;font-size:0.87rem;font-weight:600;border:none;cursor:pointer;border-radius:10px;background:linear-gradient(135deg,var(--gold),#d97706);color:#0a0a0a;box-shadow:0 4px 14px rgba(245,158,11,0.3);transition:all 0.22s;text-decoration:none;display:inline-flex;align-items:center}
+    .btn-pod:hover{transform:translateY(-2px)}
+    .btn-pod.out{background:transparent;border:1px solid var(--border);color:var(--text-muted);box-shadow:none}
+    .btn-pod.out:hover{border-color:var(--gold);color:var(--gold)}
+
+    .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--bg2);color:var(--text);border:1px solid var(--border);padding:9px 18px;border-radius:9px;font-size:0.82rem;font-weight:500;box-shadow:0 6px 24px rgba(0,0,0,0.5);z-index:300;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .toast.ok{border-color:rgba(34,197,94,0.4);color:var(--green)}
+    .toast.err{border-color:rgba(239,68,68,0.35);color:var(--red)}
+    .toast.gold{border-color:rgba(245,158,11,0.4);color:var(--gold)}
+
+    @media(max-width:700px){.duel-arena{grid-template-columns:1fr;gap:8px}.vs-center{flex-direction:row;width:100%;padding:8px;justify-content:center;gap:12px}.vs-round-dots{flex-direction:row}.vs-divider-bg{display:none}header{padding:12px 16px}.h-center{display:none}}
+  </style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="vs-divider-bg"></div>
+
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">⚔️</div>Bible<span>Play</span></a>
+  <div class="h-center">
+    <span class="game-badge">⚔️ Duel de Versets</span>
+    <span class="room-badge" id="h-room">—</span>
+  </div>
+  <a class="quit-btn" href="index.html" onclick="return quitGame()">✕ Quitter</a>
+</header>
+
+<!-- Waiting screen -->
+<div class="waiting-screen" id="waiting-screen">
+  <div class="ws-icon">⚔️</div>
+  <div class="ws-title">Duel de Versets</div>
+  <div class="ws-sub">Chargement de l'arène…</div>
+</div>
+
+<!-- Game screen -->
+<div style="display:none" id="game-screen">
+  <div class="duel-wrap">
+
+    <!-- Spectateurs (si + de 2 joueurs) -->
+    <div class="spectators-bar" id="spectators-bar" style="display:none">
+      <span class="sp-label">👀 Spectateurs</span>
+      <div id="spectators-list"></div>
+    </div>
+
+    <!-- Round info -->
+    <div class="round-info">
+      <div>
+        <div class="ri-label">Manche</div>
+        <div class="ri-round" id="ri-round">1 / 10</div>
+      </div>
+      <div class="ri-track"><div class="ri-fill" id="ri-fill" style="width:0%"></div></div>
+      <div class="ri-timer">
+        <svg class="timer-svg" width="52" height="52" viewBox="0 0 76 76">
+          <circle class="tc-bg" cx="38" cy="38" r="36"/>
+          <circle class="tc-fg" id="timer-circle" cx="38" cy="38" r="36"/>
+        </svg>
+        <div class="timer-val" id="timer-val">—</div>
+      </div>
+    </div>
+
+    <!-- Verset à compléter -->
+    <div class="verse-card" id="verse-card">
+      <div class="vc-eyebrow">✦ Complète ce verset ✦</div>
+      <div class="vc-text" id="vc-text">Chargement…</div>
+      <div class="vc-ref" id="vc-ref">—</div>
+    </div>
+
+    <!-- ARÈNE DUEL -->
+    <div class="duel-arena" id="duel-arena">
+
+      <!-- Joueur GAUCHE (rouge) -->
+      <div class="player-panel left" id="panel-left">
+        <div class="pp-header">
+          <div class="pp-av" id="av-left">🙏</div>
+          <div class="pp-info">
+            <div class="pp-name" id="name-left">—</div>
+            <div class="pp-score" id="score-left">0</div>
+            <div class="pp-wins" id="wins-left">0 manches gagnées</div>
+          </div>
+        </div>
+        <div class="pp-input-zone">
+          <input class="pp-input" id="input-left" type="text" placeholder="Ta réponse…" maxlength="80" disabled/>
+          <button class="pp-submit" id="submit-left" onclick="submitAnswer('left')" disabled>⚔️ Frapper</button>
+          <div class="pp-result" id="result-left"></div>
+        </div>
+      </div>
+
+      <!-- Centre VS -->
+      <div class="vs-center">
+        <div class="vs-badge">VS</div>
+        <div class="vs-sword">⚔️</div>
+        <div class="vs-round-dots" id="vs-dots"></div>
+      </div>
+
+      <!-- Joueur DROITE (bleu) -->
+      <div class="player-panel right" id="panel-right">
+        <div class="pp-header">
+          <div class="pp-av" id="av-right">🙏</div>
+          <div class="pp-info">
+            <div class="pp-name" id="name-right">—</div>
+            <div class="pp-score" id="score-right">0</div>
+            <div class="pp-wins" id="wins-right">0 manches gagnées</div>
+          </div>
+        </div>
+        <div class="pp-input-zone">
+          <input class="pp-input" id="input-right" type="text" placeholder="Ta réponse…" maxlength="80" disabled/>
+          <button class="pp-submit" id="submit-right" onclick="submitAnswer('right')" disabled>⚔️ Frapper</button>
+          <div class="pp-result" id="result-right"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom panel -->
+    <div class="bottom-panel" id="bottom-panel">
+      <div>
+        <div class="bp-status" id="bp-status">En attente…</div>
+        <div class="bp-sub" id="bp-sub">—</div>
+      </div>
+      <div id="bp-actions"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Podium -->
+<div class="pod-overlay" id="pod-overlay">
+  <div class="pod-title">⚔️ FIN DU <span>DUEL</span> ⚔️</div>
+  <div class="pod-verse">"L'un fait fuir mille, et deux font fuir dix mille." — Deutéronome 32:30</div>
+  <div class="pod-duel" id="pod-duel"></div>
+  <div class="pod-actions">
+    <button class="btn-pod" onclick="replayGame()">↺ Rejouer</button>
+    <a class="btn-pod out" href="lobby.html" id="back-btn">← Lobby</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const{createClient}=supabase;
+const db=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const params=new URLSearchParams(window.location.search);
+const roomCode=params.get('code')||'';
+let playerData={};
+try{playerData=JSON.parse(sessionStorage.getItem('bp_player')||'{}');}catch(e){}
+const mySessionId=playerData.sessionId||sessionStorage.getItem('bp_session')||'';
+const isHost=playerData.role==='host';
+document.getElementById('h-room').textContent=roomCode;
+const backBtn=document.getElementById('back-btn');
+if(backBtn)backBtn.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+
+// ── 120 VERSETS À COMPLÉTER ──
+const DUELS=[
+  {text:'Car Dieu a tant aimé le {monde} qu\'il a donné son Fils {unique}.',ref:'Jean 3:16',answer:'monde unique',blanks:['monde','unique']},
+  {text:'Je puis {tout} par celui qui me fortifie.',ref:'Philippiens 4:13',answer:'tout',blanks:['tout']},
+  {text:'L\'Éternel est mon {berger} : je ne manquerai de rien.',ref:'Psaumes 23:1',answer:'berger',blanks:['berger']},
+  {text:'Ta {parole} est une lampe à mes pieds.',ref:'Psaumes 119:105',answer:'parole',blanks:['parole']},
+  {text:'Je suis le {chemin}, la vérité et la vie.',ref:'Jean 14:6',answer:'chemin',blanks:['chemin']},
+  {text:'Toutes choses {concourent} au bien de ceux qui aiment Dieu.',ref:'Romains 8:28',answer:'concourent',blanks:['concourent']},
+  {text:'Projets de {paix} et non de malheur.',ref:'Jérémie 29:11',answer:'paix',blanks:['paix']},
+  {text:'Confie-toi en l\'Éternel de tout ton {cœur}.',ref:'Proverbes 3:5',answer:'cœur',blanks:['cœur']},
+  {text:'Cherchez premièrement le {royaume} et la justice de Dieu.',ref:'Matthieu 6:33',answer:'royaume',blanks:['royaume']},
+  {text:'Ne {crains} rien, car je suis avec toi.',ref:'Ésaïe 41:10',answer:'crains',blanks:['crains']},
+  {text:'Un esprit de {force}, d\'amour et de sagesse.',ref:'2 Timothée 1:7',answer:'force',blanks:['force']},
+  {text:'Venez à moi, vous tous qui êtes {fatigués}.',ref:'Matthieu 11:28',answer:'fatigués',blanks:['fatigués']},
+  {text:'Dieu est pour nous un {refuge} et un appui.',ref:'Psaumes 46:1',answer:'refuge',blanks:['refuge']},
+  {text:'Je suis la {résurrection} et la vie.',ref:'Jean 11:25',answer:'résurrection',blanks:['résurrection']},
+  {text:'Au {commencement} était la Parole.',ref:'Jean 1:1',answer:'commencement',blanks:['commencement']},
+  {text:'La {foi} est une ferme assurance des choses espérées.',ref:'Hébreux 11:1',answer:'foi',blanks:['foi']},
+  {text:'Je me tiens à la {porte} et je frappe.',ref:'Apocalypse 3:20',answer:'porte',blanks:['porte']},
+  {text:'L\'Éternel est ma {lumière} et mon salut.',ref:'Psaumes 27:1',answer:'lumière',blanks:['lumière']},
+  {text:'Ils prennent le vol comme les {aigles}.',ref:'Ésaïe 40:31',answer:'aigles',blanks:['aigles']},
+  {text:'Ne vous {inquiétez} de rien, mais priez en tout.',ref:'Philippiens 4:6',answer:'inquiétez',blanks:['inquiétez']},
+  {text:'Dieu est {amour}.',ref:'1 Jean 4:8',answer:'amour',blanks:['amour']},
+  {text:'Heureux les artisans de {paix}.',ref:'Matthieu 5:9',answer:'paix',blanks:['paix']},
+  {text:'La vérité vous {affranchira}.',ref:'Jean 8:32',answer:'affranchira',blanks:['affranchira']},
+  {text:'Je suis la {vigne}, vous êtes les sarments.',ref:'Jean 15:5',answer:'vigne',blanks:['vigne']},
+  {text:'Soyez {transformés} par le renouvellement de l\'intelligence.',ref:'Romains 12:2',answer:'transformés',blanks:['transformés']},
+  {text:'Remettez-vous-en à lui, car il prend {soin} de vous.',ref:'1 Pierre 5:7',answer:'soin',blanks:['soin']},
+  {text:'Jésus-Christ est le même {hier}, aujourd\'hui et éternellement.',ref:'Hébreux 13:8',answer:'hier',blanks:['hier']},
+  {text:'Que votre {lumière} luise devant les hommes.',ref:'Matthieu 5:16',answer:'lumière',blanks:['lumière']},
+  {text:'Aimez-vous les uns les {autres}.',ref:'Jean 13:34',answer:'autres',blanks:['autres']},
+  {text:'C\'est par {grâce} que vous êtes sauvés, par le moyen de la foi.',ref:'Éphésiens 2:8',answer:'grâce',blanks:['grâce']},
+  {text:'Je vous laisse la {paix}, je vous donne ma paix.',ref:'Jean 14:27',answer:'paix',blanks:['paix']},
+  {text:'Priez sans {cesse}.',ref:'1 Thessaloniciens 5:17',answer:'cesse',blanks:['cesse']},
+  {text:'Sanctifiez-les par ta {vérité}.',ref:'Jean 17:17',answer:'vérité',blanks:['vérité']},
+  {text:'Le Seigneur {connaît} ceux qui lui appartiennent.',ref:'2 Timothée 2:19',answer:'connaît',blanks:['connaît']},
+  {text:'Approchez-vous de Dieu et il s\'approchera de {vous}.',ref:'Jacques 4:8',answer:'vous',blanks:['vous']},
+  {text:'Fortifiez-vous dans le {Seigneur} et dans sa grande puissance.',ref:'Éphésiens 6:10',answer:'Seigneur',blanks:['Seigneur']},
+  {text:'Que la {paix} de Dieu garde vos cœurs et vos pensées.',ref:'Philippiens 4:7',answer:'paix',blanks:['paix']},
+  {text:'Heureux ceux qui {pleurent}, car ils seront consolés.',ref:'Matthieu 5:4',answer:'pleurent',blanks:['pleurent']},
+  {text:'L\'Éternel te {bénisse} et te garde.',ref:'Nombres 6:24',answer:'bénisse',blanks:['bénisse']},
+  {text:'Revêtez-vous de toutes les {armes} de Dieu.',ref:'Éphésiens 6:11',answer:'armes',blanks:['armes']},
+  {text:'Le fruit de l\'{Esprit}, c\'est l\'amour, la joie, la paix.',ref:'Galates 5:22',answer:'Esprit',blanks:['Esprit']},
+  {text:'Si Dieu est pour nous, qui sera contre {nous} ?',ref:'Romains 8:31',answer:'nous',blanks:['nous']},
+  {text:'Car le {salaire} du péché, c\'est la mort.',ref:'Romains 6:23',answer:'salaire',blanks:['salaire']},
+  {text:'Que toutes vos choses se fassent avec {charité}.',ref:'1 Corinthiens 16:14',answer:'charité',blanks:['charité']},
+  {text:'Courez de manière à {remporter} le prix.',ref:'1 Corinthiens 9:24',answer:'remporter',blanks:['remporter']},
+  {text:'Je garde tes {préceptes} dans mon cœur.',ref:'Psaumes 119:11',answer:'préceptes',blanks:['préceptes']},
+  {text:'Le {juste} vivra par la foi.',ref:'Romains 1:17',answer:'juste',blanks:['juste']},
+  {text:'L\'Éternel est proche de ceux qui ont le {cœur} brisé.',ref:'Psaumes 34:18',answer:'cœur',blanks:['cœur']},
+  {text:'Que la parole de {Christ} habite parmi vous abondamment.',ref:'Colossiens 3:16',answer:'Christ',blanks:['Christ']},
+  {text:'Je peux faire {toutes} choses par celui qui me fortifie.',ref:'Philippiens 4:13',answer:'toutes',blanks:['toutes']},
+  {text:'Dieu {résiste} aux orgueilleux, mais il accorde sa grâce aux humbles.',ref:'Jacques 4:6',answer:'résiste',blanks:['résiste']},
+  {text:'Celui qui {demeure} en moi porte beaucoup de fruit.',ref:'Jean 15:5',answer:'demeure',blanks:['demeure']},
+  {text:'Tu aimeras ton {prochain} comme toi-même.',ref:'Matthieu 22:39',answer:'prochain',blanks:['prochain']},
+  {text:'Jésus {pleura}.',ref:'Jean 11:35',answer:'pleura',blanks:['pleura']},
+  {text:'Voici, je fais toutes choses {nouvelles}.',ref:'Apocalypse 21:5',answer:'nouvelles',blanks:['nouvelles']},
+  {text:'L\'amour ne cherche pas son {intérêt}.',ref:'1 Corinthiens 13:5',answer:'intérêt',blanks:['intérêt']},
+  {text:'Dieu a créé les cieux et la {terre}.',ref:'Genèse 1:1',answer:'terre',blanks:['terre']},
+  {text:'L\'homme ne vivra pas de {pain} seulement.',ref:'Matthieu 4:4',answer:'pain',blanks:['pain']},
+  {text:'Car là où est ton {trésor}, là aussi sera ton cœur.',ref:'Matthieu 6:21',answer:'trésor',blanks:['trésor']},
+  {text:'Demandez et l\'on vous {donnera}.',ref:'Matthieu 7:7',answer:'donnera',blanks:['donnera']},
+  {text:'Heureux les {purs} en cœur, car ils verront Dieu.',ref:'Matthieu 5:8',answer:'purs',blanks:['purs']},
+  {text:'Car mon {joug} est doux et mon fardeau léger.',ref:'Matthieu 11:30',answer:'joug',blanks:['joug']},
+  {text:'Dieu {aime} celui qui donne avec joie.',ref:'2 Corinthiens 9:7',answer:'aime',blanks:['aime']},
+  {text:'Là où il y a de l\'{envie} et de la discorde, il y a du désordre.',ref:'Jacques 3:16',answer:'envie',blanks:['envie']},
+  {text:'Le {Seigneur} est ma part, dit mon âme.',ref:'Lamentations 3:24',answer:'Seigneur',blanks:['Seigneur']},
+  {text:'Soyez {sobres} et veillez. Votre adversaire est le diable.',ref:'1 Pierre 5:8',answer:'sobres',blanks:['sobres']},
+  {text:'Je suis le {pain} de vie.',ref:'Jean 6:35',answer:'pain',blanks:['pain']},
+  {text:'Celui qui {croit} en lui ne soit pas condamné.',ref:'Jean 3:18',answer:'croit',blanks:['croit']},
+  {text:'Mon {Dieu} pourvoira à tous vos besoins.',ref:'Philippiens 4:19',answer:'Dieu',blanks:['Dieu']},
+  {text:'Rendez grâces en toutes {choses}.',ref:'1 Thessaloniciens 5:18',answer:'choses',blanks:['choses']},
+  {text:'Car là où deux ou trois sont {assemblés} en mon nom, je suis au milieu d\'eux.',ref:'Matthieu 18:20',answer:'assemblés',blanks:['assemblés']},
+  {text:'Heureux l\'homme qui {espère} en l\'Éternel.',ref:'Psaumes 40:5',answer:'espère',blanks:['espère']},
+  {text:'L\'{amour} du prochain ne fait point de mal.',ref:'Romains 13:10',answer:'amour',blanks:['amour']},
+  {text:'Car je n\'ai pas honte de l\'{Évangile} de Christ.',ref:'Romains 1:16',answer:'Évangile',blanks:['Évangile']},
+  {text:'Dieu vit tout ce qu\'il avait fait et voilà, cela était très {bon}.',ref:'Genèse 1:31',answer:'bon',blanks:['bon']},
+  {text:'Ne rends pas le {mal} pour le mal.',ref:'1 Pierre 3:9',answer:'mal',blanks:['mal']},
+  {text:'Que la douceur soit connue de tous les {hommes}.',ref:'Philippiens 4:5',answer:'hommes',blanks:['hommes']},
+  {text:'Ton règne vient, ta {volonté} soit faite.',ref:'Matthieu 6:10',answer:'volonté',blanks:['volonté']},
+  {text:'La charité ne {périt} jamais.',ref:'1 Corinthiens 13:8',answer:'périt',blanks:['périt']},
+  {text:'Tout ce que vous faites en parole ou en {œuvre}, faites-le au nom du Seigneur Jésus.',ref:'Colossiens 3:17',answer:'œuvre',blanks:['œuvre']},
+  {text:'Revêtez-vous de la {compassion}.',ref:'Colossiens 3:12',answer:'compassion',blanks:['compassion']},
+  {text:'Je suis la {lumière} du monde.',ref:'Jean 8:12',answer:'lumière',blanks:['lumière']},
+  {text:'Restez fermes dans la {foi}.',ref:'1 Corinthiens 16:13',answer:'foi',blanks:['foi']},
+  {text:'Dieu donne la {sagesse} à ceux qui la demandent.',ref:'Jacques 1:5',answer:'sagesse',blanks:['sagesse']},
+  {text:'Nul ne peut servir deux {maîtres}.',ref:'Matthieu 6:24',answer:'maîtres',blanks:['maîtres']},
+  {text:'Soyez {miséricordieux} comme votre Père est miséricordieux.',ref:'Luc 6:36',answer:'miséricordieux',blanks:['miséricordieux']},
+  {text:'Celui qui {perd} sa vie à cause de moi la retrouvera.',ref:'Matthieu 10:39',answer:'perd',blanks:['perd']},
+  {text:'Heureux les {doux}, car ils hériteront la terre.',ref:'Matthieu 5:5',answer:'doux',blanks:['doux']},
+  {text:'La prière fervente du juste a une grande {efficace}.',ref:'Jacques 5:16',answer:'efficace',blanks:['efficace']},
+  {text:'Tout est {possible} à celui qui croit.',ref:'Marc 9:23',answer:'possible',blanks:['possible']},
+  {text:'Le {cœur} content est un bon remède.',ref:'Proverbes 17:22',answer:'cœur',blanks:['cœur']},
+  {text:'Les voies de l\'Éternel sont toutes bonté et {vérité}.',ref:'Psaumes 25:10',answer:'vérité',blanks:['vérité']},
+  {text:'N\'abandonnons pas notre {assemblée}.',ref:'Hébreux 10:25',answer:'assemblée',blanks:['assemblée']},
+  {text:'Fortifiez vos {mains} languissantes.',ref:'Hébreux 12:12',answer:'mains',blanks:['mains']},
+  {text:'Là où est ton cœur, là est ton {trésor}.',ref:'Matthieu 6:21',answer:'trésor',blanks:['trésor']},
+  {text:'Car sans moi vous ne pouvez rien {faire}.',ref:'Jean 15:5',answer:'faire',blanks:['faire']},
+  {text:'Il y a plus de {bonheur} à donner qu\'à recevoir.',ref:'Actes 20:35',answer:'bonheur',blanks:['bonheur']},
+  {text:'Que ta foi t\'a {sauvé}, va en paix.',ref:'Luc 7:50',answer:'sauvé',blanks:['sauvé']},
+  {text:'La prière de la foi {sauvera} le malade.',ref:'Jacques 5:15',answer:'sauvera',blanks:['sauvera']},
+  {text:'Bienheureux ceux qui ont faim et soif de la {justice}.',ref:'Matthieu 5:6',answer:'justice',blanks:['justice']},
+  {text:'Voici je me tiens à la porte et je {frappe}.',ref:'Apocalypse 3:20',answer:'frappe',blanks:['frappe']},
+  {text:'C\'est lui qui nous a {aimés} le premier.',ref:'1 Jean 4:19',answer:'aimés',blanks:['aimés']},
+  {text:'Que vos {paroles} soient toujours agréables.',ref:'Colossiens 4:6',answer:'paroles',blanks:['paroles']},
+  {text:'Toute {Écriture} est inspirée de Dieu.',ref:'2 Timothée 3:16',answer:'Écriture',blanks:['Écriture']},
+  {text:'Ma {grâce} te suffit.',ref:'2 Corinthiens 12:9',answer:'grâce',blanks:['grâce']},
+  {text:'Combien de fois faut-il {pardonner} ? Jusqu\'à soixante-dix fois sept fois.',ref:'Matthieu 18:22',answer:'pardonner',blanks:['pardonner']},
+  {text:'Sois {fidèle} jusqu\'à la mort et je te donnerai la couronne de vie.',ref:'Apocalypse 2:10',answer:'fidèle',blanks:['fidèle']},
+  {text:'Ce que vous voulez que les hommes vous fassent, faites-le de même pour {eux}.',ref:'Matthieu 7:12',answer:'eux',blanks:['eux']},
+  {text:'Notre {père} qui es aux cieux.',ref:'Matthieu 6:9',answer:'père',blanks:['père']},
+  {text:'L\'Éternel {règne}, réjouissez-vous.',ref:'Psaumes 97:1',answer:'règne',blanks:['règne']},
+  {text:'Même si je marche dans la vallée de l\'ombre de la {mort}.',ref:'Psaumes 23:4',answer:'mort',blanks:['mort']},
+  {text:'Il a dit : C\'est {accompli}.',ref:'Jean 19:30',answer:'accompli',blanks:['accompli']},
+  {text:'La loi de l\'Éternel est parfaite, elle {restaure} l\'âme.',ref:'Psaumes 19:7',answer:'restaure',blanks:['restaure']},
+  {text:'Louez l\'Éternel car il est {bon}.',ref:'Psaumes 136:1',answer:'bon',blanks:['bon']},
+  {text:'Je {frappe} à la porte, ouvre-moi.',ref:'Cantique 5:2',answer:'frappe',blanks:['frappe']},
+  {text:'Voici, je suis avec vous tous les jours jusqu\'à la fin du {monde}.',ref:'Matthieu 28:20',answer:'monde',blanks:['monde']},
+];
+
+const TOTAL_ROUNDS=10;
+const ROUND_TIME=25;
+const PTS_FIRST=120;
+const PTS_SECOND=60;
+const PTS_SPEED=30;
+
+// ── État ──
+let players=[],scores={},wins={};
+let fighter1=null,fighter2=null,spectators=[];
+let currentRound=0,questions=[];
+let timerVal=0,timerInt=null;
+let submissions={};
+let roundResults=[];
+let gameChannel=null;
+let mySide=null; // 'left' | 'right' | 'spectator'
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+function normalize(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]/g,'');}
+
+async function init(){
+  if(!roomCode){window.location.href='index.html';return;}
+  const{data:pData}=await db.from('players').select('*').eq('room_code',roomCode).order('joined_at');
+  players=pData||[];
+  players.forEach(p=>{scores[p.session_id]=0;wins[p.session_id]=0;});
+
+  // Assigner les 2 combattants
+  fighter1=players[0]||null;
+  fighter2=players[1]||null;
+  spectators=players.slice(2);
+
+  // Déterminer mon rôle
+  if(fighter1?.session_id===mySessionId) mySide='left';
+  else if(fighter2?.session_id===mySessionId) mySide='right';
+  else mySide='spectator';
+
+  questions=shuffle([...DUELS]).slice(0,TOTAL_ROUNDS);
+
+  gameChannel=db.channel(`duel-${roomCode}`)
+    .on('broadcast',{event:'answer'},({payload})=>{if(payload.session_id!==mySessionId)receiveAnswer(payload);})
+    .on('broadcast',{event:'next_round'},({payload})=>{if(!isHost)loadRound(payload.index);})
+    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores,payload.wins))
+    .subscribe();
+
+  document.getElementById('waiting-screen').style.display='none';
+  document.getElementById('game-screen').style.display='block';
+
+  setupUI();
+  loadRound(0);
+}
+
+function setupUI(){
+  // Fighters info
+  document.getElementById('av-left').textContent=fighter1?.avatar||'🙏';
+  document.getElementById('name-left').textContent=(fighter1?.pseudo||'—')+(fighter1?.session_id===mySessionId?' (Toi)':'');
+  document.getElementById('av-right').textContent=fighter2?.avatar||'🙏';
+  document.getElementById('name-right').textContent=(fighter2?.pseudo||'—')+(fighter2?.session_id===mySessionId?' (Toi)':'');
+
+  // Me panel
+  if(mySide==='left') document.getElementById('panel-left').classList.add('me-panel');
+  if(mySide==='right') document.getElementById('panel-right').classList.add('me-panel');
+
+  // Spectateurs
+  if(spectators.length>0){
+    document.getElementById('spectators-bar').style.display='flex';
+    document.getElementById('spectators-list').innerHTML=spectators.map(p=>`<div class="sp-chip">${p.avatar} ${p.pseudo}</div>`).join('');
+  }
+
+  // VS dots (un par round)
+  const dots=document.getElementById('vs-dots');
+  dots.innerHTML=Array.from({length:TOTAL_ROUNDS},(_,i)=>`<div class="vs-dot" id="dot-${i}"></div>`).join('');
+}
+
+function loadRound(index){
+  currentRound=index;
+  submissions={};
+  const q=questions[index];
+
+  // Round bar
+  document.getElementById('ri-round').textContent=`${index+1} / ${TOTAL_ROUNDS}`;
+  document.getElementById('ri-fill').style.width=`${((index+1)/TOTAL_ROUNDS)*100}%`;
+
+  // Verset
+  const displayed=q.text.replace(/\{(\w+)\}/g,'<span class="vc-blank">_ _ _</span>');
+  document.getElementById('vc-text').innerHTML=displayed;
+  document.getElementById('vc-ref').textContent=q.ref;
+
+  // Reset inputs
+  ['left','right'].forEach(side=>{
+    const inp=document.getElementById(`input-${side}`);
+    const sub=document.getElementById(`submit-${side}`);
+    const res=document.getElementById(`result-${side}`);
+    inp.value='';inp.disabled=true;inp.className='pp-input';
+    sub.disabled=true;
+    res.className='pp-result';res.textContent='';
+  });
+
+  // Activer mon input si je suis combattant
+  if(mySide!=='spectator'){
+    const inp=document.getElementById(`input-${mySide}`);
+    const sub=document.getElementById(`submit-${mySide}`);
+    inp.disabled=false;
+    sub.disabled=false;
+    inp.focus();
+    inp.onkeydown=e=>{if(e.key==='Enter')submitAnswer(mySide);};
+  }
+
+  updateBottomPanel();
+  updateScoreDisplay();
+  startTimer();
+}
+
+function submitAnswer(side){
+  if(submissions[side])return;
+  const inp=document.getElementById(`input-${side}`);
+  const answer=inp.value.trim();
+  if(!answer){showToast('⚠️ Écris ta réponse !','err');return;}
+
+  const q=questions[currentRound];
+  const correct=q.blanks.some(b=>normalize(answer).includes(normalize(b))||normalize(b).includes(normalize(answer)));
+  const pts=!submissions.left&&!submissions.right?PTS_FIRST+(timerVal>15?PTS_SPEED:0):PTS_SECOND;
+  const finalPts=correct?pts:0;
+
+  submissions[side]={answer,correct,pts:finalPts,time:timerVal,session_id:side==='left'?fighter1?.session_id:fighter2?.session_id};
+  scores[submissions[side].session_id]=(scores[submissions[side].session_id]||0)+finalPts;
+
+  // Désactiver
+  inp.disabled=true;
+  document.getElementById(`submit-${side}`).disabled=true;
+
+  gameChannel.send({type:'broadcast',event:'answer',payload:{side,answer,correct,pts:finalPts,session_id:submissions[side].session_id,round:currentRound}});
+  showAnswerResult(side,correct,finalPts,q);
+  updateScoreDisplay();
+
+  if(Object.keys(submissions).length>=2||bothAnswered()) evalRound();
+}
+
+function receiveAnswer(payload){
+  const{side,answer,correct,pts,session_id}=payload;
+  submissions[side]={answer,correct,pts,session_id};
+  scores[session_id]=(scores[session_id]||0)+pts;
+  // Afficher la réponse de l'adversaire
+  const inp=document.getElementById(`input-${side}`);
+  if(inp){inp.value=answer;inp.disabled=true;inp.className='pp-input '+(correct?'answered-ok':'answered-wrong');}
+  document.getElementById(`submit-${side}`).disabled=true;
+  showAnswerResult(side,correct,pts,questions[currentRound]);
+  updateScoreDisplay();
+  if(Object.keys(submissions).length>=2) evalRound();
+}
+
+function showAnswerResult(side,correct,pts,q){
+  const res=document.getElementById(`result-${side}`);
+  const inp=document.getElementById(`input-${side}`);
+  res.className='pp-result visible '+(correct?'correct':'wrong');
+  res.innerHTML=`<div class="pp-result-pts">${correct?`+${pts} pts ✓`:'0 pt ✗'}</div>
+    <div style="font-size:0.75rem;margin-top:3px">${correct?'Bonne réponse !':'Réponse : '+q.blanks.join(', ')}</div>`;
+  if(inp){inp.className='pp-input '+(correct?'answered-ok':'answered-wrong');}
+  const panel=document.getElementById(`panel-${side}`);
+  panel.classList.add(correct?'correct-flash':'wrong-flash');
+  setTimeout(()=>panel.classList.remove('correct-flash','wrong-flash'),800);
+}
+
+function bothAnswered(){return submissions.left&&submissions.right;}
+
+function evalRound(){
+  stopTimer();
+  // Déterminer le gagnant de la manche
+  const lPts=submissions.left?.pts||0;
+  const rPts=submissions.right?.pts||0;
+  const dot=document.getElementById(`dot-${currentRound}`);
+  if(lPts>rPts){wins[fighter1.session_id]=(wins[fighter1.session_id]||0)+1;if(dot)dot.classList.add('won-left');}
+  else if(rPts>lPts){wins[fighter2.session_id]=(wins[fighter2.session_id]||0)+1;if(dot)dot.classList.add('won-right');}
+  else{if(dot)dot.classList.add('draw');}
+  updateScoreDisplay();
+  updateBottomPanel(true);
+}
+
+function nextRound(){
+  const next=currentRound+1;
+  if(next>=TOTAL_ROUNDS){
+    if(isHost){
+      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,wins}});
+      db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+    }
+    setTimeout(()=>showPodium(scores,wins),400);
+    return;
+  }
+  if(isHost) gameChannel.send({type:'broadcast',event:'next_round',payload:{index:next}});
+  loadRound(next);
+}
+
+function updateScoreDisplay(){
+  document.getElementById('score-left').textContent=scores[fighter1?.session_id]||0;
+  document.getElementById('score-right').textContent=scores[fighter2?.session_id]||0;
+  document.getElementById('wins-left').textContent=`${wins[fighter1?.session_id]||0} manche${(wins[fighter1?.session_id]||0)!==1?'s':''} gagnée${(wins[fighter1?.session_id]||0)!==1?'s':''}`;
+  document.getElementById('wins-right').textContent=`${wins[fighter2?.session_id]||0} manche${(wins[fighter2?.session_id]||0)!==1?'s':''} gagnée${(wins[fighter2?.session_id]||0)!==1?'s':''}`;
+}
+
+function updateBottomPanel(roundDone=false){
+  const statusEl=document.getElementById('bp-status');
+  const subEl=document.getElementById('bp-sub');
+  const actEl=document.getElementById('bp-actions');
+  const answered=Object.keys(submissions).length;
+
+  if(!roundDone){
+    statusEl.textContent=answered===0?'Le duel commence !':answered===1?'Un joueur a répondu…':'En attente…';
+    subEl.textContent='Trouve le mot manquant du verset — le plus rapide gagne plus de points !';
+    actEl.innerHTML='';
+  } else {
+    const lW=wins[fighter1?.session_id]||0,rW=wins[fighter2?.session_id]||0;
+    statusEl.textContent=currentRound+1>=TOTAL_ROUNDS?'Fin du duel !':'Manche terminée';
+    subEl.textContent=`${fighter1?.pseudo||'J1'} : ${lW} victoire${lW!==1?'s':''} — ${fighter2?.pseudo||'J2'} : ${rW} victoire${rW!==1?'s':''}`;
+    actEl.innerHTML=(isHost||mySide!=='spectator')?`<button class="btn-next-d" onclick="nextRound()">${currentRound+1>=TOTAL_ROUNDS?'🏁 Résultats':'▶ Manche suivante'}</button>`:'';
+  }
+}
+
+// ── Timer ──
+function startTimer(){
+  stopTimer();timerVal=ROUND_TIME;updateTimerUI(timerVal);
+  timerInt=setInterval(()=>{
+    timerVal--;updateTimerUI(timerVal);
+    if(timerVal<=0){
+      stopTimer();
+      // Forcer la soumission si pas encore répondu
+      if(mySide!=='spectator'&&!submissions[mySide]){
+        submissions[mySide]={answer:'',correct:false,pts:0,session_id:mySide==='left'?fighter1?.session_id:fighter2?.session_id};
+        document.getElementById(`input-${mySide}`).disabled=true;
+        document.getElementById(`submit-${mySide}`).disabled=true;
+        showToast('⏰ Temps écoulé !','err');
+        const res=document.getElementById(`result-${mySide}`);
+        res.className='pp-result visible timeout';
+        res.innerHTML=`<div>⏰ Temps écoulé ! La réponse était : ${questions[currentRound].blanks.join(', ')}</div>`;
+        gameChannel.send({type:'broadcast',event:'answer',payload:{side:mySide,answer:'',correct:false,pts:0,session_id:submissions[mySide].session_id,round:currentRound}});
+      }
+      if(Object.keys(submissions).length>=2||!bothAnswered()) evalRound();
+    }
+  },1000);
+}
+function stopTimer(){clearInterval(timerInt);timerInt=null;}
+function updateTimerUI(val){
+  const n=document.getElementById('timer-val'),c=document.getElementById('timer-circle');
+  if(!n||!c)return;
+  n.textContent=val;n.classList.toggle('urgent',val<=8&&val>0);
+  c.classList.toggle('urgent',val<=8&&val>0);
+  c.style.strokeDashoffset=Math.round(226*(1-(val/ROUND_TIME)));
+}
+
+// ── Podium ──
+function showPodium(finalScores,finalWins){
+  stopTimer();
+  const f1score=finalScores[fighter1?.session_id]||0;
+  const f2score=finalScores[fighter2?.session_id]||0;
+  const f1wins=finalWins[fighter1?.session_id]||0;
+  const f2wins=finalWins[fighter2?.session_id]||0;
+  const winner=f1score>f2score?fighter1:fighter2;
+
+  const podDuel=document.getElementById('pod-duel');
+  [fighter1,fighter2].forEach((f,i)=>{
+    if(!f)return;
+    const isWinner=f.session_id===winner?.session_id;
+    const side=i===0?'left':'right';
+    const s=finalScores[f.session_id]||0;
+    const w=finalWins[f.session_id]||0;
+    podDuel.innerHTML+=(i===1?'<div class="pod-vs">VS</div>':'')+`
+      <div class="pod-fighter ${isWinner?'winner':''}" style="animation-delay:${i*0.2}s">
+        <div class="pod-rank">${isWinner?'🏆':'🥈'}</div>
+        <div class="pod-av">${f.avatar}</div>
+        <div class="pod-name">${f.pseudo}${f.session_id===mySessionId?' (Toi)':''}</div>
+        <div class="pod-score">${s} pts</div>
+        <div class="pod-wins">${w} manche${w!==1?'s':''} gagnée${w!==1?'s':''}</div>
+      </div>`;
+  });
+  document.getElementById('pod-overlay').classList.add('active');
+}
+
+async function replayGame(){
+  if(gameChannel)gameChannel.unsubscribe();
+  await db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+  window.location.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+}
+function quitGame(){stopTimer();if(gameChannel)gameChannel.unsubscribe();return true;}
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',2600);
+}
+window.addEventListener('beforeunload',()=>quitGame());
+init();
+</script>
+</body>
+</html>

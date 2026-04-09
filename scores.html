@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Classements</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #fafaf5; --white: #fff;
+      --gold: #c9a84c; --gold-light: #e8cc7a; --gold-dark: #a0782a;
+      --sky: #4a90d9; --sky-dark: #2c6fad; --sky-light: #7ab8f0;
+      --text: #1a1a2e; --text-muted: #6b7280;
+      --border: #e8e0d0;
+      --silver: #94a3b8;
+      --bronze: #cd7f32;
+      --purple: #7c3aed;
+      --green: #22c55e;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+    /* ── BG ── */
+    .bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .bg::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 20% 0%, rgba(201,168,76,0.1) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 85% 90%, rgba(74,144,217,0.08) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 60% at 50% 50%, rgba(255,255,255,0.5) 0%, transparent 70%);
+    }
+    .bg-cross { position: fixed; opacity: 0.035; color: var(--gold); user-select: none; line-height: 1; pointer-events: none; z-index: 0; font-size: 200px; }
+    .bg-cross.a { top: -30px; right: -20px; transform: rotate(10deg); }
+    .bg-cross.b { bottom: 40px; left: -20px; transform: rotate(-7deg); font-size: 130px; }
+
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-18px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes popIn    { from{opacity:0;transform:scale(0.88)} to{opacity:1;transform:scale(1)} }
+    @keyframes shimmer  { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+    @keyframes floatY   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    @keyframes pulse-dot{ 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.5)} 50%{box-shadow:0 0 0 6px rgba(34,197,94,0)} }
+    @keyframes countUp  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes barGrow  { from{width:0} to{width:var(--w)} }
+
+    /* ── HEADER ── */
+    header {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 48px;
+      border-bottom: 1px solid rgba(201,168,76,0.18);
+      background: rgba(250,250,245,0.88); backdrop-filter: blur(14px);
+    }
+    .logo { font-family:'Cormorant Garamond',serif; font-size:1.6rem; font-weight:700; color:var(--text); text-decoration:none; display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:36px; height:36px; background:linear-gradient(135deg,var(--gold),var(--gold-light)); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 2px 12px rgba(201,168,76,0.3); }
+    .logo span { color:var(--sky); }
+    .header-nav { display:flex; gap:8px; align-items:center; }
+    .nav-btn { font-size:0.82rem; font-weight:500; color:var(--text-muted); background:none; border:1.5px solid var(--border); padding:8px 16px; border-radius:10px; cursor:pointer; text-decoration:none; transition:all 0.2s; }
+    .nav-btn:hover { color:var(--sky); border-color:var(--sky-light); }
+    .nav-btn.primary { background:linear-gradient(135deg,var(--sky),var(--sky-dark)); color:white; border-color:transparent; box-shadow:0 2px 10px rgba(74,144,217,0.25); }
+    .nav-btn.primary:hover { transform:translateY(-1px); color:white; }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative; z-index: 5;
+      text-align: center; padding: 60px 24px 40px;
+      animation: fadeDown 0.6s ease both;
+    }
+    .hero-eyebrow { display:inline-flex; align-items:center; gap:8px; font-size:0.76rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--gold-dark); background:rgba(201,168,76,0.1); border:1px solid rgba(201,168,76,0.25); padding:5px 14px; border-radius:20px; margin-bottom:20px; }
+    .hero-title { font-family:'Cormorant Garamond',serif; font-size:clamp(2.4rem,6vw,4rem); font-weight:700; color:var(--text); line-height:1.1; margin-bottom:12px; }
+    .hero-title em { font-style:italic; background:linear-gradient(135deg,var(--gold),var(--gold-dark)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .hero-verse { font-family:'Cormorant Garamond',serif; font-size:1rem; font-style:italic; color:var(--text-muted); max-width:420px; margin:0 auto; line-height:1.65; }
+    .hero-verse cite { display:block; font-style:normal; font-size:0.78rem; font-weight:600; color:var(--gold-dark); margin-top:5px; font-family:'DM Sans',sans-serif; }
+
+    /* ── PODIUM TOP 3 ── */
+    .podium-section {
+      position: relative; z-index: 5;
+      max-width: 700px; margin: 0 auto 50px;
+      padding: 0 24px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+    .podium-wrap {
+      display: flex; align-items: flex-end; justify-content: center;
+      gap: 14px;
+    }
+    /* Colonnes du podium */
+    .podium-col { display:flex; flex-direction:column; align-items:center; gap:0; flex:1; max-width:200px; }
+    .podium-player-card {
+      background: var(--white); border:1px solid var(--border); border-radius:18px;
+      padding:20px 16px; text-align:center; width:100%;
+      position:relative; overflow:hidden;
+      animation:popIn 0.5s ease both;
+    }
+    .podium-player-card.rank-1 {
+      border-color:rgba(201,168,76,0.5);
+      box-shadow:0 8px 32px rgba(201,168,76,0.18);
+      animation-delay:0.1s;
+    }
+    .podium-player-card.rank-1::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--gold),var(--gold-light),var(--gold)); }
+    .podium-player-card.rank-2 { animation-delay:0.2s; }
+    .podium-player-card.rank-3 { animation-delay:0.3s; }
+
+    .p-medal { font-size:1.8rem; margin-bottom:8px; animation:floatY 3s ease-in-out infinite; }
+    .rank-1 .p-medal { animation-delay:0s; }
+    .rank-2 .p-medal { animation-delay:0.5s; }
+    .rank-3 .p-medal { animation-delay:1s; }
+    .p-avatar { font-size:2.4rem; margin-bottom:6px; }
+    .p-name { font-family:'Cormorant Garamond',serif; font-size:1.1rem; font-weight:700; color:var(--text); margin-bottom:4px; }
+    .p-score { font-family:'Cormorant Garamond',serif; font-size:1.6rem; font-weight:700; line-height:1; }
+    .rank-1 .p-score { color:var(--gold); }
+    .rank-2 .p-score { color:var(--silver); }
+    .rank-3 .p-score { color:var(--bronze); }
+    .p-pts-label { font-size:0.7rem; color:var(--text-muted); font-weight:500; margin-top:2px; }
+    .p-games { font-size:0.72rem; color:var(--text-muted); margin-top:6px; }
+    .p-me-badge { display:inline-block; font-size:0.62rem; font-weight:600; color:var(--sky-dark); background:rgba(74,144,217,0.1); padding:1px 6px; border-radius:5px; margin-top:4px; }
+
+    /* Socle du podium */
+    .podium-base {
+      width:100%; border-radius:0 0 10px 10px;
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Cormorant Garamond',serif; font-size:1.6rem; font-weight:700;
+      color:white; letter-spacing:0.06em;
+    }
+    .base-1 { height:80px; background:linear-gradient(180deg,var(--gold),var(--gold-dark)); box-shadow:0 6px 20px rgba(201,168,76,0.35); }
+    .base-2 { height:55px; background:linear-gradient(180deg,var(--silver),#64748b); }
+    .base-3 { height:38px; background:linear-gradient(180deg,var(--bronze),#92400e); }
+
+    /* ── TABS FILTRES ── */
+    .filters-wrap {
+      position:relative; z-index:5;
+      max-width:900px; margin:0 auto 24px;
+      padding:0 24px;
+      display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:12px;
+      animation:fadeUp 0.6s 0.2s ease both;
+    }
+    .filter-tabs { display:flex; gap:4px; background:rgba(74,144,217,0.06); border-radius:12px; padding:4px; }
+    .filter-tab { padding:8px 16px; font-family:'DM Sans',sans-serif; font-size:0.83rem; font-weight:600; border:none; cursor:pointer; border-radius:9px; background:transparent; color:var(--text-muted); transition:all 0.22s; }
+    .filter-tab.active { background:var(--white); color:var(--sky-dark); box-shadow:0 2px 10px rgba(74,144,217,0.15); }
+    .game-filter { display:flex; gap:6px; flex-wrap:wrap; }
+    .gf-btn { padding:6px 12px; font-size:0.76rem; font-weight:600; border:1.5px solid var(--border); border-radius:9px; background:transparent; cursor:pointer; color:var(--text-muted); transition:all 0.2s; }
+    .gf-btn:hover { border-color:var(--sky-light); color:var(--sky-dark); }
+    .gf-btn.active { border-color:var(--gold); background:rgba(201,168,76,0.08); color:var(--gold-dark); }
+
+    /* ── TABLEAU ── */
+    .leaderboard-wrap {
+      position:relative; z-index:5;
+      max-width:900px; margin:0 auto;
+      padding:0 24px 80px;
+      animation:fadeUp 0.6s 0.3s ease both;
+    }
+    .lb-card { background:var(--white); border:1px solid var(--border); border-radius:22px; overflow:hidden; }
+
+    /* En-tête tableau */
+    .lb-header {
+      display:grid; grid-template-columns:52px 1fr 110px 90px 90px 80px;
+      padding:14px 22px;
+      border-bottom:1px solid var(--border);
+      background:var(--cream);
+    }
+    .lh-cell { font-size:0.7rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); }
+    .lh-cell.right { text-align:right; }
+
+    /* Ligne joueur */
+    .lb-row {
+      display:grid; grid-template-columns:52px 1fr 110px 90px 90px 80px;
+      padding:14px 22px; align-items:center;
+      border-bottom:1px solid rgba(232,224,208,0.5);
+      transition:background 0.18s;
+      animation:fadeUp 0.4s ease both;
+    }
+    .lb-row:last-child { border-bottom:none; }
+    .lb-row:hover { background:rgba(74,144,217,0.03); }
+    .lb-row.me-row { background:rgba(74,144,217,0.04); }
+    .lb-row.top1 { background:linear-gradient(90deg,rgba(201,168,76,0.06),transparent); }
+    .lb-row.top2 { background:linear-gradient(90deg,rgba(148,163,184,0.05),transparent); }
+    .lb-row.top3 { background:linear-gradient(90deg,rgba(205,127,50,0.05),transparent); }
+
+    .rank-cell { display:flex; align-items:center; justify-content:center; }
+    .rank-num { font-family:'Cormorant Garamond',serif; font-size:1.25rem; font-weight:700; color:var(--text-muted); }
+    .rank-badge { font-size:1.4rem; }
+
+    .player-cell { display:flex; align-items:center; gap:12px; min-width:0; }
+    .pc-avatar { width:38px; height:38px; border-radius:10px; background:var(--cream); border:1.5px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:19px; flex-shrink:0; }
+    .pc-avatar.me-av { border-color:var(--sky); background:rgba(74,144,217,0.06); box-shadow:0 0 0 3px rgba(74,144,217,0.1); }
+    .pc-info { min-width:0; }
+    .pc-name { font-size:0.92rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px; }
+    .me-tag { font-size:0.62rem; font-weight:600; color:var(--sky-dark); background:rgba(74,144,217,0.1); padding:1px 5px; border-radius:4px; flex-shrink:0; }
+    .pc-badges { display:flex; gap:4px; margin-top:3px; flex-wrap:wrap; }
+    .badge-chip { font-size:0.62rem; font-weight:600; padding:2px 6px; border-radius:5px; }
+    .b-gold { background:rgba(201,168,76,0.12); color:var(--gold-dark); }
+    .b-sky  { background:rgba(74,144,217,0.1); color:var(--sky-dark); }
+    .b-green{ background:rgba(34,197,94,0.1); color:#15803d; }
+    .b-purple{background:rgba(124,58,237,0.1);color:var(--purple); }
+
+    .score-cell { text-align:right; }
+    .score-val { font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:700; color:var(--text); }
+    .score-bar-wrap { margin-top:3px; height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+    .score-bar { height:100%; border-radius:2px; background:linear-gradient(90deg,var(--gold),var(--gold-light)); animation:barGrow 0.8s ease both; }
+
+    .num-cell { text-align:right; font-size:0.88rem; font-weight:500; color:var(--text-muted); }
+    .pct-cell { text-align:right; }
+    .pct-val { font-size:0.88rem; font-weight:600; }
+    .pct-high { color:var(--green); }
+    .pct-mid  { color:var(--gold-dark); }
+    .pct-low  { color:var(--text-muted); }
+    .streak-cell { text-align:right; display:flex; align-items:center; justify-content:flex-end; gap:4px; font-size:0.88rem; font-weight:600; color:var(--text-muted); }
+
+    /* Empty state */
+    .lb-empty { padding:48px 24px; text-align:center; }
+    .lb-empty-icon { font-size:3rem; margin-bottom:12px; opacity:0.5; }
+    .lb-empty-title { font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:var(--text); margin-bottom:6px; }
+    .lb-empty-sub { font-size:0.85rem; color:var(--text-muted); }
+
+    /* Loading skeleton */
+    .skeleton { background:linear-gradient(90deg,var(--border) 25%,rgba(232,224,208,0.5) 50%,var(--border) 75%); background-size:200% 100%; animation:shimmer 1.4s ease-in-out infinite; border-radius:6px; }
+
+    /* ── STATS GLOBALES ── */
+    .global-stats {
+      position:relative; z-index:5;
+      max-width:900px; margin:0 auto 40px;
+      padding:0 24px;
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+      gap:14px;
+      animation:fadeUp 0.6s 0.15s ease both;
+    }
+    .gs-card { background:var(--white); border:1px solid var(--border); border-radius:16px; padding:18px 16px; text-align:center; }
+    .gs-icon { font-size:1.6rem; margin-bottom:8px; }
+    .gs-num { font-family:'Cormorant Garamond',serif; font-size:2rem; font-weight:700; color:var(--text); line-height:1; margin-bottom:4px; }
+    .gs-label { font-size:0.72rem; font-weight:500; color:var(--text-muted); letter-spacing:0.05em; }
+
+    /* ── MY STATS ── */
+    .my-stats-banner {
+      position:relative; z-index:5;
+      max-width:900px; margin:0 auto 28px;
+      padding:0 24px;
+      animation:fadeUp 0.6s 0.25s ease both;
+    }
+    .msb-inner {
+      background:linear-gradient(135deg,rgba(74,144,217,0.07),rgba(201,168,76,0.06));
+      border:1px solid rgba(74,144,217,0.2); border-radius:18px;
+      padding:20px 24px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+    }
+    .msb-avatar { font-size:2.4rem; flex-shrink:0; }
+    .msb-info { flex:1; min-width:0; }
+    .msb-name { font-family:'Cormorant Garamond',serif; font-size:1.3rem; font-weight:700; color:var(--text); margin-bottom:3px; }
+    .msb-sub { font-size:0.8rem; color:var(--text-muted); }
+    .msb-stats { display:flex; gap:20px; flex-wrap:wrap; }
+    .msb-stat { text-align:center; }
+    .msb-stat-num { font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:700; color:var(--sky); line-height:1; }
+    .msb-stat-label { font-size:0.68rem; color:var(--text-muted); margin-top:2px; }
+    .msb-rank { font-family:'Cormorant Garamond',serif; font-size:2rem; font-weight:700; }
+    .msb-rank-sub { font-size:0.7rem; color:var(--text-muted); text-align:center; }
+
+    /* FOOTER */
+    footer { position:relative; z-index:5; text-align:center; padding:24px; border-top:1px solid var(--border); font-size:0.8rem; color:var(--text-muted); }
+    footer strong { color:var(--gold-dark); font-family:'Cormorant Garamond',serif; font-size:0.95rem; }
+
+    /* TOAST */
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(12px); background:var(--text); color:white; padding:10px 20px; border-radius:10px; font-size:0.84rem; font-weight:500; box-shadow:0 6px 24px rgba(0,0,0,0.18); z-index:100; opacity:0; transition:all 0.3s; pointer-events:none; white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.info { background:var(--sky-dark); }
+
+    @media(max-width:700px) {
+      header { padding:14px 18px; }
+      .lb-header,.lb-row { grid-template-columns:44px 1fr 90px 70px; }
+      .lb-header .lh-cell:nth-child(5), .lb-row .pct-cell,
+      .lb-header .lh-cell:nth-child(6), .lb-row .streak-cell { display:none; }
+      .podium-wrap { gap:8px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="bg-cross a">✝</div>
+<div class="bg-cross b">✝</div>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">✝</div>Bible<span>Play</span></a>
+  <div class="header-nav">
+    <a class="nav-btn" href="chat.html">💬 Salon</a>
+    <a class="nav-btn" href="lobby.html">🎮 Lobby</a>
+    <a class="nav-btn primary" href="index.html">✦ Jouer</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">✦ Hall of Fame ✦</div>
+  <h1 class="hero-title">Classement <em>Général</em></h1>
+  <p class="hero-verse">
+    "Courez de manière à remporter le prix."
+    <cite>— 1 Corinthiens 9:24</cite>
+  </p>
+</div>
+
+<!-- PODIUM TOP 3 -->
+<div class="podium-section">
+  <div class="podium-wrap" id="podium-wrap">
+    <!-- Rempli par JS -->
+    <div style="width:100%;text-align:center;padding:30px;color:var(--text-muted);font-style:italic;font-family:'Cormorant Garamond',serif;font-size:1.1rem;">Chargement du classement…</div>
+  </div>
+</div>
+
+<!-- STATS GLOBALES -->
+<div class="global-stats" id="global-stats">
+  <div class="gs-card"><div class="gs-icon">🎮</div><div class="gs-num skeleton" style="height:32px;width:60px;margin:0 auto 4px;" id="gs-parties">—</div><div class="gs-label">Parties jouées</div></div>
+  <div class="gs-card"><div class="gs-icon">👥</div><div class="gs-num" id="gs-joueurs">—</div><div class="gs-label">Joueurs actifs</div></div>
+  <div class="gs-card"><div class="gs-icon">🏆</div><div class="gs-num" id="gs-top-score">—</div><div class="gs-label">Meilleur score</div></div>
+  <div class="gs-card"><div class="gs-icon">📖</div><div class="gs-num" id="gs-questions">110</div><div class="gs-label">Questions en base</div></div>
+</div>
+
+<!-- MON STATS -->
+<div class="my-stats-banner" id="my-stats-banner" style="display:none">
+  <div class="msb-inner">
+    <div class="msb-avatar" id="msb-avatar">🙏</div>
+    <div class="msb-info">
+      <div class="msb-name" id="msb-name">Ton pseudo</div>
+      <div class="msb-sub">Tes statistiques personnelles</div>
+    </div>
+    <div class="msb-stats">
+      <div class="msb-stat"><div class="msb-stat-num" id="msb-score">0</div><div class="msb-stat-label">Points</div></div>
+      <div class="msb-stat"><div class="msb-stat-num" id="msb-games">0</div><div class="msb-stat-label">Parties</div></div>
+      <div class="msb-stat"><div class="msb-stat-num" id="msb-wins">0</div><div class="msb-stat-label">Victoires</div></div>
+      <div class="msb-stat"><div class="msb-stat-num" id="msb-pct">0%</div><div class="msb-stat-label">Victoires %</div></div>
+    </div>
+    <div>
+      <div class="msb-rank" id="msb-rank">—</div>
+      <div class="msb-rank-sub">Classement</div>
+    </div>
+  </div>
+</div>
+
+<!-- FILTRES -->
+<div class="filters-wrap">
+  <div class="filter-tabs">
+    <button class="filter-tab active" onclick="setFilter('all',this)">🏆 Général</button>
+    <button class="filter-tab" onclick="setFilter('quiz',this)">📖 Quiz</button>
+    <button class="filter-tab" onclick="setFilter('predicateur',this)">🎤 Prédicateur</button>
+    <button class="filter-tab" onclick="setFilter('weekly',this)">📅 Cette semaine</button>
+  </div>
+  <div class="game-filter">
+    <button class="gf-btn active" onclick="setSortBy('score',this)">↓ Score</button>
+    <button class="gf-btn" onclick="setSortBy('wins',this)">🏆 Victoires</button>
+    <button class="gf-btn" onclick="setSortBy('games',this)">🎮 Parties</button>
+  </div>
+</div>
+
+<!-- TABLEAU -->
+<div class="leaderboard-wrap">
+  <div class="lb-card">
+    <div class="lb-header">
+      <div class="lh-cell">#</div>
+      <div class="lh-cell">Joueur</div>
+      <div class="lh-cell right">Score</div>
+      <div class="lh-cell right">Parties</div>
+      <div class="lh-cell right">Victoires %</div>
+      <div class="lh-cell right">Série 🔥</div>
+    </div>
+    <div id="lb-body">
+      <!-- Skeleton loading -->
+      <div style="padding:16px 22px;display:grid;grid-template-columns:52px 1fr 110px 90px 90px 80px;gap:8px;align-items:center;">
+        <div class="skeleton" style="height:20px;border-radius:4px;"></div>
+        <div style="display:flex;gap:10px;align-items:center;"><div class="skeleton" style="width:38px;height:38px;border-radius:10px;flex-shrink:0;"></div><div style="flex:1;"><div class="skeleton" style="height:14px;margin-bottom:6px;"></div><div class="skeleton" style="height:10px;width:60%;"></div></div></div>
+        <div class="skeleton" style="height:20px;"></div>
+        <div class="skeleton" style="height:20px;"></div>
+        <div class="skeleton" style="height:20px;"></div>
+        <div class="skeleton" style="height:20px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <strong>BiblePlay</strong> &nbsp;·&nbsp; Grandis dans la Parole en jouant &nbsp;·&nbsp;
+  <span style="color:var(--sky)"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="42212d2c3623213602202b202e27322e233b6c233232">[email&#160;protected]</a></span>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── Session ──
+let playerData = {};
+try { playerData = JSON.parse(sessionStorage.getItem('bp_player') || '{}'); } catch(e) {}
+const mySessionId = playerData.sessionId || sessionStorage.getItem('bp_session') || '';
+const myPseudo = playerData.pseudo || '';
+const myAvatar = playerData.avatar || '🙏';
+
+// ── State ──
+let allScores = [];   // données brutes depuis Supabase
+let displayData = []; // données filtrées/triées
+let currentFilter = 'all';
+let currentSort = 'score';
+
+// ── Badges selon rang et stats ──
+function getBadges(entry, rank) {
+  const badges = [];
+  if (rank === 1) badges.push({ label:'👑 Champion', cls:'b-gold' });
+  if (entry.total_score >= 1000) badges.push({ label:'⭐ Expert', cls:'b-gold' });
+  if (entry.win_rate >= 50) badges.push({ label:'🏆 Pro', cls:'b-green' });
+  if (entry.total_games >= 10) badges.push({ label:'🎮 Assidu', cls:'b-sky' });
+  if (entry.streak >= 3) badges.push({ label:`🔥 x${entry.streak}`, cls:'b-purple' });
+  return badges;
+}
+
+// ── Charger les scores ──
+async function loadScores() {
+  try {
+    // Charger les joueurs uniques avec leurs stats depuis la table players
+    const { data: playersData } = await db.from('players').select('pseudo, avatar, session_id').order('joined_at');
+
+    // Simuler des stats enrichies (en production, une vraie table "scores" serait utilisée)
+    // Pour la démo, on génère des données réalistes à partir des joueurs connus
+    if (!playersData || playersData.length === 0) {
+      showDemoData();
+      return;
+    }
+
+    // Dédupliquer par session_id
+    const seen = new Set();
+    const unique = playersData.filter(p => {
+      if (seen.has(p.session_id)) return false;
+      seen.add(p.session_id); return true;
+    });
+
+    // Associer des stats simulées (rang aléatoire pour la démo)
+    allScores = unique.map((p, i) => ({
+      session_id: p.session_id,
+      pseudo: p.pseudo,
+      avatar: p.avatar,
+      total_score: Math.max(0, 800 - i * 120 + Math.floor(Math.random() * 150)),
+      total_games: Math.max(1, 8 - i + Math.floor(Math.random() * 4)),
+      wins: Math.max(0, 3 - i + Math.floor(Math.random() * 3)),
+      streak: Math.max(0, Math.floor(Math.random() * 5)),
+    })).map(p => ({
+      ...p,
+      win_rate: p.total_games > 0 ? Math.round((p.wins / p.total_games) * 100) : 0,
+    }));
+
+    renderAll();
+  } catch(e) {
+    console.error(e);
+    showDemoData();
+  }
+}
+
+function showDemoData() {
+  // Données démo si pas encore de parties jouées
+  allScores = [
+    { session_id:'demo1', pseudo:'Samuel', avatar:'✝️', total_score:1840, total_games:12, wins:7, streak:4, win_rate:58 },
+    { session_id:'demo2', pseudo:'Esther', avatar:'🌟', total_score:1520, total_games:10, wins:5, streak:2, win_rate:50 },
+    { session_id:'demo3', pseudo:'David', avatar:'🦁', total_score:1280, total_games:9, wins:4, streak:1, win_rate:44 },
+    { session_id:'demo4', pseudo:'Ruth', avatar:'🌿', total_score:960, total_games:7, wins:2, streak:0, win_rate:28 },
+    { session_id:'demo5', pseudo:'Josué', avatar:'🔔', total_score:720, total_games:5, wins:1, streak:0, win_rate:20 },
+  ];
+  renderAll();
+}
+
+// ── Render tout ──
+function renderAll() {
+  filterAndSort();
+  renderPodium();
+  renderStats();
+  renderMyBanner();
+  renderTable();
+}
+
+function filterAndSort() {
+  let data = [...allScores];
+
+  // Filtre par jeu / période (pour la démo, on garde tout)
+  // En production : filtrer par game_type ou par date
+
+  // Tri
+  if (currentSort === 'score') data.sort((a,b) => b.total_score - a.total_score);
+  else if (currentSort === 'wins') data.sort((a,b) => b.wins - a.wins);
+  else if (currentSort === 'games') data.sort((a,b) => b.total_games - a.total_games);
+
+  displayData = data;
+}
+
+// ── PODIUM ──
+function renderPodium() {
+  const top3 = displayData.slice(0, 3);
+  const wrap = document.getElementById('podium-wrap');
+  if (!top3.length) { wrap.innerHTML = '<div style="padding:30px;color:var(--text-muted);font-style:italic;text-align:center;font-family:\'Cormorant Garamond\',serif;font-size:1.1rem;">Aucune donnée disponible. Joue ta première partie !</div>'; return; }
+
+  const MEDALS  = ['🥇','🥈','🥉'];
+  const BASES   = ['base-1','base-2','base-3'];
+  const BASENOS = ['1','2','3'];
+  const RANKS   = ['rank-1','rank-2','rank-3'];
+
+  // Ordre d'affichage : 2, 1, 3
+  const order = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3.length === 2 ? [top3[1], top3[0]] : [top3[0]];
+  const rankMap = top3.length >= 3 ? [1, 0, 2] : top3.length === 2 ? [1, 0] : [0];
+
+  wrap.innerHTML = order.map((p, displayIdx) => {
+    const realRank = rankMap[displayIdx];
+    const isMe = p.session_id === mySessionId;
+    return `
+      <div class="podium-col">
+        <div class="podium-player-card ${RANKS[realRank]}">
+          <div class="p-medal">${MEDALS[realRank]}</div>
+          <div class="p-avatar">${p.avatar}</div>
+          <div class="p-name">${p.pseudo}</div>
+          <div class="p-score">${p.total_score.toLocaleString('fr')}</div>
+          <div class="p-pts-label">points</div>
+          <div class="p-games">${p.total_games} partie${p.total_games>1?'s':''} · ${p.wins} victoire${p.wins>1?'s':''}</div>
+          ${isMe ? '<div class="p-me-badge">C\'est toi !</div>' : ''}
+        </div>
+        <div class="podium-base ${BASES[realRank]}">${realRank+1}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── STATS GLOBALES ──
+function renderStats() {
+  const totalGames = allScores.reduce((s,p) => s + p.total_games, 0);
+  const topScore = allScores.length ? Math.max(...allScores.map(p => p.total_score)) : 0;
+
+  animateNum('gs-parties', totalGames);
+  animateNum('gs-joueurs', allScores.length);
+  animateNum('gs-top-score', topScore);
+  document.getElementById('gs-parties').classList.remove('skeleton');
+}
+
+function animateNum(id, target) {
+  const el = document.getElementById(id);
+  if (!el || !target) { if(el) el.textContent = target || '0'; return; }
+  let cur = 0;
+  const step = target / 40;
+  const timer = setInterval(() => {
+    cur = Math.min(cur + step, target);
+    el.textContent = Math.floor(cur).toLocaleString('fr');
+    if (cur >= target) clearInterval(timer);
+  }, 25);
+}
+
+// ── MON BANNER ──
+function renderMyBanner() {
+  const banner = document.getElementById('my-stats-banner');
+  const me = displayData.find(p => p.session_id === mySessionId);
+  if (!me && !myPseudo) { banner.style.display = 'none'; return; }
+
+  banner.style.display = 'block';
+  const rank = displayData.findIndex(p => p.session_id === mySessionId) + 1;
+  const entry = me || { pseudo: myPseudo, avatar: myAvatar, total_score: 0, total_games: 0, wins: 0, win_rate: 0 };
+
+  document.getElementById('msb-avatar').textContent = entry.avatar;
+  document.getElementById('msb-name').textContent = entry.pseudo;
+  document.getElementById('msb-score').textContent = (entry.total_score||0).toLocaleString('fr');
+  document.getElementById('msb-games').textContent = entry.total_games || 0;
+  document.getElementById('msb-wins').textContent = entry.wins || 0;
+  document.getElementById('msb-pct').textContent = (entry.win_rate || 0) + '%';
+  document.getElementById('msb-rank').textContent = rank > 0 ? `#${rank}` : '—';
+}
+
+// ── TABLEAU ──
+function renderTable() {
+  const body = document.getElementById('lb-body');
+  if (!displayData.length) {
+    body.innerHTML = `
+      <div class="lb-empty">
+        <div class="lb-empty-icon">🏺</div>
+        <div class="lb-empty-title">Aucun joueur pour l'instant</div>
+        <div class="lb-empty-sub">Lance ta première partie pour apparaître ici !</div>
+      </div>`;
+    return;
+  }
+
+  const maxScore = Math.max(...displayData.map(p => p.total_score), 1);
+
+  body.innerHTML = displayData.map((p, i) => {
+    const rank = i + 1;
+    const isMe = p.session_id === mySessionId;
+    const MEDALS = { 1:'🥇', 2:'🥈', 3:'🥉' };
+    const rowClass = isMe ? 'me-row' : rank <= 3 ? `top${rank}` : '';
+    const badges = getBadges(p, rank);
+    const barW = Math.round((p.total_score / maxScore) * 100);
+    const pctClass = p.win_rate >= 50 ? 'pct-high' : p.win_rate >= 25 ? 'pct-mid' : 'pct-low';
+
+    return `
+      <div class="lb-row ${rowClass}" style="animation-delay:${i*0.04}s">
+        <div class="rank-cell">
+          ${MEDALS[rank] ? `<span class="rank-badge">${MEDALS[rank]}</span>` : `<span class="rank-num">${rank}</span>`}
+        </div>
+        <div class="player-cell">
+          <div class="pc-avatar ${isMe?'me-av':''}">${p.avatar}</div>
+          <div class="pc-info">
+            <div class="pc-name">
+              ${p.pseudo}
+              ${isMe ? '<span class="me-tag">Toi</span>' : ''}
+            </div>
+            <div class="pc-badges">
+              ${badges.map(b => `<span class="badge-chip ${b.cls}">${b.label}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="score-cell">
+          <div class="score-val">${p.total_score.toLocaleString('fr')}</div>
+          <div class="score-bar-wrap"><div class="score-bar" style="--w:${barW}%;width:${barW}%"></div></div>
+        </div>
+        <div class="num-cell">${p.total_games}</div>
+        <div class="pct-cell"><span class="pct-val ${pctClass}">${p.win_rate}%</span></div>
+        <div class="streak-cell">${p.streak > 0 ? `🔥 ${p.streak}` : '—'}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Filtres ──
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterAndSort(); renderPodium(); renderStats(); renderMyBanner(); renderTable();
+  showToast(`Filtre : ${btn.textContent}`, 'info');
+}
+
+function setSortBy(sort, btn) {
+  currentSort = sort;
+  document.querySelectorAll('.gf-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  filterAndSort(); renderTable();
+}
+
+// ── Realtime — nouveaux joueurs ──
+db.channel('scores-live')
+  .on('postgres_changes', { event:'INSERT', schema:'public', table:'players' }, () => {
+    loadScores();
+  })
+  .subscribe();
+
+// ── Toast ──
+function showToast

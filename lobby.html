@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Salle d'attente</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --cream:#fafaf5;--white:#fff;
+      --gold:#c9a84c;--gold-light:#e8cc7a;--gold-dark:#a0782a;
+      --sky:#4a90d9;--sky-light:#7ab8f0;--sky-dark:#2c6fad;
+      --text:#1a1a2e;--text-muted:#6b7280;
+      --border:#e8e0d0;--green:#22c55e;--purple:#7c3aed;
+    }
+    html,body{height:100%}
+    body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;overflow-x:hidden}
+    .bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+    .bg-layer::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 80% 10%,rgba(74,144,217,0.07) 0%,transparent 60%),radial-gradient(ellipse 50% 40% at 10% 80%,rgba(201,168,76,0.08) 0%,transparent 60%)}
+    .bg-cross{position:absolute;opacity:0.035;font-size:180px;color:var(--gold);user-select:none;line-height:1}
+    .bg-cross.a{top:5%;right:3%;transform:rotate(12deg)}
+    .bg-cross.b{bottom:10%;left:2%;transform:rotate(-8deg);font-size:120px}
+    @keyframes pulse-dot{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.5)}50%{box-shadow:0 0 0 5px rgba(34,197,94,0)}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes countPop{0%{transform:scale(1.4);opacity:0}100%{transform:scale(1);opacity:1}}
+    @keyframes checkBounce{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+    @keyframes fadeDown{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+
+    header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:18px 40px;border-bottom:1px solid rgba(201,168,76,0.18);background:rgba(250,250,245,0.88);backdrop-filter:blur(14px)}
+    .logo{font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px}
+    .logo-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--gold),var(--gold-light));display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 2px 10px rgba(201,168,76,0.25)}
+    .logo span{color:var(--sky)}
+    .header-right{display:flex;align-items:center;gap:10px}
+    .chat-btn{display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:600;color:var(--purple);background:rgba(124,58,237,0.07);border:1.5px solid rgba(124,58,237,0.2);padding:8px 16px;border-radius:10px;cursor:pointer;text-decoration:none;transition:all 0.2s}
+    .chat-btn:hover{background:rgba(124,58,237,0.12);border-color:rgba(124,58,237,0.35)}
+    .scores-btn{display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:600;color:var(--gold-dark);background:rgba(201,168,76,0.08);border:1.5px solid rgba(201,168,76,0.25);padding:8px 16px;border-radius:10px;cursor:pointer;text-decoration:none;transition:all 0.2s}
+    .scores-btn:hover{background:rgba(201,168,76,0.14)}
+    .back-btn{font-size:0.83rem;font-weight:500;color:var(--text-muted);background:none;border:1.5px solid var(--border);padding:8px 16px;border-radius:10px;cursor:pointer;text-decoration:none;transition:all 0.2s}
+    .back-btn:hover{color:var(--sky);border-color:var(--sky-light)}
+
+    .page-wrap{position:relative;z-index:5;max-width:1100px;margin:0 auto;padding:36px 24px 60px;display:grid;grid-template-columns:1fr 340px;gap:28px;animation:fadeUp 0.6s ease both}
+    .left-col{display:flex;flex-direction:column;gap:22px}
+
+    /* ROOM HEADER */
+    .room-header-card{background:var(--white);border:1px solid var(--border);border-radius:20px;padding:26px 32px;position:relative;overflow:hidden}
+    .room-header-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--sky),var(--gold-light))}
+    .room-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+    .room-eyebrow{font-size:0.75rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold-dark);margin-bottom:5px}
+    .room-title{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;color:var(--text)}
+    .room-code-badge{display:flex;flex-direction:column;align-items:center;background:rgba(201,168,76,0.08);border:1.5px solid rgba(201,168,76,0.25);border-radius:14px;padding:10px 20px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden}
+    .room-code-badge:hover{background:rgba(201,168,76,0.14)}
+    .code-label{font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold-dark);margin-bottom:3px}
+    .code-value{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:700;color:var(--text);letter-spacing:0.18em;line-height:1}
+    .code-copy-hint{font-size:0.68rem;color:var(--text-muted);margin-top:2px}
+    .copied-flash{position:absolute;inset:0;border-radius:14px;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:600;color:#15803d;opacity:0;pointer-events:none;transition:opacity 0.2s}
+    .room-code-badge.copied .copied-flash{opacity:1}
+    .room-meta{display:flex;gap:20px;flex-wrap:wrap}
+    .meta-tag{display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:500;color:var(--text-muted)}
+    .dot{width:8px;height:8px;border-radius:50%}
+    .dot-green{background:var(--green);animation:pulse-dot 1.8s ease-in-out infinite}
+    .dot-gold{background:var(--gold)}.dot-sky{background:var(--sky)}
+
+    /* SELECTOR */
+    .game-selector-card{background:var(--white);border:1px solid var(--border);border-radius:20px;padding:26px 32px}
+    .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px}
+    .card-label{font-size:0.75rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px}
+    .card-title{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:700;color:var(--text)}
+    .host-only-tag{font-size:0.72rem;font-weight:600;background:rgba(201,168,76,0.1);color:var(--gold-dark);border:1px solid rgba(201,168,76,0.25);padding:4px 10px;border-radius:8px}
+    .guest-game-tag{font-size:0.72rem;font-weight:600;background:rgba(74,144,217,0.08);color:var(--sky-dark);border:1px solid rgba(74,144,217,0.2);padding:4px 10px;border-radius:8px}
+
+    .mode-tabs{display:flex;gap:4px;background:rgba(74,144,217,0.06);border-radius:12px;padding:4px;margin-bottom:20px}
+    .mode-tab{flex:1;padding:9px 0;font-family:'DM Sans',sans-serif;font-size:0.83rem;font-weight:600;border:none;cursor:pointer;border-radius:9px;background:transparent;color:var(--text-muted);transition:all 0.25s}
+    .mode-tab.active{background:var(--white);color:var(--sky-dark);box-shadow:0 2px 10px rgba(74,144,217,0.15)}
+
+    /* JEUX — mode unique */
+    .games-list{display:flex;flex-direction:column;gap:8px}
+    .game-option{display:flex;align-items:center;gap:14px;padding:13px 16px;border:1.5px solid var(--border);border-radius:14px;cursor:pointer;transition:all 0.2s}
+    .game-option.disabled{cursor:default;opacity:0.65}
+    .game-option:not(.disabled):hover{border-color:rgba(74,144,217,0.35);background:rgba(74,144,217,0.03)}
+    .game-option.selected{border-color:var(--sky);background:rgba(74,144,217,0.05);box-shadow:0 0 0 3px rgba(74,144,217,0.1)}
+    .game-option.selected.c-gold{border-color:var(--gold);background:rgba(201,168,76,0.05);box-shadow:0 0 0 3px rgba(201,168,76,0.12)}
+    .game-option.selected.c-purple{border-color:var(--purple);background:rgba(124,58,237,0.04);box-shadow:0 0 0 3px rgba(124,58,237,0.1)}
+    .game-option.selected.c-green{border-color:var(--green);background:rgba(34,197,94,0.04);box-shadow:0 0 0 3px rgba(34,197,94,0.1)}
+    .game-option.selected.c-amber{border-color:#d97706;background:rgba(217,119,6,0.04);box-shadow:0 0 0 3px rgba(217,119,6,0.1)}
+    .game-option.selected.c-pink{border-color:#ec4899;background:rgba(236,72,153,0.04);box-shadow:0 0 0 3px rgba(236,72,153,0.1)}
+    .game-option.selected.c-teal{border-color:#14b8a6;background:rgba(20,184,166,0.04);box-shadow:0 0 0 3px rgba(20,184,166,0.1)}
+    .game-option.selected.c-red{border-color:#ef4444;background:rgba(239,68,68,0.04);box-shadow:0 0 0 3px rgba(239,68,68,0.1)}
+    .game-option.selected.teal2{border-color:#0d7377;background:rgba(13,115,119,0.04);box-shadow:0 0 0 3px rgba(13,115,119,0.1)}
+    .go-icon{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+    .gi-sky{background:rgba(74,144,217,0.1)}.gi-gold{background:rgba(201,168,76,0.12)}.gi-purple{background:rgba(124,58,237,0.1)}.gi-green{background:rgba(34,197,94,0.1)}.gi-amber{background:rgba(217,119,6,0.1)}.gi-pink{background:rgba(236,72,153,0.1)}.gi-teal{background:rgba(20,184,166,0.1)}.gi-red{background:rgba(239,68,68,0.1)}.gi-teal2{background:rgba(13,115,119,0.1)}
+    .go-info{flex:1;min-width:0}
+    .go-name{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:700;color:var(--text);margin-bottom:2px}
+    .go-desc{font-size:0.75rem;color:var(--text-muted);line-height:1.35}
+    .go-tags{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap}
+    .go-tag{font-size:0.65rem;font-weight:600;padding:2px 6px;border-radius:5px}
+    .t-sky{background:rgba(74,144,217,0.1);color:var(--sky-dark)}.t-gold{background:rgba(201,168,76,0.12);color:var(--gold-dark)}.t-purple{background:rgba(124,58,237,0.1);color:var(--purple)}.t-green{background:rgba(34,197,94,0.1);color:#15803d}.t-amber{background:rgba(217,119,6,0.1);color:#92400e}.t-pink{background:rgba(236,72,153,0.1);color:#9d174d}.t-teal{background:rgba(20,184,166,0.1);color:#0f766e}.t-red{background:rgba(239,68,68,0.1);color:#b91c1c}.t-teal2{background:rgba(13,115,119,0.1);color:#0d7377}
+    .go-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;transition:all 0.2s;flex-shrink:0;color:transparent}
+    .game-option.selected .go-check{background:var(--sky);border-color:var(--sky);color:white;animation:checkBounce 0.3s ease}
+    .game-option.selected.c-gold .go-check{background:var(--gold);border-color:var(--gold)}
+    .game-option.selected.c-purple .go-check{background:var(--purple);border-color:var(--purple)}
+    .game-option.selected.c-green .go-check{background:var(--green);border-color:var(--green)}
+    .game-option.selected.c-amber .go-check{background:#d97706;border-color:#d97706}
+    .game-option.selected.c-pink .go-check{background:#ec4899;border-color:#ec4899}
+    .game-option.selected.c-teal .go-check{background:#14b8a6;border-color:#14b8a6}
+    .game-option.selected.c-red .go-check{background:#ef4444;border-color:#ef4444}
+    .game-option.selected.teal2 .go-check{background:#0d7377;border-color:#0d7377}
+
+    /* MULTI */
+    .multi-info{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.18);border-radius:11px;margin-bottom:14px;font-size:0.82rem;color:var(--purple)}
+    .games-multi{display:flex;flex-direction:column;gap:7px}
+    .game-multi-opt{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1.5px solid var(--border);border-radius:12px;cursor:pointer;transition:all 0.2s}
+    .game-multi-opt.disabled{cursor:default;opacity:0.65}
+    .game-multi-opt:not(.disabled):hover{border-color:rgba(124,58,237,0.3);background:rgba(124,58,237,0.03)}
+    .game-multi-opt.checked{border-color:var(--purple);background:rgba(124,58,237,0.05)}
+    .checkbox{width:20px;height:20px;border-radius:5px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all 0.2s;color:transparent}
+    .game-multi-opt.checked .checkbox{background:var(--purple);border-color:var(--purple);color:white;animation:checkBounce 0.3s ease}
+    .multi-queue{margin-top:12px;padding:12px 14px;background:var(--cream);border:1px dashed var(--border);border-radius:11px;min-height:44px}
+    .mq-label{font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:7px}
+    .mq-chips{display:flex;gap:5px;flex-wrap:wrap}
+    .mq-chip{display:flex;align-items:center;gap:4px;padding:4px 9px;background:var(--white);border:1px solid rgba(124,58,237,0.25);border-radius:8px;font-size:0.76rem;font-weight:600;color:var(--purple)}
+    .mq-chip .order-num{width:15px;height:15px;border-radius:50%;background:var(--purple);color:white;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+    .mq-empty{font-size:0.78rem;color:var(--text-muted);font-style:italic}
+
+    /* RIGHT */
+    .right-col{display:flex;flex-direction:column;gap:18px}
+    .players-card{background:var(--white);border:1px solid var(--border);border-radius:20px;padding:22px;position:sticky;top:22px}
+    .players-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .players-title{font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:700;color:var(--text)}
+    .players-count{font-size:0.78rem;font-weight:600;background:rgba(34,197,94,0.08);color:#15803d;border:1px solid rgba(34,197,94,0.2);padding:3px 10px;border-radius:8px}
+    .players-list{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;min-height:50px}
+    .player-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:11px;transition:background 0.2s;animation:slideIn 0.35s ease both}
+    .player-row:hover{background:rgba(74,144,217,0.04)}
+    .player-avatar{width:38px;height:38px;border-radius:10px;background:var(--cream);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;position:relative}
+    .player-avatar.me{border-color:var(--sky);background:rgba(74,144,217,0.06);box-shadow:0 0 0 3px rgba(74,144,217,0.12)}
+    .host-crown{position:absolute;top:-7px;right:-5px;font-size:12px;line-height:1}
+    .player-info{flex:1;min-width:0}
+    .player-name{font-size:0.87rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .you-badge{font-size:0.66rem;font-weight:600;color:var(--sky-dark);background:rgba(74,144,217,0.1);padding:1px 5px;border-radius:4px;margin-left:4px}
+    .player-status{font-size:0.72rem;color:var(--text-muted)}
+    .player-status.ready{color:var(--green);font-weight:600}
+    .ready-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .ready-dot.on{background:var(--green);animation:pulse-dot 1.8s ease-in-out infinite}
+    .ready-dot.off{background:#f59e0b}
+    .empty-slots-wrap{display:flex;flex-direction:column;gap:5px}
+    .empty-slot{display:flex;align-items:center;gap:10px;padding:7px 11px;opacity:0.38}
+    .slot-avatar{width:38px;height:38px;border-radius:10px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:17px;color:var(--text-muted)}
+    .slot-text{font-size:0.78rem;color:var(--text-muted);font-style:italic}
+    .guest-notice{background:rgba(74,144,217,0.06);border:1px solid rgba(74,144,217,0.18);border-radius:11px;padding:12px 14px;font-size:0.8rem;color:var(--sky-dark);display:flex;align-items:center;gap:7px}
+
+    .verse-card{background:linear-gradient(135deg,rgba(201,168,76,0.08),rgba(74,144,217,0.05));border:1px solid rgba(201,168,76,0.2);border-radius:15px;padding:18px}
+    .verse-eyebrow{font-size:0.7rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold-dark);margin-bottom:7px}
+    .verse-text{font-family:'Cormorant Garamond',serif;font-size:0.96rem;font-style:italic;color:var(--text);line-height:1.6;margin-bottom:6px}
+    .verse-ref{font-size:0.75rem;font-weight:600;color:var(--gold-dark)}
+
+    /* START ZONE */
+    .start-zone{grid-column:1/-1;background:var(--white);border:1px solid var(--border);border-radius:20px;padding:26px 32px;display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap;animation:fadeUp 0.7s 0.2s ease both}
+    .start-label{font-size:0.75rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px}
+    .start-status{font-family:'Cormorant Garamond',serif;font-size:1.35rem;font-weight:700;color:var(--text)}
+    .start-sub{font-size:0.82rem;color:var(--text-muted);margin-top:3px}
+    .start-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .btn-ready{padding:12px 26px;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;border:2px solid var(--green);border-radius:12px;cursor:pointer;background:rgba(34,197,94,0.08);color:#15803d;transition:all 0.25s}
+    .btn-ready:hover{background:var(--green);color:white}
+    .btn-ready.is-ready{background:var(--green);color:white}
+    .btn-start{padding:12px 34px;font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:600;border:none;cursor:pointer;border-radius:12px;background:linear-gradient(135deg,var(--sky),var(--sky-dark));color:white;letter-spacing:0.04em;box-shadow:0 4px 18px rgba(74,144,217,0.3);transition:all 0.25s}
+    .btn-start:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 28px rgba(74,144,217,0.38)}
+    .btn-start:disabled{background:#e5e7eb;color:#9ca3af;box-shadow:none;cursor:not-allowed}
+    .btn-start.multi{background:linear-gradient(135deg,var(--purple),#5b21b6);box-shadow:0 4px 18px rgba(124,58,237,0.3)}
+    .btn-start.multi:hover:not(:disabled){box-shadow:0 8px 28px rgba(124,58,237,0.38)}
+
+    /* COUNTDOWN */
+    .countdown-overlay{position:fixed;inset:0;z-index:200;background:rgba(250,250,245,0.96);backdrop-filter:blur(12px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;pointer-events:none;transition:opacity 0.4s}
+    .countdown-overlay.active{opacity:1;pointer-events:all}
+    .countdown-num{font-family:'Cormorant Garamond',serif;font-size:9rem;font-weight:700;line-height:1;background:linear-gradient(135deg,var(--sky),var(--sky-dark));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:countPop 0.5s ease both}
+    .countdown-num.multi-mode{background:linear-gradient(135deg,var(--purple),#5b21b6);-webkit-background-clip:text;background-clip:text}
+    .countdown-game{font-family:'Cormorant Garamond',serif;font-size:1.7rem;font-weight:600;color:var(--text)}
+    .countdown-queue{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+    .cq-chip{padding:4px 12px;background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.2);border-radius:8px;font-size:0.78rem;font-weight:600;color:var(--purple)}
+    .countdown-sub{font-size:0.88rem;color:var(--text-muted)}
+
+    .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--text);color:white;padding:10px 20px;border-radius:10px;font-size:0.85rem;font-weight:500;box-shadow:0 6px 24px rgba(0,0,0,0.18);z-index:100;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .toast.success{background:#15803d}.toast.info{background:var(--sky-dark)}.toast.error{background:#b91c1c}.toast.purple{background:var(--purple)}
+
+    @media(max-width:820px){.page-wrap{grid-template-columns:1fr}.start-zone{flex-direction:column;align-items:flex-start}header{padding:14px 18px}}
+  </style>
+</head>
+<body>
+<div class="bg-layer"><div class="bg-cross a">✝</div><div class="bg-cross b">✝</div></div>
+
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">✝</div>Bible<span>Play</span></a>
+  <div class="header-right">
+    <a class="scores-btn" href="scores.html">🏆 Classements</a>
+    <a class="chat-btn" href="chat.html">💬 Salon</a>
+    <a class="back-btn" href="index.html" onclick="return leaveRoom()">← Quitter</a>
+  </div>
+</header>
+
+<div class="page-wrap">
+  <div class="left-col">
+    <!-- Room Info -->
+    <div class="room-header-card">
+      <div class="room-top">
+        <div><div class="room-eyebrow">✦ Salle de jeu</div><div class="room-title">Prêts à jouer ?</div></div>
+        <div class="room-code-badge" onclick="copyCode()" id="code-badge">
+          <div class="code-label">Code salle</div>
+          <div class="code-value" id="display-code">—</div>
+          <div class="code-copy-hint">Cliquer pour copier</div>
+          <div class="copied-flash">✓ Copié !</div>
+        </div>
+      </div>
+      <div class="room-meta">
+        <div class="meta-tag"><span class="dot dot-green"></span> Salle ouverte</div>
+        <div class="meta-tag"><span class="dot dot-gold"></span> <span id="meta-game">Quiz Battle</span></div>
+        <div class="meta-tag"><span class="dot dot-sky"></span> <span id="meta-players">1 / 8 joueurs</span></div>
+      </div>
+    </div>
+
+    <!-- Sélecteur -->
+    <div class="game-selector-card">
+      <div class="card-header">
+        <div><div class="card-label">Choisir le jeu</div><div class="card-title">Quel mini-jeu ce soir ?</div></div>
+        <span class="host-only-tag" id="host-tag" style="display:none">✦ Hôte seulement</span>
+        <span class="guest-game-tag" id="guest-tag" style="display:none">Choix de l'hôte</span>
+      </div>
+
+      <div class="mode-tabs" id="mode-tabs" style="display:none">
+        <button class="mode-tab active" onclick="switchMode('single')">☐ Un seul jeu</button>
+        <button class="mode-tab" onclick="switchMode('multi')">✦ Plusieurs jeux</button>
+      </div>
+
+      <!-- Panel unique — 9 jeux -->
+      <div id="panel-single">
+        <div class="games-list" id="games-list-single">
+          <div class="game-option selected" data-game="quiz" data-color="c-sky" onclick="selectSingle(this,'quiz')">
+            <div class="go-icon gi-sky">📖</div><div class="go-info"><div class="go-name">Quiz Battle</div><div class="go-desc">110 questions sur les versets, personnages et livres bibliques.</div><div class="go-tags"><span class="go-tag t-sky">⚡ Temps réel</span><span class="go-tag t-sky">2–8 joueurs</span></div></div><div class="go-check">✓</div>
+          </div>
+          <div class="game-option" data-game="predicateur" data-color="c-amber" onclick="selectSingle(this,'predicateur')">
+            <div class="go-icon gi-amber">🎤</div><div class="go-info"><div class="go-name">Défi du Prédicateur</div><div class="go-desc">Chaque joueur pose sa propre question biblique. Les autres devinent !</div><div class="go-tags"><span class="go-tag t-amber">🔄 Tour par tour</span><span class="go-tag t-amber">2–8 joueurs</span></div></div><div class="go-check">✓</div>
+          </div>
+          <div class="game-option" data-game="verset" data-color="c-gold" onclick="selectSingle(this,'verset')">
+            <div class="go-icon gi-gold">✍️</div><div class="go-info"><div class="go-name">Verset Manquant</div><div class="go-desc">Complète les mots manquants d'un verset biblique avant tes adversaires.</div><div class="go-tags"><span class="go-tag t-gold">🔄 Tour par tour</span><span class="go-tag t-gold">30 versets</span></div></div><div class="go-check">✓</div>
+          </div>
+          <div class="game-option" data-game="localise" data-color="c-purple" onclick="selectSingle(this,'localise')">
+            <div class="go-icon gi-purple">🗺️</div><div class="go-info"><div class="go-name">Où est-il écrit ?</div><div class="go-desc">Retrouve le livre et chapitre d'un verset. 2 étapes : livre puis chapitre.</div><div class="go-tags"><span class="go-tag t-purple">⚡ Temps réel</span><span class="go-tag t-purple">20 versets</span></div></div><div class="go-check">✓</div>
+          </div>
+          <div class="game-option" data-game="memoire" data-color="c-green" onclick="selectSingle(this,'memoire')">
+            <div class="go-icon gi-green">🃏</div><div class="go-info"><div class="go-name">Mémoire Sacré</div><div class="go-desc">Associe les paires verset ↔ référence ou personnage. 3 modes.</div><div class="go-tags"><span class="go-tag t-green">🔄 Tour par tour</span><span class="go-tag t-green">118 paires</span></div></div><div class="go-check">✓</div>
+          </div>
+          <div class="game-option" data-game="anagramme" data-color="c-pink" onclick="selectSingle(this,'anagramme')">
+            <div class="go-icon gi-pink">🔤</div><div class="go-info"><div class="go-name">Anagramme Biblique</div><div class="go-desc">Retrouve un nom ou mot biblique mélangé. 5 catégories, 120 mots.</div><div class="go-tags"><span class="go-tag t-pink">⚡ Temps réel</span><span class="go-tag t-pink">120 mots</span></div></div><div class="go-check">✓</div>
+          </div>
+          <div class="game-option" data-game="duel" data-color="c-red" onclick="selectSingle(this,'duel')">
+            <div class="go-icon gi-red">⚔️</div><div class="go-info"><div class="go-name">Duel de Versets</div><div class="go-desc">2 joueurs face à face complètent le même verset. Le plus rapide gagne !</div><div class="go-tags"><span class="go-tag t-red">⚡ Duel</span><span class="go-tag t-red">120 versets</span></div></div><div class="go-check">✓</div>
+          </div>
+          <div class="game-option" data-game="roue" data-color="c-teal" onclick="selectSingle(this,'roue')">
+            <div class="go-icon gi-teal">🎲</div><div class="go-info"><div class="go-name">Roue Biblique</div><div class="go-desc">La roue choisit une catégorie, tous répondent et votent ! 160 défis.</div><div class="go-tags"><span class="go-tag t-teal">🗳️ Votes</span><span class="go-tag t-teal">8 catégories</span></div></div><div class="go-check">✓</div>
+          </div>
+          <div class="game-option" data-game="motscroises" data-color="teal2" onclick="selectSingle(this,'motscroises')">
+            <div class="go-icon gi-teal2">🧩</div><div class="go-info"><div class="go-name">Mots Croisés Bibliques</div><div class="go-desc">Grille partagée — complétez ensemble en 10 minutes. 55 mots.</div><div class="go-tags"><span class="go-tag t-teal2">🤝 Coopératif</span><span class="go-tag t-teal2">10 min</span></div></div><div class="go-check">✓</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel multi -->
+      <div id="panel-multi" style="display:none">
+        <div class="multi-info">✦ Coche les jeux dans l'ordre voulu. Ils se lanceront automatiquement en séquence.</div>
+        <div class="games-multi">
+          <div class="game-multi-opt" data-game="quiz" onclick="toggleMulti(this,'quiz')"><div class="checkbox">✓</div><div class="go-icon gi-sky" style="width:34px;height:34px;font-size:17px">📖</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Quiz Battle</div><div class="go-desc">110 questions · Temps réel</div></div></div>
+          <div class="game-multi-opt" data-game="predicateur" onclick="toggleMulti(this,'predicateur')"><div class="checkbox">✓</div><div class="go-icon gi-amber" style="width:34px;height:34px;font-size:17px">🎤</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Défi du Prédicateur</div><div class="go-desc">Questions libres · Tour par tour</div></div></div>
+          <div class="game-multi-opt" data-game="verset" onclick="toggleMulti(this,'verset')"><div class="checkbox">✓</div><div class="go-icon gi-gold" style="width:34px;height:34px;font-size:17px">✍️</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Verset Manquant</div><div class="go-desc">30 versets · Lettres à compléter</div></div></div>
+          <div class="game-multi-opt" data-game="localise" onclick="toggleMulti(this,'localise')"><div class="checkbox">✓</div><div class="go-icon gi-purple" style="width:34px;height:34px;font-size:17px">🗺️</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Où est-il écrit ?</div><div class="go-desc">Trouver livre & chapitre</div></div></div>
+          <div class="game-multi-opt" data-game="memoire" onclick="toggleMulti(this,'memoire')"><div class="checkbox">✓</div><div class="go-icon gi-green" style="width:34px;height:34px;font-size:17px">🃏</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Mémoire Sacré</div><div class="go-desc">118 paires · Tour par tour</div></div></div>
+          <div class="game-multi-opt" data-game="anagramme" onclick="toggleMulti(this,'anagramme')"><div class="checkbox">✓</div><div class="go-icon gi-pink" style="width:34px;height:34px;font-size:17px">🔤</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Anagramme Biblique</div><div class="go-desc">120 mots · Temps réel</div></div></div>
+          <div class="game-multi-opt" data-game="duel" onclick="toggleMulti(this,'duel')"><div class="checkbox">✓</div><div class="go-icon gi-red" style="width:34px;height:34px;font-size:17px">⚔️</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Duel de Versets</div><div class="go-desc">2 joueurs face à face</div></div></div>
+          <div class="game-multi-opt" data-game="roue" onclick="toggleMulti(this,'roue')"><div class="checkbox">✓</div><div class="go-icon gi-teal" style="width:34px;height:34px;font-size:17px">🎲</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Roue Biblique</div><div class="go-desc">160 défis · 8 catégories</div></div></div>
+          <div class="game-multi-opt" data-game="motscroises" onclick="toggleMulti(this,'motscroises')"><div class="checkbox">✓</div><div class="go-icon gi-teal2" style="width:34px;height:34px;font-size:17px">🧩</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Mots Croisés</div><div class="go-desc">Coopératif · 10 minutes</div></div></div>
+        </div>
+        <div class="multi-queue">
+          <div class="mq-label">Séquence de jeux</div>
+          <div class="mq-chips" id="mq-chips"><span class="mq-empty">Aucun jeu sélectionné</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-col">
+    <div class="players-card">
+      <div class="players-header">
+        <div class="players-title">Joueurs connectés</div>
+        <div class="players-count" id="players-count">0 / 8</div>
+      </div>
+      <div class="players-list" id="players-list"></div>
+      <div class="empty-slots-wrap" id="empty-slots"></div>
+      <div class="guest-notice" id="guest-notice" style="display:none">ℹ️ Attends que l'hôte lance la partie.</div>
+    </div>
+    <div class="verse-card">
+      <div class="verse-eyebrow">✦ Verset du jour</div>
+      <div class="verse-text" id="daily-verse">"Je puis tout par celui qui me fortifie."</div>
+      <div class="verse-ref" id="daily-ref">— Philippiens 4:13</div>
+    </div>
+  </div>
+
+  <div class="start-zone">
+    <div class="start-info">
+      <div class="start-label">Statut de la partie</div>
+      <div class="start-status" id="start-status">En attente de joueurs…</div>
+      <div class="start-sub" id="start-sub">Partage le code de salle avec tes amis.</div>
+    </div>
+    <div class="start-actions" id="start-actions"></div>
+  </div>
+</div>
+
+<div class="countdown-overlay" id="countdown-overlay">
+  <div class="countdown-game" id="cd-game">Quiz Battle</div>
+  <div class="countdown-num" id="cd-num">3</div>
+  <div class="countdown-queue" id="cd-queue" style="display:none"></div>
+  <div class="countdown-sub">Que la grâce soit avec toi ! 🙏</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const{createClient}=supabase;
+const db=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+const GAME_NAMES={quiz:'Quiz Battle',predicateur:'Défi du Prédicateur',verset:'Verset Manquant',localise:'Où est-il écrit ?',memoire:'Mémoire Sacré',anagramme:'Anagramme Biblique',duel:'Duel de Versets',roue:'Roue Biblique',motscroises:'Mots Croisés Bibliques'};
+const GAME_FILES={quiz:'game.html',predicateur:'game-predicateur.html',verset:'game-verset.html',localise:'game-localise.html',memoire:'game-memoire.html',anagramme:'game-anagramme.html',duel:'game-duel.html',roue:'game-roue.html',motscroises:'game-mots-croises.html'};
+const GAME_ICONS={quiz:'📖',predicateur:'🎤',verset:'✍️',localise:'🗺️',memoire:'🃏',anagramme:'🔤',duel:'⚔️',roue:'🎲',motscroises:'🧩'};
+
+const DAILY_VERSES=[
+  {text:'"Je puis tout par celui qui me fortifie."',ref:'Philippiens 4:13'},
+  {text:'"L\'Éternel est mon berger : je ne manquerai de rien."',ref:'Psaumes 23:1'},
+  {text:'"Ta parole est une lampe à mes pieds."',ref:'Psaumes 119:105'},
+  {text:'"Car Dieu a tant aimé le monde…"',ref:'Jean 3:16'},
+  {text:'"Ne crains rien, car je suis avec toi."',ref:'Ésaïe 41:10'},
+  {text:'"Venez à moi, vous tous qui êtes fatigués…"',ref:'Matthieu 11:28'},
+  {text:'"Je suis le chemin, la vérité et la vie."',ref:'Jean 14:6'},
+];
+const dv=DAILY_VERSES[new Date().getDay()%DAILY_VERSES.length];
+document.getElementById('daily-verse').textContent=dv.text;
+document.getElementById('daily-ref').textContent='— '+dv.ref;
+
+const params=new URLSearchParams(window.location.search);
+const roomCode=params.get('code');
+let playerData={};
+try{playerData=JSON.parse(sessionStorage.getItem('bp_player')||'{}');}catch(e){}
+const isHost=playerData.role==='host';
+const mySessionId=playerData.sessionId||sessionStorage.getItem('bp_session');
+if(!roomCode)window.location.href='index.html';
+document.getElementById('display-code').textContent=roomCode;
+
+let allPlayers=[],selectedGame='quiz',gameMode='single',multiQueue=[],isReady=false;
+
+if(isHost){document.getElementById('host-tag').style.display='inline-flex';document.getElementById('mode-tabs').style.display='flex';}
+else{document.getElementById('guest-tag').style.display='inline-flex';document.getElementById('guest-notice').style.display='flex';document.querySelectorAll('.game-option,.game-multi-opt').forEach(el=>{el.classList.add('disabled');el.onclick=null;});}
+
+async function loadPlayers(){
+  const{data}=await db.from('players').select('*').eq('room_code',roomCode).order('joined_at');
+  allPlayers=data||[];renderPlayers();updateMeta();updateStartZone();
+}
+async function loadRoom(){
+  const{data}=await db.from('rooms').select('*').eq('code',roomCode).maybeSingle();
+  if(!data)return;
+  if(data.status==='playing'){launchCountdown(data.game,data.game_queue);return;}
+  if(data.game&&data.game!==selectedGame){
+    selectedGame=data.game;
+    document.querySelectorAll('.game-option').forEach(o=>o.classList.remove('selected','c-sky','c-gold','c-purple','c-green','c-amber','c-pink','c-teal','c-red','teal2'));
+    const el=document.querySelector(`.game-option[data-game="${selectedGame}"]`);
+    if(el)el.classList.add('selected',el.dataset.color||'c-sky');
+    updateMeta();
+  }
+  if(data.game_queue&&data.game_queue.length){multiQueue=data.game_queue;renderMultiQueue();}
+}
+
+const playersChannel=db.channel(`lobby-players-${roomCode}`)
+  .on('postgres_changes',{event:'*',schema:'public',table:'players',filter:`room_code=eq.${roomCode}`},payload=>{
+    if(payload.eventType==='INSERT'){
+      if(!allPlayers.find(x=>x.id===payload.new.id)){
+        allPlayers.push(payload.new);
+        if(payload.new.session_id!==mySessionId)showToast(`${payload.new.avatar} ${payload.new.pseudo} a rejoint !`,'info');
+        renderPlayers();updateMeta();updateStartZone();
+      }
+    }else if(payload.eventType==='UPDATE'){
+      const idx=allPlayers.findIndex(x=>x.id===payload.new.id);
+      if(idx!==-1)allPlayers[idx]=payload.new;
+      renderPlayers();updateStartZone();
+    }else if(payload.eventType==='DELETE'){
+      const removed=allPlayers.find(x=>x.id===payload.old.id);
+      allPlayers=allPlayers.filter(x=>x.id!==payload.old.id);
+      if(removed&&removed.session_id!==mySessionId)showToast(`${removed.pseudo} a quitté la salle.`,'');
+      renderPlayers();updateMeta();updateStartZone();
+    }
+  }).subscribe();
+
+const roomChannel=db.channel(`lobby-room-${roomCode}`)
+  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rooms',filter:`code=eq.${roomCode}`},payload=>{
+    const room=payload.new;
+    if(room.status==='playing'){launchCountdown(room.game,room.game_queue);return;}
+    if(room.game!==selectedGame){
+      selectedGame=room.game;
+      document.querySelectorAll('.game-option').forEach(o=>o.classList.remove('selected','c-sky','c-gold','c-purple','c-green','c-amber','c-pink','c-teal','c-red','teal2'));
+      const el=document.querySelector(`.game-option[data-game="${selectedGame}"]`);
+      if(el)el.classList.add('selected',el.dataset.color||'c-sky');
+      if(!isHost)showToast(`✦ Jeu : ${GAME_NAMES[room.game]}`,'info');
+      updateMeta();updateStartZone();
+    }
+    if(room.game_queue){multiQueue=room.game_queue;renderMultiQueue();}
+  }).subscribe();
+
+function switchMode(mode){
+  gameMode=mode;
+  document.querySelectorAll('.mode-tab').forEach((b,i)=>b.classList.toggle('active',(mode==='single'&&i===0)||(mode==='multi'&&i===1)));
+  document.getElementById('panel-single').style.display=mode==='single'?'block':'none';
+  document.getElementById('panel-multi').style.display=mode==='multi'?'block':'none';
+  updateStartZone();
+}
+
+async function selectSingle(el,game){
+  if(!isHost)return;
+  document.querySelectorAll('.game-option').forEach(o=>o.classList.remove('selected','c-sky','c-gold','c-purple','c-green','c-amber','c-pink','c-teal','c-red','teal2'));
+  el.classList.add('selected',el.dataset.color||'c-sky');
+  selectedGame=game;
+  await db.from('rooms').update({game}).eq('code',roomCode);
+  showToast(`✦ ${GAME_NAMES[game]}`,'info');
+  updateMeta();updateStartZone();
+}
+
+function toggleMulti(el,game){
+  if(!isHost)return;
+  const isChecked=el.classList.contains('checked');
+  if(isChecked){el.classList.remove('checked');multiQueue=multiQueue.filter(g=>g!==game);}
+  else{el.classList.add('checked');multiQueue.push(game);}
+  renderMultiQueue();
+  db.from('rooms').update({game_queue:multiQueue,game:multiQueue[0]||'quiz'}).eq('code',roomCode);
+  updateStartZone();
+}
+
+function renderMultiQueue(){
+  const chips=document.getElementById('mq-chips');
+  if(!multiQueue.length){chips.innerHTML='<span class="mq-empty">Aucun jeu sélectionné</span>';return;}
+  chips.innerHTML=multiQueue.map((g,i)=>`<div class="mq-chip"><span class="order-num">${i+1}</span>${GAME_ICONS[g]||'🎮'} ${GAME_NAMES[g]}</div>`).join('');
+}
+
+function renderPlayers(){
+  const list=document.getElementById('players-list');
+  const emptyWrap=document.getElementById('empty-slots');
+  list.innerHTML=allPlayers.map((p,i)=>{
+    const isMe=p.session_id===mySessionId;
+    return`<div class="player-row" style="animation-delay:${i*0.06}s">
+      <div class="player-avatar ${isMe?'me':''}">${p.avatar}${p.is_host?'<span class="host-crown">👑</span>':''}</div>
+      <div class="player-info">
+        <div class="player-name">${p.pseudo}${isMe?'<span class="you-badge">Toi</span>':''}</div>
+        <div class="player-status ${p.is_ready?'ready':''}">${p.is_ready?'✓ Prêt':(p.is_host?'Hôte':'En attente…')}</div>
+      </div>
+      <div class="ready-dot ${p.is_ready?'on':'off'}"></div>
+    </div>`;
+  }).join('');
+  const remaining=Math.max(0,8-allPlayers.length);
+  emptyWrap.innerHTML=Array.from({length:Math.min(remaining,2)},()=>`<div class="empty-slot"><div class="slot-avatar">+</div><div class="slot-text">En attente d'un joueur…</div></div>`).join('');
+  document.getElementById('players-count').textContent=`${allPlayers.length} / 8`;
+}
+
+function updateMeta(){
+  document.getElementById('meta-players').textContent=`${allPlayers.length} / 8 joueurs`;
+  if(gameMode==='multi'&&multiQueue.length)document.getElementById('meta-game').textContent=multiQueue.map(g=>GAME_NAMES[g]).join(' → ');
+  else document.getElementById('meta-game').textContent=GAME_NAMES[selectedGame]||'Quiz Battle';
+}
+
+async function toggleReady(){
+  isReady=!isReady;
+  const me=allPlayers.find(p=>p.session_id===mySessionId);
+  if(!me)return;
+  await db.from('players').update({is_ready:isReady}).eq('id',me.id);
+  showToast(isReady?'✓ Tu es prêt !':'⏸ Plus prêt.',isReady?'success':'');
+}
+
+async function startGame(){
+  if(allPlayers.length<2){showToast('⚠️ Il faut au moins 2 joueurs !','error');return;}
+  if(gameMode==='multi'){
+    if(!multiQueue.length){showToast('⚠️ Sélectionne au moins un jeu !','error');return;}
+    await db.from('rooms').update({status:'playing',game:multiQueue[0],game_queue:multiQueue}).eq('code',roomCode);
+    launchCountdown(multiQueue[0],multiQueue);
+  }else{
+    await db.from('rooms').update({status:'playing',game:selectedGame,game_queue:[]}).eq('code',roomCode);
+    launchCountdown(selectedGame,[]);
+  }
+}
+
+function launchCountdown(game,queue=[]){
+  const overlay=document.getElementById('countdown-overlay');
+  const cdNum=document.getElementById('cd-num');
+  const isMulti=queue&&queue.length>1;
+  document.getElementById('cd-game').textContent=GAME_NAMES[game]||game;
+  cdNum.className='countdown-num'+(isMulti?' multi-mode':'');
+  if(isMulti){
+    document.getElementById('cd-queue').style.display='flex';
+    document.getElementById('cd-queue').innerHTML=queue.map((g,i)=>`<span class="cq-chip">${i+1}. ${GAME_ICONS[g]||''} ${GAME_NAMES[g]}</span>`).join('');
+  }else{document.getElementById('cd-queue').style.display='none';}
+  overlay.classList.add('active');
+  let n=3;cdNum.textContent=n;
+  const tick=setInterval(()=>{
+    n--;
+    if(n<=0){
+      clearInterval(tick);cdNum.textContent='🙏';
+      if(queue&&queue.length)sessionStorage.setItem('bp_game_queue',JSON.stringify(queue));
+      const file=GAME_FILES[game]||'game.html';
+      setTimeout(()=>{window.location.href=`${file}?game=${game}&code=${roomCode}`;},750);
+    }else{
+      cdNum.style.animation='none';void cdNum.offsetWidth;
+      cdNum.style.animation='countPop 0.5s ease both';
+      cdNum.textContent=n;
+    }
+  },900);
+}
+
+function updateStartZone(){
+  const readyCount=allPlayers.filter(p=>p.is_ready||p.is_host).length;
+  const statusEl=document.getElementById('start-status');
+  const subEl=document.getElementById('start-sub');
+  const actionsEl=document.getElementById('start-actions');
+  const canStart=allPlayers.length>=2;
+  const isMultiMode=gameMode==='multi';
+  const hasMultiGames=multiQueue.length>0;
+  if(allPlayers.length<2){statusEl.textContent='En attente d\'autres joueurs…';subEl.textContent='Partage le code de salle pour inviter tes amis.';}
+  else if(readyCount<allPlayers.length){statusEl.textContent=`${readyCount} / ${allPlayers.length} joueurs prêts`;subEl.textContent='En attente que tous les joueurs soient prêts.';}
+  else if(isMultiMode&&!hasMultiGames){statusEl.textContent='Sélectionne les jeux de la soirée…';subEl.textContent='Coche au moins un jeu dans la liste.';}
+  else{statusEl.textContent='Tout le monde est prêt ! ✦';subEl.textContent=isHost?(isMultiMode?`Séquence : ${multiQueue.map(g=>GAME_NAMES[g]).join(' → ')}`:'Tu peux lancer la partie.'):'L\'hôte peut lancer la partie.';}
+  const disableStart=!canStart||(isMultiMode&&!hasMultiGames);
+  if(isHost){
+    actionsEl.innerHTML=`<button class="btn-ready ${isReady?'is-ready':''}" onclick="toggleReady()">${isReady?'✓ Prêt !':'☐ Je suis prêt'}</button>
+    <button class="btn-start ${isMultiMode?'multi':''}" ${disableStart?'disabled':''} onclick="startGame()">${isMultiMode?'✦ Lancer la soirée':'▶ Lancer la partie'}</button>`;
+  }else{
+    actionsEl.innerHTML=`<button class="btn-ready ${isReady?'is-ready':''}" onclick="toggleReady()">${isReady?'✓ Prêt !':'☐ Je suis prêt'}</button>
+    <span style="font-size:0.82rem;color:var(--text-muted)">En attente de l'hôte…</span>`;
+  }
+}
+
+function copyCode(){
+  navigator.clipboard?.writeText(roomCode).catch(()=>{});
+  const badge=document.getElementById('code-badge');
+  badge.classList.add('copied');setTimeout(()=>badge.classList.remove('copied'),1800);
+}
+
+async function leaveRoom(){
+  const me=allPlayers.find(p=>p.session_id===mySessionId);
+  if(me)await db.from('players').delete().eq('id',me.id);
+  playersChannel.unsubscribe();roomChannel.unsubscribe();return true;
+}
+
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',3000);
+}
+
+window.addEventListener('beforeunload',()=>leaveRoom());
+loadPlayers();loadRoom();
+</script>
+</body>
+</html>

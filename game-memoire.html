@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Mémoire Sacré</title>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --cream:#fdf8f0; --white:#fff;
+      --sage:#2d4a3e; --sage-light:#3d6b5a; --sage-mid:#4a8068;
+      --gold:#c9913a; --gold-light:#e8b865; --gold-dim:rgba(201,145,58,0.15);
+      --rose:#8b3a52; --rose-light:#c4607a;
+      --text:#1c1917; --text-muted:#78716c;
+      --border:#e0d8cc; --border2:rgba(45,74,62,0.12);
+      --green:#16a34a; --red:#dc2626;
+      --card-back:linear-gradient(135deg, #2d4a3e 0%, #1a3028 100%);
+    }
+    html,body { height:100%; }
+    body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+    .bg { position:fixed; inset:0; z-index:0; pointer-events:none;
+      background: radial-gradient(ellipse 70% 50% at 20% 10%, rgba(45,74,62,0.07) 0%, transparent 55%),
+                  radial-gradient(ellipse 60% 40% at 85% 85%, rgba(201,145,58,0.08) 0%, transparent 55%); }
+    .bg-cross { position:fixed; opacity:0.03; font-size:220px; color:var(--sage); user-select:none; pointer-events:none; z-index:0; }
+    .bg-cross.a { top:-30px; right:-20px; transform:rotate(10deg); }
+    .bg-cross.b { bottom:30px; left:-15px; transform:rotate(-7deg); font-size:150px; }
+
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes flipIn   { from{transform:rotateY(90deg);opacity:0} to{transform:rotateY(0);opacity:1} }
+    @keyframes flipOut  { from{transform:rotateY(0);opacity:1} to{transform:rotateY(-90deg);opacity:0} }
+    @keyframes matchPop { 0%{transform:scale(1)} 40%{transform:scale(1.1)} 100%{transform:scale(1)} }
+    @keyframes wrongShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)} }
+    @keyframes pulseGold { 0%,100%{box-shadow:0 0 0 0 rgba(201,145,58,0.4)} 50%{box-shadow:0 0 0 8px rgba(201,145,58,0)} }
+    @keyframes scoreFlash { 0%{color:var(--green);transform:scale(1.2)} 100%{color:var(--text);transform:scale(1)} }
+    @keyframes turnGlow { 0%,100%{border-color:rgba(201,145,58,0.4)} 50%{border-color:rgba(201,145,58,0.9)} }
+
+    /* HEADER */
+    header { position:relative; z-index:10; display:flex; align-items:center; justify-content:space-between; padding:16px 36px; border-bottom:1px solid rgba(45,74,62,0.15); background:rgba(253,248,240,0.92); backdrop-filter:blur(14px); }
+    .logo { font-family:'Crimson Pro',serif; font-size:1.5rem; font-weight:700; color:var(--text); text-decoration:none; display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:32px; height:32px; background:linear-gradient(135deg,var(--sage),var(--sage-light)); border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+    .logo span { color:var(--sage-mid); }
+    .h-center { display:flex; align-items:center; gap:10px; }
+    .game-badge { font-size:0.78rem; font-weight:600; color:var(--sage); background:rgba(45,74,62,0.08); border:1px solid rgba(45,74,62,0.15); padding:5px 13px; border-radius:9px; }
+    .room-badge { font-family:'Crimson Pro',serif; font-size:1rem; font-weight:700; color:var(--text-muted); letter-spacing:0.12em; }
+    .quit-btn { font-size:0.78rem; color:var(--text-muted); background:none; border:1px solid var(--border); padding:7px 14px; border-radius:8px; cursor:pointer; text-decoration:none; transition:all 0.2s; }
+    .quit-btn:hover { color:var(--red); border-color:rgba(220,38,38,0.3); }
+
+    /* LAYOUT */
+    .game-wrap { position:relative; z-index:5; max-width:1060px; margin:0 auto; padding:26px 24px 60px; }
+    .page-grid { display:grid; grid-template-columns:1fr 270px; gap:22px; }
+
+    /* SCOREBOARD */
+    .scoreboard { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; animation:fadeDown 0.5s ease both; }
+    .sc { flex:1; min-width:80px; background:var(--white); border:1.5px solid var(--border); border-radius:12px; padding:10px 8px; text-align:center; transition:all 0.3s; position:relative; }
+    .sc.me { border-color:rgba(74,128,104,0.5); }
+    .sc.my-turn { border-color:var(--gold); animation:pulseGold 2s ease-in-out infinite; }
+    .sc.my-turn::after { content:'🎯'; position:absolute; top:3px; right:5px; font-size:10px; }
+    .sc-av { font-size:16px; margin-bottom:2px; }
+    .sc-nm { font-size:0.7rem; font-weight:600; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sc-sc { font-family:'Crimson Pro',serif; font-size:1.5rem; font-weight:700; color:var(--text); line-height:1; margin-top:3px; }
+    .sc-sc.flash { animation:scoreFlash 0.4s ease; }
+    .sc-pairs { font-size:0.65rem; color:var(--sage); font-weight:600; }
+
+    /* TURN BANNER */
+    .turn-banner { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 18px; background:var(--white); border:1.5px solid var(--border); border-radius:14px; margin-bottom:16px; flex-wrap:wrap; animation:fadeDown 0.5s 0.05s ease both; }
+    .tb-left { display:flex; align-items:center; gap:10px; }
+    .tb-avatar { font-size:1.6rem; }
+    .tb-info {}
+    .tb-label { font-size:0.68rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); }
+    .tb-name { font-family:'Crimson Pro',serif; font-size:1.1rem; font-weight:700; color:var(--text); }
+    .tb-right { display:flex; align-items:center; gap:8px; }
+    .tb-pairs { font-size:0.8rem; color:var(--text-muted); }
+    .tb-pairs strong { color:var(--sage); }
+    .turn-dot { width:10px; height:10px; border-radius:50%; background:var(--gold); animation:pulseGold 1.5s ease-in-out infinite; }
+
+    /* PLATEAU */
+    .board-section { animation:fadeUp 0.5s 0.1s ease both; }
+    .board-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .board-label { font-size:0.72rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); }
+    .board-stats { font-size:0.8rem; color:var(--sage); font-weight:500; }
+
+    /* Grille de cartes */
+    .cards-grid { display:grid; gap:10px; }
+    .cards-grid.g-16 { grid-template-columns:repeat(4,1fr); }
+    .cards-grid.g-24 { grid-template-columns:repeat(6,1fr); }
+    .cards-grid.g-20 { grid-template-columns:repeat(5,1fr); }
+
+    /* Carte */
+    .mem-card {
+      aspect-ratio:3/4; border-radius:12px; cursor:pointer;
+      position:relative; overflow:hidden;
+      transition:transform 0.2s, box-shadow 0.2s;
+      user-select:none;
+    }
+    .mem-card:hover:not(.flipped):not(.matched):not(.disabled) { transform:translateY(-3px) scale(1.03); box-shadow:0 8px 20px rgba(45,74,62,0.2); }
+    .mem-card.disabled { cursor:default; }
+    .mem-card.flipped .card-front, .mem-card.matched .card-front { animation:flipIn 0.25s ease both; }
+    .mem-card.flipped .card-back, .mem-card.matched .card-back { display:none; }
+
+    .card-back {
+      position:absolute; inset:0; border-radius:12px;
+      background:var(--card-back);
+      display:flex; align-items:center; justify-content:center;
+      border:2px solid rgba(201,145,58,0.25);
+    }
+    .card-back-icon { font-size:1.6rem; opacity:0.6; }
+    .card-back-pattern {
+      position:absolute; inset:0;
+      background-image: repeating-linear-gradient(45deg, rgba(201,145,58,0.06) 0px, rgba(201,145,58,0.06) 1px, transparent 1px, transparent 8px);
+    }
+
+    .card-front {
+      position:absolute; inset:0; border-radius:12px;
+      background:var(--white); border:2px solid var(--border);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:8px 6px; text-align:center; gap:4px;
+    }
+    .card-front.type-verse { border-color:rgba(45,74,62,0.3); background:linear-gradient(135deg,rgba(45,74,62,0.04),transparent); }
+    .card-front.type-ref   { border-color:rgba(201,145,58,0.4); background:linear-gradient(135deg,rgba(201,145,58,0.06),transparent); }
+    .card-front.type-perso { border-color:rgba(139,58,82,0.3); background:linear-gradient(135deg,rgba(139,58,82,0.04),transparent); }
+    .card-type-icon { font-size:1rem; opacity:0.6; flex-shrink:0; }
+    .card-text { font-family:'Crimson Pro',serif; font-size:0.72rem; font-style:italic; line-height:1.35; color:var(--text); }
+    .card-text.ref-text { font-style:normal; font-weight:700; font-size:0.82rem; color:var(--gold); }
+    .card-text.perso-text { font-style:normal; font-weight:600; font-size:0.85rem; color:var(--rose); }
+
+    .mem-card.selected .card-front { border-color:var(--sage-mid); box-shadow:0 0 0 3px rgba(74,128,104,0.2); }
+    .mem-card.matched .card-front { border-color:var(--green); background:rgba(22,163,74,0.06); animation:matchPop 0.4s ease; }
+    .mem-card.matched .card-type-icon { opacity:0; }
+    .mem-card.wrong .card-front { border-color:var(--red); animation:wrongShake 0.4s ease; }
+
+    /* Score panel */
+    .score-panel { background:var(--white); border:1px solid var(--border); border-radius:14px; padding:16px 18px; margin-top:14px; animation:fadeUp 0.5s 0.2s ease both; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    .sp-stat { text-align:center; }
+    .sp-num { font-family:'Crimson Pro',serif; font-size:1.8rem; font-weight:700; color:var(--text); line-height:1; }
+    .sp-label { font-size:0.68rem; color:var(--text-muted); font-weight:500; margin-top:2px; }
+    .sp-actions { display:flex; gap:10px; align-items:center; }
+    .btn-next-m { padding:11px 24px; font-family:'DM Sans',sans-serif; font-size:0.87rem; font-weight:600; border:none; cursor:pointer; border-radius:10px; background:linear-gradient(135deg,var(--sage),var(--sage-light)); color:white; box-shadow:0 3px 12px rgba(45,74,62,0.25); transition:all 0.22s; }
+    .btn-next-m:hover:not(:disabled) { transform:translateY(-2px); }
+    .btn-next-m:disabled { opacity:0.4; cursor:not-allowed; }
+
+    /* RIGHT */
+    .right-col { display:flex; flex-direction:column; gap:14px; }
+    .players-card { background:var(--white); border:1px solid var(--border); border-radius:14px; padding:16px; position:sticky; top:16px; }
+    .pc-title { font-family:'Crimson Pro',serif; font-size:1rem; font-weight:700; color:var(--text); margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; }
+    .pc-round { font-size:0.7rem; font-weight:600; background:rgba(45,74,62,0.08); color:var(--sage); padding:2px 8px; border-radius:6px; }
+    .pl-row { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:9px; transition:background 0.15s; margin-bottom:3px; }
+    .pl-row:hover { background:rgba(45,74,62,0.04); }
+    .pl-row.active-turn { background:rgba(201,145,58,0.07); border:1px solid rgba(201,145,58,0.2); }
+    .pl-av { width:30px; height:30px; border-radius:8px; background:rgba(45,74,62,0.06); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+    .pl-av.me { border-color:rgba(74,128,104,0.5); }
+    .pl-nm { font-size:0.8rem; font-weight:600; color:var(--text); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pl-sc { font-family:'Crimson Pro',serif; font-size:0.95rem; font-weight:700; color:var(--text); }
+    .pl-pairs { font-size:0.65rem; color:var(--sage); font-weight:600; }
+
+    .rules-card { background:rgba(45,74,62,0.04); border:1px solid rgba(45,74,62,0.15); border-radius:12px; padding:13px 14px; }
+    .rc-t { font-family:'Crimson Pro',serif; font-size:0.9rem; font-weight:700; color:var(--sage); margin-bottom:8px; }
+    .rc-i { display:flex; gap:6px; font-size:0.72rem; color:var(--text-muted); line-height:1.5; margin-bottom:4px; }
+    .rc-n { width:15px; height:15px; border-radius:50%; background:rgba(45,74,62,0.15); color:var(--sage); font-size:0.58rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+
+    /* MODES */
+    .mode-selector { display:flex; gap:8px; margin-bottom:16px; animation:fadeDown 0.5s ease both; }
+    .mode-btn { flex:1; padding:10px; font-family:'DM Sans',sans-serif; font-size:0.8rem; font-weight:600; border:1.5px solid var(--border); border-radius:10px; background:transparent; color:var(--text-muted); cursor:pointer; transition:all 0.2s; text-align:center; }
+    .mode-btn.active { border-color:var(--sage-mid); background:rgba(45,74,62,0.08); color:var(--sage); }
+    .mode-btn:not(.active):hover { border-color:rgba(45,74,62,0.3); color:var(--sage); }
+
+    /* PODIUM */
+    .pod-overlay { position:fixed; inset:0; z-index:200; background:rgba(253,248,240,0.97); backdrop-filter:blur(14px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; opacity:0; pointer-events:none; transition:opacity 0.5s; padding:24px; }
+    .pod-overlay.active { opacity:1; pointer-events:all; }
+    .pod-title { font-family:'Crimson Pro',serif; font-size:clamp(2rem,5vw,3rem); font-weight:700; color:var(--text); text-align:center; }
+    .pod-title span { color:var(--sage-mid); font-style:italic; }
+    .pod-verse { font-family:'Crimson Pro',serif; font-size:0.95rem; font-style:italic; color:var(--text-muted); text-align:center; max-width:400px; }
+    .pod-row { display:flex; gap:14px; align-items:flex-end; justify-content:center; flex-wrap:wrap; }
+    .pod-card { background:var(--white); border:1px solid var(--border); border-radius:16px; padding:18px 14px; text-align:center; min-width:110px; animation:fadeUp 0.5s ease both; }
+    .pod-card.p1 { border-color:rgba(201,145,58,0.5); box-shadow:0 0 24px rgba(201,145,58,0.15); }
+    .pod-rank { font-size:1.8rem; margin-bottom:6px; }
+    .pod-av { font-size:2rem; margin-bottom:5px; }
+    .pod-name { font-size:0.85rem; font-weight:600; color:var(--text); margin-bottom:3px; }
+    .pod-score { font-family:'Crimson Pro',serif; font-size:1.4rem; font-weight:700; color:var(--gold); }
+    .pod-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+    .btn-pod { padding:12px 26px; font-family:'DM Sans',sans-serif; font-size:0.87rem; font-weight:600; border:none; cursor:pointer; border-radius:10px; background:linear-gradient(135deg,var(--sage),var(--sage-light)); color:white; box-shadow:0 4px 14px rgba(45,74,62,0.25); transition:all 0.22s; text-decoration:none; display:inline-flex; align-items:center; }
+    .btn-pod:hover { transform:translateY(-2px); }
+    .btn-pod.out { background:transparent; border:1px solid var(--border); color:var(--text-muted); box-shadow:none; }
+    .btn-pod.out:hover { border-color:var(--sage-mid); color:var(--sage); }
+
+    .loading-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:75vh; gap:18px; position:relative; z-index:5; }
+    .ls-icon { font-size:3rem; animation:pulseGold 2s ease-in-out infinite; }
+    .ls-title { font-family:'Crimson Pro',serif; font-size:1.5rem; font-weight:700; color:var(--text); }
+    .ls-sub { font-size:0.83rem; color:var(--text-muted); }
+
+    .toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--text); color:white; padding:9px 18px; border-radius:9px; font-size:0.82rem; font-weight:500; box-shadow:0 6px 24px rgba(0,0,0,0.18); z-index:300; opacity:0; transition:all 0.3s; pointer-events:none; white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.ok  { background:var(--green); }
+    .toast.err { background:var(--red); }
+    .toast.inf { background:var(--sage); }
+
+    @media(max-width:760px) { .page-grid{grid-template-columns:1fr} .right-col{display:none} header{padding:12px 16px} .h-center{display:none} .cards-grid.g-24{grid-template-columns:repeat(4,1fr)} }
+  </style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="bg-cross a">✝</div>
+<div class="bg-cross b">✝</div>
+
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">🃏</div>Bible<span>Play</span></a>
+  <div class="h-center">
+    <span class="game-badge">🃏 Mémoire Sacré</span>
+    <span class="room-badge" id="h-room">—</span>
+  </div>
+  <a class="quit-btn" href="index.html" onclick="return quitGame()">✕ Quitter</a>
+</header>
+
+<div class="loading-screen" id="loading-screen">
+  <div class="ls-icon">🃏</div>
+  <div class="ls-title">Chargement…</div>
+  <div class="ls-sub">Mélange des cartes sacrées 📖</div>
+</div>
+
+<div style="display:none" id="game-screen">
+  <div class="game-wrap">
+    <div class="page-grid">
+      <div>
+        <div class="scoreboard" id="scoreboard"></div>
+
+        <!-- Sélecteur de mode -->
+        <div class="mode-selector" id="mode-selector" style="display:none">
+          <button class="mode-btn active" onclick="setMode('verset-ref',this)">📖 Verset ↔ Référence</button>
+          <button class="mode-btn" onclick="setMode('verset-perso',this)">👤 Verset ↔ Personnage</button>
+          <button class="mode-btn" onclick="setMode('perso-desc',this)">🏺 Personnage ↔ Description</button>
+        </div>
+
+        <!-- Tour actuel -->
+        <div class="turn-banner" id="turn-banner">
+          <div class="tb-left">
+            <div class="tb-avatar" id="tb-av">🙏</div>
+            <div class="tb-info">
+              <div class="tb-label">Tour de</div>
+              <div class="tb-name" id="tb-name">—</div>
+            </div>
+          </div>
+          <div class="tb-right">
+            <span class="tb-pairs" id="tb-pairs"><strong>0</strong> paires trouvées</span>
+            <span class="turn-dot"></span>
+          </div>
+        </div>
+
+        <!-- Plateau de jeu -->
+        <div class="board-section">
+          <div class="board-header">
+            <span class="board-label">Plateau de jeu</span>
+            <span class="board-stats" id="board-stats">0 / 0 paires trouvées</span>
+          </div>
+          <div class="cards-grid g-16" id="cards-grid"></div>
+        </div>
+
+        <!-- Score panel -->
+        <div class="score-panel" id="score-panel">
+          <div class="sp-stat"><div class="sp-num" id="sp-pairs">0</div><div class="sp-label">Paires trouvées</div></div>
+          <div class="sp-stat"><div class="sp-num" id="sp-total">0</div><div class="sp-label">Total paires</div></div>
+          <div class="sp-stat"><div class="sp-num" id="sp-attempts">0</div><div class="sp-label">Tentatives</div></div>
+          <div class="sp-actions" id="sp-actions"></div>
+        </div>
+      </div>
+
+      <div class="right-col">
+        <div class="players-card">
+          <div class="pc-title">Joueurs <span class="pc-round" id="pc-round">Mode Verset</span></div>
+          <div id="pl-list"></div>
+        </div>
+        <div class="rules-card">
+          <div class="rc-t">🃏 Règles</div>
+          <div class="rc-i"><div class="rc-n">1</div><span>Les cartes sont mélangées face cachée.</span></div>
+          <div class="rc-i"><div class="rc-n">2</div><span>À ton tour, retourne <strong>2 cartes</strong>. Si elles forment une paire, tu marques et rejoues !</span></div>
+          <div class="rc-i"><div class="rc-n">3</div><span>Si les cartes ne correspondent pas, le tour passe au joueur suivant.</span></div>
+          <div class="rc-i"><div class="rc-n">4</div><span><strong>+10 pts</strong> par paire trouvée. <strong>+5 pts bonus</strong> si tu enchaînes plusieurs paires d'affilée.</span></div>
+          <div class="rc-i"><div class="rc-n">5</div><span>3 modes disponibles : Verset↔Référence, Verset↔Personnage, Personnage↔Description.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pod-overlay" id="pod-overlay">
+  <div class="pod-title">✦ <span>Mémoire</span> Sacrée ! ✦</div>
+  <div class="pod-verse">"Je garde tes préceptes dans mon cœur." — Psaumes 119:11</div>
+  <div class="pod-row" id="pod-row"></div>
+  <div class="pod-actions">
+    <button class="btn-pod" onclick="replayGame()">↺ Rejouer</button>
+    <a class="btn-pod out" href="lobby.html" id="back-btn">← Lobby</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const params = new URLSearchParams(window.location.search);
+const roomCode = params.get('code') || '';
+let playerData = {};
+try { playerData = JSON.parse(sessionStorage.getItem('bp_player') || '{}'); } catch(e) {}
+const mySessionId = playerData.sessionId || sessionStorage.getItem('bp_session') || '';
+const isHost = playerData.role === 'host';
+document.getElementById('h-room').textContent = roomCode;
+const backBtn = document.getElementById('back-btn');
+if (backBtn) backBtn.href = `lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+
+// ── 110 PAIRES — 3 modes ──
+
+// Mode 1 : Verset ↔ Référence (42 paires)
+const PAIRES_VERSET_REF = [
+  { a:'"Car Dieu a tant aimé le monde…"', b:'Jean 3:16' },
+  { a:'"L\'Éternel est mon berger."', b:'Psaumes 23:1' },
+  { a:'"Je puis tout par celui qui me fortifie."', b:'Philippiens 4:13' },
+  { a:'"Ta parole est une lampe à mes pieds."', b:'Psaumes 119:105' },
+  { a:'"Je suis le chemin, la vérité et la vie."', b:'Jean 14:6' },
+  { a:'"Toutes choses concourent au bien…"', b:'Romains 8:28' },
+  { a:'"Projets de paix et non de malheur."', b:'Jérémie 29:11' },
+  { a:'"Confie-toi en l\'Éternel de tout ton cœur."', b:'Proverbes 3:5' },
+  { a:'"Cherchez premièrement le royaume de Dieu."', b:'Matthieu 6:33' },
+  { a:'"Ne crains rien, car je suis avec toi."', b:'Ésaïe 41:10' },
+  { a:'"Un esprit de force, d\'amour et de sagesse."', b:'2 Timothée 1:7' },
+  { a:'"Venez à moi, vous tous qui êtes fatigués."', b:'Matthieu 11:28' },
+  { a:'"Dieu est pour nous un refuge et un appui."', b:'Psaumes 46:1' },
+  { a:'"Je suis la résurrection et la vie."', b:'Jean 11:25' },
+  { a:'"Au commencement était la Parole."', b:'Jean 1:1' },
+  { a:'"La foi est une ferme assurance…"', b:'Hébreux 11:1' },
+  { a:'"Je me tiens à la porte et je frappe."', b:'Apocalypse 3:20' },
+  { a:'"L\'Éternel est ma lumière et mon salut."', b:'Psaumes 27:1' },
+  { a:'"Ils prennent le vol comme les aigles."', b:'Ésaïe 40:31' },
+  { a:'"Ne vous inquiétez de rien."', b:'Philippiens 4:6' },
+  { a:'"Dieu est amour."', b:'1 Jean 4:8' },
+  { a:'"Heureux les artisans de paix."', b:'Matthieu 5:9' },
+  { a:'"La charité est patiente."', b:'1 Corinthiens 13:4' },
+  { a:'"La vérité vous affranchira."', b:'Jean 8:32' },
+  { a:'"Je suis la vigne, vous êtes les sarments."', b:'Jean 15:5' },
+  { a:'"L\'Éternel est ma force et mon bouclier."', b:'Psaumes 28:7' },
+  { a:'"Soyez transformés par le renouvellement."', b:'Romains 12:2' },
+  { a:'"Heureux les pauvres en esprit."', b:'Matthieu 5:3' },
+  { a:'"Le fruit de l\'Esprit, c\'est l\'amour."', b:'Galates 5:22' },
+  { a:'"Tout ce que vous faites, faites-le de bon cœur."', b:'Colossiens 3:23' },
+  { a:'"Dieu résiste aux orgueilleux."', b:'Jacques 4:6' },
+  { a:'"L\'amour ne fait point de mal au prochain."', b:'Romains 13:10' },
+  { a:'"C\'est par grâce que vous êtes sauvés."', b:'Éphésiens 2:8' },
+  { a:'"Je vous laisse la paix, je vous donne ma paix."', b:'Jean 14:27' },
+  { a:'"Priez sans cesse."', b:'1 Thessaloniciens 5:17' },
+  { a:'"Celui qui demeure en moi porte beaucoup de fruit."', b:'Jean 15:5' },
+  { a:'"Sanctifiez-les par ta vérité."', b:'Jean 17:17' },
+  { a:'"Remettez-vous-en à lui, car il prend soin de vous."', b:'1 Pierre 5:7' },
+  { a:'"Jésus-Christ est le même hier, aujourd\'hui et éternellement."', b:'Hébreux 13:8' },
+  { a:'"Que votre lumière luise devant les hommes."', b:'Matthieu 5:16' },
+  { a:'"Ne jugez point, afin que vous ne soyez point jugés."', b:'Matthieu 7:1' },
+  { a:'"Aimez-vous les uns les autres."', b:'Jean 13:34' },
+];
+
+// Mode 2 : Verset ↔ Personnage (40 paires)
+const PAIRES_VERSET_PERSO = [
+  { a:'"Vous serez libres" — Je suis la porte des brebis.', b:'Jésus' },
+  { a:'Traversa la mer Rouge à pied sec.', b:'Moïse' },
+  { a:'Tua le géant Goliath avec une fronde.', b:'David' },
+  { a:'Fut avalé par un grand poisson.', b:'Jonas' },
+  { a:'Construisit une arche pour sauver sa famille.', b:'Noé' },
+  { a:'Interpréta les rêves du Pharaon.', b:'Joseph' },
+  { a:'Fut jeté dans la fosse aux lions.', b:'Daniel' },
+  { a:'Renia Jésus trois fois avant le chant du coq.', b:'Pierre' },
+  { a:'Vendit Jésus pour 30 pièces d\'argent.', b:'Judas' },
+  { a:'Fut le premier martyr chrétien lapidé.', b:'Étienne' },
+  { a:'Écrivit la majorité des épîtres du NT.', b:'Paul' },
+  { a:'Était la mère de Samuel.', b:'Anne' },
+  { a:'Fit tomber les murs de Jéricho en marchant autour.', b:'Josué' },
+  { a:'Était une femme juge et prophétesse d\'Israël.', b:'Déborah' },
+  { a:'Fut emporté au ciel dans un char de feu.', b:'Élie' },
+  { a:'Perdit sa force quand ses cheveux furent coupés.', b:'Samson' },
+  { a:'"Là où tu mourras je mourrai" dit-elle à Naomi.', b:'Ruth' },
+  { a:'Fut le premier homme créé selon la Bible.', b:'Adam' },
+  { a:'Vécut 969 ans selon la Bible.', b:'Mathusalem' },
+  { a:'Fut baptisé par Jean dans le Jourdain.', b:'Jésus' },
+  { a:'Gravit le Sinaï pour recevoir les commandements.', b:'Moïse' },
+  { a:'Construisit le premier temple de Jérusalem.', b:'Salomon' },
+  { a:'Était percepteur d\'impôts avant de suivre Jésus.', b:'Matthieu' },
+  { a:'Marcha sur l\'eau pour rejoindre Jésus.', b:'Pierre' },
+  { a:'Fut le premier roi d\'Israël.', b:'Saül' },
+  { a:'Sauva le peuple juif sous le roi Assuérus.', b:'Esther' },
+  { a:'Fut le beau-frère et successeur de Moïse.', b:'Josué' },
+  { a:'Écrivit l\'Apocalypse sur l\'île de Patmos.', b:'Jean' },
+  { a:'Monta sur un sycomore pour voir Jésus passer.', b:'Zachée' },
+  { a:'Fut le premier homme à être circoncis selon l\'alliance.', b:'Abraham' },
+  { a:'Porta la croix de Jésus sur le chemin du Calvaire.', b:'Simon de Cyrène' },
+  { a:'Dit "Mon Seigneur et mon Dieu" en voyant Jésus ressuscité.', b:'Thomas' },
+  { a:'Fut la première femme à voir Jésus ressuscité.', b:'Marie-Madeleine' },
+  { a:'Naquit de parents âgés et fut le précurseur du Christ.', b:'Jean-Baptiste' },
+  { a:'Fut jeté dans la fosse par ses frères jaloux.', b:'Joseph' },
+  { a:'Était prophétesse et dirigea Israël 40 ans.', b:'Déborah' },
+  { a:'Passa 3 jours et 3 nuits dans le ventre du poisson.', b:'Jonas' },
+  { a:'Pria Dieu et fut guérie de la lèpre après 7 jours.', b:'Myriam' },
+  { a:'Fut le fils aîné de Noé selon la Bible.', b:'Sem' },
+  { a:'Convertit 3000 personnes lors du premier discours de Pentecôte.', b:'Pierre' },
+];
+
+// Mode 3 : Personnage ↔ Description (36 paires)
+const PAIRES_PERSO_DESC = [
+  { a:'Abraham', b:'Père de la foi, quitta Ur pour Canaan' },
+  { a:'Moïse', b:'Libérateur d\'Israël, reçut la Loi au Sinaï' },
+  { a:'David', b:'Roi-berger, ancêtre de Jésus, auteur des Psaumes' },
+  { a:'Salomon', b:'Roi le plus sage, bâtit le Temple de Jérusalem' },
+  { a:'Élie', b:'Prophète de feu, défié les prophètes de Baal' },
+  { a:'Daniel', b:'Prophète fidèle, survécut à la fosse aux lions' },
+  { a:'Jonas', b:'Prophète fugitif, passa 3 jours dans le poisson' },
+  { a:'Noé', b:'Juste de son temps, construisit l\'arche du salut' },
+  { a:'Joseph', b:'Fils de Jacob, vendu, devint vizir d\'Égypte' },
+  { a:'Josué', b:'Successeur de Moïse, conquit Canaan' },
+  { a:'Paul', b:'Apôtre des nations, auteur de 13 épîtres' },
+  { a:'Pierre', b:'Chef des apôtres, premier discours à Pentecôte' },
+  { a:'Jean', b:'Disciple bien-aimé, auteur de l\'Apocalypse' },
+  { a:'Marie', b:'Mère de Jésus, vierge consacrée à Dieu' },
+  { a:'Ruth', b:'Moabite fidèle, ancêtre du roi David' },
+  { a:'Esther', b:'Reine juive, sauva son peuple du génocide' },
+  { a:'Samson', b:'Juge d\'Israël, force surhumaine liée aux cheveux' },
+  { a:'Déborah', b:'Seule femme juge d\'Israël, prophétesse et guerrière' },
+  { a:'Élisée', b:'Successeur d\'Élie, accomplit de nombreux miracles' },
+  { a:'Ézéchiel', b:'Prophète en exil, vit la vallée des ossements' },
+  { a:'Isaïe', b:'Grand prophète, annonça la venue du Messie' },
+  { a:'Jérémie', b:'Prophète pleureur, annon ça la destruction de Jérusalem' },
+  { a:'Gédéon', b:'Juge d\'Israël, vainquit les Madianites avec 300 hommes' },
+  { a:'Caleb', b:'Explorateur fidèle, entra en Canaan à 85 ans' },
+  { a:'Matthieu', b:'Ancien percepteur, écrivit le premier Évangile' },
+  { a:'Luc', b:'Médecin et historien, écrivit l\'Évangile et les Actes' },
+  { a:'Thomas', b:'Apôtre du doute, affirma "Mon Seigneur et mon Dieu"' },
+  { a:'Zachée', b:'Riche publicain, monta sur un sycomore pour voir Jésus' },
+  { a:'Nicodème', b:'Pharisien venu de nuit interroger Jésus' },
+  { a:'Lydie', b:'Marchande de pourpre, première convertie en Europe' },
+  { a:'Priscille', b:'Enseignante avec Aquilas, instruisit Apollos' },
+  { a:'Barnabas', b:'Fils d\'encouragement, compagnon de voyage de Paul' },
+  { a:'Silas', b:'Compagnon de Paul, chanta en prison à Philippes' },
+  { a:'Timothée', b:'Disciple fidèle de Paul, évêque d\'Éphèse' },
+  { a:'Tite', b:'Collaborateur de Paul, dirigea l\'Église en Crète' },
+  { a:'Jean-Baptiste', b:'Précurseur du Christ, baptisa dans le Jourdain' },
+];
+
+// ── État ──
+let players=[], scores={}, pairsFound={};
+let gameMode='verset-ref';
+let board=[], cardStates=[];
+let flippedCards=[], totalPairs=0, foundPairs=0;
+let currentTurnIdx=0, attempts=0, streak=0;
+let canFlip=true, isMyTurn=false;
+let gameChannel=null;
+const PTS_PAIR=10, PTS_STREAK=5;
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+
+// ── Init ──
+async function init(){
+  if(!roomCode){window.location.href='index.html';return;}
+  const{data:pData}=await db.from('players').select('*').eq('room_code',roomCode).order('joined_at');
+  players=pData||[];
+  players.forEach(p=>{scores[p.session_id]=0;pairsFound[p.session_id]=0;});
+
+  gameChannel=db.channel(`memoire-${roomCode}`)
+    .on('broadcast',{event:'card_flip'},({payload})=>{if(payload.session_id!==mySessionId)handleRemoteFlip(payload);})
+    .on('broadcast',{event:'turn_change'},({payload})=>{if(!isHost)setTurn(payload.turnIdx);})
+    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores))
+    .subscribe();
+
+  if(isHost){
+    document.getElementById('mode-selector').style.display='flex';
+  }
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('game-screen').style.display='block';
+  setupGame();
+}
+
+// ── Setup ──
+function setupGame(){
+  const pairs=getPairsForMode(gameMode);
+  const selected=shuffle([...pairs]).slice(0,8);
+  totalPairs=selected.length; foundPairs=0; attempts=0; streak=0;
+  flippedCards=[]; currentTurnIdx=0;
+  players.forEach(p=>{scores[p.session_id]=0;pairsFound[p.session_id]=0;});
+
+  // Créer cartes (2 par paire)
+  board=[];
+  selected.forEach((pair,i)=>{
+    const typeA=getModeTypeA(gameMode);
+    const typeB=getModeTypeB(gameMode);
+    board.push({id:i*2,   pairId:i, text:pair.a, type:typeA, flipped:false, matched:false});
+    board.push({id:i*2+1, pairId:i, text:pair.b, type:typeB, flipped:false, matched:false});
+  });
+  board=shuffle(board);
+  cardStates=board.map(()=>({flipped:false,matched:false}));
+
+  document.getElementById('pc-round').textContent=getModeLabel(gameMode);
+  setTurn(0);
+  renderBoard();
+  renderScoreboard();
+  renderPlayers();
+  updateScorePanel();
+}
+
+function getPairsForMode(mode){
+  if(mode==='verset-ref') return PAIRES_VERSET_REF;
+  if(mode==='verset-perso') return PAIRES_VERSET_PERSO;
+  return PAIRES_PERSO_DESC;
+}
+function getModeTypeA(mode){ return mode==='verset-ref'?'verse':mode==='verset-perso'?'verse':'perso'; }
+function getModeTypeB(mode){ return mode==='verset-ref'?'ref':mode==='verset-perso'?'perso':'desc'; }
+function getModeLabel(mode){ if(mode==='verset-ref')return'Verset ↔ Réf.';if(mode==='verset-perso')return'Verset ↔ Perso';return'Perso ↔ Desc.'; }
+
+function setMode(mode,btn){
+  if(!isHost)return;
+  gameMode=mode;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  setupGame();
+}
+
+// ── Render board ──
+function renderBoard(){
+  const grid=document.getElementById('cards-grid');
+  const n=board.length;
+  grid.className='cards-grid '+(n<=16?'g-16':n<=20?'g-20':'g-24');
+  grid.innerHTML=board.map((card,idx)=>{
+    const s=cardStates[idx];
+    const typeClass=card.type==='verse'?'type-verse':card.type==='ref'?'type-ref':'type-perso';
+    const typeIcon=card.type==='verse'?'📖':card.type==='ref'?'✦':'👤';
+    const textClass=card.type==='ref'?'ref-text':card.type==='perso'?'perso-text':'';
+    return`<div class="mem-card${s.flipped?' flipped':''}${s.matched?' matched':''}${!isMyTurn||!canFlip?' disabled':''}"
+      data-idx="${idx}" onclick="flipCard(${idx})">
+      <div class="card-back">
+        <div class="card-back-pattern"></div>
+        <div class="card-back-icon">✝</div>
+      </div>
+      <div class="card-front ${typeClass}">
+        <div class="card-type-icon">${typeIcon}</div>
+        <div class="card-text ${textClass}">${card.text}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('board-stats').textContent=`${foundPairs} / ${totalPairs} paires trouvées`;
+}
+
+// ── Flip une carte ──
+function flipCard(idx){
+  if(!isMyTurn||!canFlip)return;
+  const s=cardStates[idx];
+  if(s.flipped||s.matched)return;
+  if(flippedCards.includes(idx))return;
+
+  s.flipped=true;
+  flippedCards.push(idx);
+  gameChannel.send({type:'broadcast',event:'card_flip',payload:{session_id:mySessionId,idx,pairId:board[idx].pairId}});
+  refreshCard(idx);
+
+  if(flippedCards.length===2) evaluatePair();
+}
+
+function handleRemoteFlip(payload){
+  const idx=payload.idx;
+  if(!cardStates[idx])return;
+  cardStates[idx].flipped=true;
+  flippedCards.push(idx);
+  refreshCard(idx);
+  if(flippedCards.length===2) evaluatePair();
+}
+
+function evaluatePair(){
+  canFlip=false;
+  const[i1,i2]=flippedCards;
+  const match=board[i1].pairId===board[i2].pairId;
+  attempts++;
+
+  setTimeout(()=>{
+    if(match){
+      cardStates[i1].matched=cardStates[i2].matched=true;
+      foundPairs++;
+      streak++;
+      const bonus=streak>1?PTS_STREAK:0;
+      const pts=PTS_PAIR+bonus;
+      scores[mySessionId]=(scores[mySessionId]||0)+pts;
+      pairsFound[mySessionId]=(pairsFound[mySessionId]||0)+1;
+      showToast(`✓ Paire trouvée ! +${pts} pts${bonus>0?' (série bonus !)':''}`, 'ok');
+      markCards('matched',[i1,i2]);
+      flippedCards=[];
+      canFlip=true;
+      // Rejoue !
+    } else {
+      streak=0;
+      markCards('wrong',[i1,i2]);
+      setTimeout(()=>{
+        cardStates[i1].flipped=cardStates[i2].flipped=false;
+        flippedCards=[];
+        // Passer le tour
+        const nextTurn=(currentTurnIdx+1)%players.length;
+        if(isHost) gameChannel.send({type:'broadcast',event:'turn_change',payload:{turnIdx:nextTurn}});
+        setTurn(nextTurn);
+        canFlip=true;
+      },900);
+    }
+    renderScoreboard(); renderPlayers(); updateScorePanel();
+    if(foundPairs>=totalPairs) endGame();
+  },800);
+}
+
+function markCards(cls,indices){
+  indices.forEach(idx=>{
+    const el=document.querySelector(`.mem-card[data-idx="${idx}"]`);
+    if(el){
+      // Remove wrong/matched then add
+      el.classList.remove('wrong','matched');
+      if(cls==='matched'){el.classList.add('flipped','matched');}
+      else{el.classList.add('wrong');setTimeout(()=>{el.classList.remove('wrong');refreshCard(idx);},900);}
+    }
+  });
+}
+
+function refreshCard(idx){
+  const grid=document.getElementById('cards-grid');
+  const s=cardStates[idx];
+  const card=board[idx];
+  const el=grid.querySelector(`[data-idx="${idx}"]`);
+  if(!el)return;
+  el.classList.toggle('flipped',s.flipped||s.matched);
+  el.classList.toggle('matched',s.matched);
+}
+
+function setTurn(idx){
+  currentTurnIdx=idx%players.length;
+  const p=players[currentTurnIdx];
+  isMyTurn=p?.session_id===mySessionId;
+  document.getElementById('tb-av').textContent=p?.avatar||'🙏';
+  document.getElementById('tb-name').textContent=p?.pseudo+(isMyTurn?' (Toi !)':(p?'':'—'));
+  document.getElementById('tb-pairs').innerHTML=`<strong>${pairsFound[p?.session_id]||0}</strong> paires trouvées`;
+  // Activer/désactiver les cartes
+  document.querySelectorAll('.mem-card:not(.matched)').forEach(c=>{
+    c.classList.toggle('disabled',!isMyTurn);
+  });
+  if(isMyTurn) showToast('🎯 C\'est ton tour !','inf');
+}
+
+function updateScorePanel(){
+  document.getElementById('sp-pairs').textContent=pairsFound[mySessionId]||0;
+  document.getElementById('sp-total').textContent=totalPairs;
+  document.getElementById('sp-attempts').textContent=attempts;
+  const actEl=document.getElementById('sp-actions');
+  if(isHost&&foundPairs>=totalPairs){
+    actEl.innerHTML=`<button class="btn-next-m" onclick="endGame()">🏁 Voir les résultats</button>`;
+  } else { actEl.innerHTML=''; }
+}
+
+function endGame(){
+  if(isHost){
+    gameChannel.send({type:'broadcast',event:'game_over',payload:{scores}});
+    db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+  }
+  setTimeout(()=>showPodium(scores),400);
+}
+
+// ── Scoreboard ──
+function renderScoreboard(){
+  const max=Math.max(...Object.values(scores),1);
+  document.getElementById('scoreboard').innerHTML=players.map((p,i)=>{
+    const s=scores[p.session_id]||0,isMe=p.session_id===mySessionId,myTurn=i===currentTurnIdx;
+    return`<div class="sc ${isMe?'me':''} ${myTurn?'my-turn':''}">
+      <div class="sc-av">${p.avatar}</div>
+      <div class="sc-nm">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div class="sc-sc" id="sc-${p.session_id.replace(/-/g,'_')}">${s}</div>
+      <div class="sc-pairs">${pairsFound[p.session_id]||0} paires</div>
+    </div>`;
+  }).join('');
+}
+
+function renderPlayers(){
+  document.getElementById('pl-list').innerHTML=players.map((p,i)=>{
+    const isMe=p.session_id===mySessionId,myTurn=i===currentTurnIdx;
+    return`<div class="pl-row ${myTurn?'active-turn':''}">
+      <div class="pl-av ${isMe?'me':''}">${p.avatar}</div>
+      <div class="pl-nm">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div>
+        <div class="pl-sc">${scores[p.session_id]||0}</div>
+        <div class="pl-pairs">${pairsFound[p.session_id]||0} paires</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Podium ──
+function showPodium(finalScores){
+  const sorted=players.map(p=>({...p,score:finalScores[p.session_id]||0,pairs:pairsFound[p.session_id]||0})).sort((a,b)=>b.score-a.score);
+  const RANKS=['🥇','🥈','🥉'];
+  document.getElementById('pod-row').innerHTML=sorted.slice(0,3).map((p,i)=>`
+    <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
+      <div class="pod-rank">${RANKS[i]||''}</div>
+      <div class="pod-av">${p.avatar}</div>
+      <div class="pod-name">${p.pseudo}${p.session_id===mySessionId?' (Toi)':''}</div>
+      <div class="pod-score">${p.score} pts</div>
+      <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px">${p.pairs} paires</div>
+    </div>`).join('');
+  document.getElementById('pod-overlay').classList.add('active');
+}
+
+async function replayGame(){
+  if(gameChannel)gameChannel.unsubscribe();
+  await db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+  window.location.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+}
+
+function quitGame(){if(gameChannel)gameChannel.unsubscribe();return true;}
+
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',2400);
+}
+
+window.addEventListener('beforeunload',()=>quitGame());
+init();
+</script>
+</body>
+</html>

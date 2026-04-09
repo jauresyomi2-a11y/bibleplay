@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Anagramme Biblique</title>
+  <link href="https://fonts.googleapis.com/css2?family=Righteous&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0e0b1a;--bg2:#16122a;--bg3:#1e1935;
+      --violet:#8b5cf6;--violet-light:#a78bfa;--violet-dim:rgba(139,92,246,0.15);
+      --pink:#ec4899;--pink-dim:rgba(236,72,153,0.12);
+      --cyan:#22d3ee;--cyan-dim:rgba(34,211,238,0.1);
+      --gold:#fbbf24;--gold-dim:rgba(251,191,36,0.12);
+      --text:#f1f5f9;--text-muted:#94a3b8;
+      --border:rgba(139,92,246,0.2);--border2:rgba(255,255,255,0.06);
+      --green:#4ade80;--red:#f87171;
+    }
+    html,body{height:100%}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+    .bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+      background:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(139,92,246,0.15) 0%,transparent 55%),
+                 radial-gradient(ellipse 50% 40% at 0% 100%,rgba(236,72,153,0.08) 0%,transparent 50%),
+                 radial-gradient(ellipse 40% 50% at 100% 50%,rgba(34,211,238,0.06) 0%,transparent 50%)}
+    .noise{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.025;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeDown{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes popIn{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}
+    @keyframes tileHop{0%{transform:translateY(0)}40%{transform:translateY(-8px)}100%{transform:translateY(0)}}
+    @keyframes correctExplode{0%{transform:scale(1)}30%{transform:scale(1.15)}60%{transform:scale(0.95)}100%{transform:scale(1)}}
+    @keyframes wrongWiggle{0%,100%{transform:rotate(0)}20%{transform:rotate(-4deg)}40%{transform:rotate(4deg)}60%{transform:rotate(-3deg)}80%{transform:rotate(3deg)}}
+    @keyframes glowPulse{0%,100%{box-shadow:0 0 0 0 rgba(139,92,246,0.4)}50%{box-shadow:0 0 20px 6px rgba(139,92,246,0.15)}}
+    @keyframes scoreFloat{0%{opacity:1;transform:translateY(0) scale(1.2)}100%{opacity:0;transform:translateY(-40px) scale(1)}}
+    @keyframes timerUrgent{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+    @keyframes letterDrop{from{opacity:0;transform:translateY(-20px) scale(0.8)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @keyframes shimmerBg{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+    /* HEADER */
+    header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:16px 36px;border-bottom:1px solid var(--border);background:rgba(14,11,26,0.92);backdrop-filter:blur(16px)}
+    .logo{font-family:'Righteous',sans-serif;font-size:1.4rem;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px}
+    .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--violet),var(--pink));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+    .logo span{color:var(--violet-light)}
+    .h-center{display:flex;align-items:center;gap:10px}
+    .game-badge{font-size:0.78rem;font-weight:600;color:var(--violet-light);background:var(--violet-dim);border:1px solid var(--border);padding:5px 13px;border-radius:9px}
+    .room-badge{font-family:'Righteous',sans-serif;font-size:0.9rem;color:var(--text-muted);letter-spacing:0.1em}
+    .quit-btn{font-size:0.78rem;color:var(--text-muted);background:none;border:1px solid var(--border2);padding:7px 14px;border-radius:8px;cursor:pointer;text-decoration:none;transition:all 0.2s}
+    .quit-btn:hover{color:var(--red);border-color:rgba(248,113,113,0.3)}
+
+    /* LAYOUT */
+    .game-wrap{position:relative;z-index:5;max-width:920px;margin:0 auto;padding:26px 24px 60px}
+    .page-grid{display:grid;grid-template-columns:1fr 260px;gap:20px}
+
+    /* SCOREBOARD */
+    .scoreboard{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;animation:fadeDown 0.5s ease both}
+    .sc{flex:1;min-width:80px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:12px;padding:10px 8px;text-align:center;transition:all 0.3s;position:relative}
+    .sc.me{border-color:rgba(34,211,238,0.35)}
+    .sc.leading{border-color:rgba(251,191,36,0.5);box-shadow:0 0 14px rgba(251,191,36,0.1)}
+    .sc.leading::after{content:'👑';position:absolute;top:3px;right:5px;font-size:10px}
+    .sc-av{font-size:16px;margin-bottom:2px}
+    .sc-nm{font-size:0.7rem;font-weight:600;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .sc-sc{font-family:'Righteous',sans-serif;font-size:1.5rem;color:var(--text);line-height:1;margin-top:3px}
+    .sc-sc.flash{animation:correctExplode 0.4s ease}
+
+    /* ROUND BAR */
+    .round-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;animation:fadeDown 0.5s 0.05s ease both}
+    .rb-label{font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);white-space:nowrap}
+    .rb-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+    .rb-fill{height:100%;background:linear-gradient(90deg,var(--violet),var(--pink));border-radius:3px;transition:width 0.6s ease}
+    .rb-num{font-family:'Righteous',sans-serif;font-size:0.85rem;color:var(--violet-light);white-space:nowrap}
+
+    /* MAIN CARD */
+    .main-card{background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:32px 36px;margin-bottom:16px;position:relative;overflow:hidden;animation:fadeUp 0.5s 0.1s ease both}
+    .main-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--violet),var(--pink),var(--cyan),transparent)}
+
+    /* Infos round */
+    .round-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:12px}
+    .rh-left{}
+    .rh-cat{font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--violet-light);margin-bottom:4px}
+    .rh-hint{font-size:0.82rem;color:var(--text-muted);line-height:1.5;max-width:360px}
+    .timer-box{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
+    .t-svg{transform:rotate(-90deg)}
+    .t-bg{fill:none;stroke:var(--bg3);stroke-width:4}
+    .t-fg{fill:none;stroke:var(--violet-light);stroke-width:4;stroke-linecap:round;stroke-dasharray:226;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear,stroke 0.3s}
+    .t-fg.urgent{stroke:var(--red)}
+    .t-num{font-family:'Righteous',sans-serif;font-size:0.95rem;color:var(--text)}
+    .t-num.urgent{color:var(--red);animation:timerUrgent 0.5s ease-in-out infinite}
+
+    /* Lettres mélangées */
+    .anagram-zone{text-align:center;margin-bottom:28px}
+    .anagram-label{font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:14px}
+    .letters-row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+    .letter-tile{
+      width:52px;height:60px;border-radius:12px;
+      background:linear-gradient(180deg,var(--bg3),var(--bg2));
+      border:2px solid rgba(139,92,246,0.3);
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Righteous',sans-serif;font-size:1.6rem;color:var(--violet-light);
+      cursor:pointer;transition:all 0.18s;user-select:none;
+      animation:letterDrop 0.3s ease both;
+      position:relative;
+    }
+    .letter-tile:hover:not(.used){border-color:var(--violet-light);background:var(--violet-dim);transform:translateY(-4px) scale(1.05);box-shadow:0 8px 20px rgba(139,92,246,0.25)}
+    .letter-tile.used{opacity:0.18;pointer-events:none;transform:none}
+    .letter-tile.hop{animation:tileHop 0.35s ease}
+
+    /* Réponse en cours */
+    .answer-zone{margin-bottom:22px}
+    .answer-label{font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;text-align:center}
+    .answer-slots{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;min-height:60px;padding:8px;background:rgba(139,92,246,0.04);border:1px dashed rgba(139,92,246,0.2);border-radius:14px;align-items:center}
+    .answer-slot{
+      width:48px;height:56px;border-radius:10px;
+      border:2px solid rgba(139,92,246,0.25);
+      display:flex;align-items:center;justify-content:center;
+      font-family:'Righteous',sans-serif;font-size:1.5rem;color:var(--text);
+      background:var(--bg3);transition:all 0.18s;cursor:pointer;
+      animation:popIn 0.2s ease both;
+    }
+    .answer-slot:hover{border-color:rgba(236,72,153,0.4);background:var(--pink-dim)}
+    .answer-slot.empty{border-style:dashed;background:transparent;color:transparent}
+    .answer-zone.correct .answer-slot{border-color:var(--green)!important;background:rgba(74,222,128,0.08)!important;color:var(--green)!important;animation:correctExplode 0.4s ease!important}
+    .answer-zone.wrong .answer-slot{border-color:var(--red)!important;background:rgba(248,113,113,0.08)!important;animation:wrongWiggle 0.4s ease!important}
+
+    /* Boutons */
+    .action-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    .btn-validate{padding:13px 30px;font-family:'DM Sans',sans-serif;font-size:0.92rem;font-weight:600;border:none;cursor:pointer;border-radius:12px;background:linear-gradient(135deg,var(--violet),#6d28d9);color:white;letter-spacing:0.04em;box-shadow:0 4px 18px rgba(139,92,246,0.35);transition:all 0.25s}
+    .btn-validate:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 26px rgba(139,92,246,0.45)}
+    .btn-validate:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+    .btn-clear{padding:13px 20px;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;border:1px solid var(--border);cursor:pointer;border-radius:12px;background:transparent;color:var(--text-muted);transition:all 0.2s}
+    .btn-clear:hover{border-color:rgba(248,113,113,0.35);color:var(--red)}
+    .btn-shuffle{padding:13px 20px;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;border:1px solid var(--border);cursor:pointer;border-radius:12px;background:transparent;color:var(--text-muted);transition:all 0.2s}
+    .btn-shuffle:hover{border-color:var(--cyan);color:var(--cyan)}
+    .btn-hint-a{padding:13px 20px;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;border:1px solid var(--border);cursor:pointer;border-radius:12px;background:transparent;color:var(--gold);transition:all 0.2s}
+    .btn-hint-a:hover:not(:disabled){border-color:var(--gold);background:var(--gold-dim)}
+    .btn-hint-a:disabled{opacity:0.3;cursor:not-allowed}
+
+    /* Feedback */
+    .feedback{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:16px 20px;margin-bottom:14px;display:none;animation:fadeUp 0.3s ease both}
+    .feedback.visible{display:flex;align-items:center;gap:14px}
+    .feedback.correct{border-color:rgba(74,222,128,0.3);background:rgba(74,222,128,0.05)}
+    .feedback.wrong{border-color:rgba(248,113,113,0.25);background:rgba(248,113,113,0.04)}
+    .feedback.timeout{border-color:rgba(251,191,36,0.25);background:rgba(251,191,36,0.04)}
+    .fb-icon{font-size:2rem;flex-shrink:0}
+    .fb-text{flex:1}
+    .fb-title{font-family:'Righteous',sans-serif;font-size:1rem;color:var(--text);margin-bottom:2px}
+    .fb-sub{font-size:0.78rem;color:var(--text-muted);line-height:1.5}
+    .fb-pts{font-family:'Righteous',sans-serif;font-size:1.4rem}
+    .fb-pts.pos{color:var(--green)}.fb-pts.zero{color:var(--text-muted)}
+
+    /* Answered strip */
+    .answered-strip{display:flex;align-items:center;gap:6px;margin-top:12px;flex-wrap:wrap}
+    .as-label{font-size:0.7rem;color:var(--text-muted)}
+    .as-chip{width:26px;height:26px;border-radius:7px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);display:flex;align-items:center;justify-content:center;font-size:13px;animation:popIn 0.25s ease both}
+
+    /* Turn panel */
+    .turn-panel{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;animation:fadeUp 0.5s 0.2s ease both}
+    .tp-status{font-family:'Righteous',sans-serif;font-size:1rem;color:var(--text);margin-bottom:3px}
+    .tp-sub{font-size:0.78rem;color:var(--text-muted)}
+    .btn-next-a{padding:11px 24px;font-family:'DM Sans',sans-serif;font-size:0.87rem;font-weight:600;border:none;cursor:pointer;border-radius:10px;background:linear-gradient(135deg,var(--violet),#6d28d9);color:white;box-shadow:0 3px 12px rgba(139,92,246,0.3);transition:all 0.22s}
+    .btn-next-a:hover:not(:disabled){transform:translateY(-2px)}
+    .btn-next-a:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+
+    /* RIGHT */
+    .right-col{display:flex;flex-direction:column;gap:14px}
+    .players-card{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:16px;position:sticky;top:16px}
+    .pc-title{font-family:'Righteous',sans-serif;font-size:0.95rem;color:var(--text);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+    .pc-count{font-size:0.7rem;font-weight:600;background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2);padding:2px 8px;border-radius:6px}
+    .pl-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px;transition:background 0.15s;margin-bottom:3px}
+    .pl-row:hover{background:var(--bg3)}
+    .pl-row.answered{background:rgba(74,222,128,0.05)}
+    .pl-av{width:30px;height:30px;border-radius:8px;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .pl-av.me{border-color:rgba(34,211,238,0.4)}
+    .pl-nm{font-size:0.8rem;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pl-sc{font-family:'Righteous',sans-serif;font-size:0.88rem;color:var(--text)}
+    .pl-check{font-size:12px;color:var(--green)}
+
+    .rules-card{background:rgba(139,92,246,0.04);border:1px solid var(--border);border-radius:12px;padding:13px 14px}
+    .rc-t{font-family:'Righteous',sans-serif;font-size:0.85rem;color:var(--violet-light);margin-bottom:8px}
+    .rc-i{display:flex;gap:6px;font-size:0.72rem;color:var(--text-muted);line-height:1.5;margin-bottom:4px}
+    .rc-n{width:15px;height:15px;border-radius:50%;background:var(--violet-dim);color:var(--violet-light);font-size:0.58rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+
+    /* CATÉGORIES CHIP */
+    .cat-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;animation:fadeDown 0.5s ease both}
+    .cat-chip{padding:5px 12px;font-size:0.74rem;font-weight:600;border-radius:8px;border:1px solid var(--border2);cursor:pointer;transition:all 0.2s;color:var(--text-muted);background:transparent}
+    .cat-chip:hover{border-color:var(--violet);color:var(--violet-light)}
+    .cat-chip.active{border-color:var(--violet);background:var(--violet-dim);color:var(--violet-light)}
+
+    /* PODIUM */
+    .pod-overlay{position:fixed;inset:0;z-index:200;background:rgba(14,11,26,0.97);backdrop-filter:blur(16px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0;pointer-events:none;transition:opacity 0.5s;padding:24px}
+    .pod-overlay.active{opacity:1;pointer-events:all}
+    .pod-title{font-family:'Righteous',sans-serif;font-size:clamp(1.8rem,5vw,2.8rem);color:var(--text);text-align:center}
+    .pod-title span{color:var(--violet-light)}
+    .pod-verse{font-size:0.9rem;color:var(--text-muted);text-align:center;max-width:380px;font-style:italic}
+    .pod-row{display:flex;gap:12px;align-items:flex-end;justify-content:center;flex-wrap:wrap}
+    .pod-card{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:16px 12px;text-align:center;min-width:100px;animation:popIn 0.5s ease both}
+    .pod-card.p1{border-color:rgba(139,92,246,0.5);box-shadow:0 0 24px rgba(139,92,246,0.15)}
+    .pod-rank{font-size:1.6rem;margin-bottom:5px}.pod-av{font-size:1.8rem;margin-bottom:4px}
+    .pod-name{font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:3px}
+    .pod-score{font-family:'Righteous',sans-serif;font-size:1.3rem;color:var(--violet-light)}
+    .pod-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+    .btn-pod{padding:12px 26px;font-family:'DM Sans',sans-serif;font-size:0.87rem;font-weight:600;border:none;cursor:pointer;border-radius:10px;background:linear-gradient(135deg,var(--violet),#6d28d9);color:white;box-shadow:0 4px 14px rgba(139,92,246,0.3);transition:all 0.22s;text-decoration:none;display:inline-flex;align-items:center}
+    .btn-pod:hover{transform:translateY(-2px)}
+    .btn-pod.out{background:transparent;border:1px solid var(--border2);color:var(--text-muted);box-shadow:none}
+    .btn-pod.out:hover{border-color:var(--violet-light);color:var(--violet-light)}
+
+    .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:75vh;gap:18px;position:relative;z-index:5}
+    .ls-icon{font-size:3rem;animation:glowPulse 2s ease-in-out infinite}
+    .ls-title{font-family:'Righteous',sans-serif;font-size:1.5rem;color:var(--text)}
+    .ls-sub{font-size:0.83rem;color:var(--text-muted)}
+
+    .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--bg2);color:var(--text);border:1px solid var(--border);padding:9px 18px;border-radius:9px;font-size:0.82rem;font-weight:500;box-shadow:0 6px 24px rgba(0,0,0,0.5);z-index:300;opacity:0;transition:all 0.3s;pointer-events:none;white-space:nowrap}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .toast.ok{border-color:rgba(74,222,128,0.4);color:var(--green)}
+    .toast.err{border-color:rgba(248,113,113,0.35);color:var(--red)}
+    .toast.inf{border-color:rgba(139,92,246,0.35);color:var(--violet-light)}
+
+    @media(max-width:740px){.page-grid{grid-template-columns:1fr}.right-col{display:none}header{padding:12px 16px}.h-center{display:none}.main-card{padding:22px 16px}.letter-tile{width:44px;height:52px;font-size:1.4rem}}
+  </style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="noise"></div>
+
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">🔤</div>Bible<span>Play</span></a>
+  <div class="h-center">
+    <span class="game-badge">🔤 Anagramme Biblique</span>
+    <span class="room-badge" id="h-room">—</span>
+  </div>
+  <a class="quit-btn" href="index.html" onclick="return quitGame()">✕ Quitter</a>
+</header>
+
+<div class="loading-screen" id="loading-screen">
+  <div class="ls-icon">🔤</div>
+  <div class="ls-title">Mélange des lettres…</div>
+  <div class="ls-sub">Prépare-toi à reconstituer la Parole 📖</div>
+</div>
+
+<div style="display:none" id="game-screen">
+  <div class="game-wrap">
+    <div class="page-grid">
+      <div>
+        <div class="scoreboard" id="scoreboard"></div>
+        <div class="round-bar">
+          <span class="rb-label">Mot</span>
+          <div class="rb-track"><div class="rb-fill" id="rb-fill" style="width:0%"></div></div>
+          <span class="rb-num" id="rb-num">1 / 12</span>
+        </div>
+
+        <!-- Filtres catégorie (hôte seulement) -->
+        <div class="cat-chips" id="cat-chips" style="display:none">
+          <button class="cat-chip active" onclick="setCategory('all',this)">🎲 Tout mélanger</button>
+          <button class="cat-chip" onclick="setCategory('personnages',this)">👤 Personnages</button>
+          <button class="cat-chip" onclick="setCategory('lieux',this)">📍 Lieux</button>
+          <button class="cat-chip" onclick="setCategory('livres',this)">📖 Livres</button>
+          <button class="cat-chip" onclick="setCategory('concepts',this)">✨ Concepts</button>
+          <button class="cat-chip" onclick="setCategory('evenements',this)">⚡ Événements</button>
+        </div>
+
+        <!-- Feedback -->
+        <div class="feedback" id="feedback">
+          <div class="fb-icon" id="fb-icon">—</div>
+          <div class="fb-text"><div class="fb-title" id="fb-title">—</div><div class="fb-sub" id="fb-sub">—</div></div>
+          <div class="fb-pts" id="fb-pts">—</div>
+        </div>
+
+        <!-- Carte principale -->
+        <div class="main-card" id="main-card">
+          <div class="round-header">
+            <div class="rh-left">
+              <div class="rh-cat" id="rh-cat">PERSONNAGES</div>
+              <div class="rh-hint" id="rh-hint">Chargement…</div>
+            </div>
+            <div class="timer-box">
+              <svg class="t-svg" width="52" height="52" viewBox="0 0 76 76">
+                <circle class="t-bg" cx="38" cy="38" r="36"/>
+                <circle class="t-fg" id="timer-circle" cx="38" cy="38" r="36"/>
+              </svg>
+              <div class="t-num" id="t-num">—</div>
+            </div>
+          </div>
+
+          <!-- Lettres mélangées -->
+          <div class="anagram-zone">
+            <div class="anagram-label">Reconstitue ce mot biblique</div>
+            <div class="letters-row" id="letters-row"></div>
+          </div>
+
+          <!-- Zone réponse -->
+          <div class="answer-zone" id="answer-zone">
+            <div class="answer-label">Ta réponse</div>
+            <div class="answer-slots" id="answer-slots"></div>
+          </div>
+
+          <!-- Qui a répondu -->
+          <div class="answered-strip" id="answered-strip">
+            <span class="as-label">A trouvé :</span>
+          </div>
+
+          <!-- Actions -->
+          <div class="action-row" style="margin-top:16px">
+            <button class="btn-validate" id="btn-validate" onclick="validateAnswer()" disabled>✓ Valider</button>
+            <button class="btn-clear" onclick="clearAnswer()">✕ Effacer</button>
+            <button class="btn-shuffle" onclick="reshuffleLetters()">🔀 Mélanger</button>
+            <button class="btn-hint-a" id="btn-hint" onclick="useHint()">💡 Indice</button>
+          </div>
+        </div>
+
+        <!-- Turn panel -->
+        <div class="turn-panel" id="turn-panel">
+          <div>
+            <div class="tp-status" id="tp-status">En attente…</div>
+            <div class="tp-sub" id="tp-sub">—</div>
+          </div>
+          <div id="tp-actions"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="right-col">
+        <div class="players-card">
+          <div class="pc-title">Joueurs <span class="pc-count" id="pc-count">0</span></div>
+          <div id="pl-list"></div>
+        </div>
+        <div class="rules-card">
+          <div class="rc-t">🔤 Règles</div>
+          <div class="rc-i"><div class="rc-n">1</div><span>Un mot ou nom biblique s'affiche mélangé.</span></div>
+          <div class="rc-i"><div class="rc-n">2</div><span>Clique sur les lettres pour reconstituer le mot original.</span></div>
+          <div class="rc-i"><div class="rc-n">3</div><span>Utilise l'indice pour révéler une lettre (-15 pts).</span></div>
+          <div class="rc-i"><div class="rc-n">4</div><span><strong>+100 pts</strong> correct · Bonus rapidité +30 pts si &lt;10s · -15 pts par indice.</span></div>
+          <div class="rc-i"><div class="rc-n">5</div><span>120+ mots en 5 catégories. 12 mots par partie !</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pod-overlay" id="pod-overlay">
+  <div class="pod-title">🔤 <span>Anagramme</span> Maître ! 🔤</div>
+  <div class="pod-verse">"Que la Parole de Christ habite en vous abondamment." — Colossiens 3:16</div>
+  <div class="pod-row" id="pod-row"></div>
+  <div class="pod-actions">
+    <button class="btn-pod" onclick="replayGame()">↺ Rejouer</button>
+    <a class="btn-pod out" href="lobby.html" id="back-btn">← Lobby</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const{createClient}=supabase;
+const db=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+const params=new URLSearchParams(window.location.search);
+const roomCode=params.get('code')||'';
+let playerData={};
+try{playerData=JSON.parse(sessionStorage.getItem('bp_player')||'{}');}catch(e){}
+const mySessionId=playerData.sessionId||sessionStorage.getItem('bp_session')||'';
+const isHost=playerData.role==='host';
+document.getElementById('h-room').textContent=roomCode;
+const backBtn=document.getElementById('back-btn');
+if(backBtn)backBtn.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+
+// ── 120 MOTS BIBLIQUES ──
+const WORDS_DB={
+  personnages:[
+    {word:'MOÏSE',     hint:'Libérateur d\'Israël, reçut les 10 commandements'},
+    {word:'DAVID',     hint:'Roi-berger, tua Goliath avec une fronde'},
+    {word:'SALOMON',   hint:'Roi connu pour sa sagesse extraordinaire'},
+    {word:'ABRAHAM',   hint:'Père de la foi, quitta Ur des Chaldéens'},
+    {word:'JOSUÉ',     hint:'Successeur de Moïse, fit tomber les murs de Jéricho'},
+    {word:'DANIEL',    hint:'Prophète dans la fosse aux lions'},
+    {word:'JONAS',     hint:'Prophète avalé par un grand poisson'},
+    {word:'ÉLIE',      hint:'Prophète emporté dans un char de feu'},
+    {word:'SAMSON',    hint:'Juge dont la force était dans ses cheveux'},
+    {word:'JOSEPH',    hint:'Fils de Jacob, vendu par ses frères en Égypte'},
+    {word:'PIERRE',    hint:'Apôtre qui renia Jésus trois fois'},
+    {word:'PAUL',      hint:'Apôtre des nations, converti sur le chemin de Damas'},
+    {word:'JEAN',      hint:'Disciple bien-aimé, écrivit l\'Apocalypse'},
+    {word:'MARIE',     hint:'Mère de Jésus, bénie entre toutes les femmes'},
+    {word:'RUTH',      hint:'Moabite fidèle, dit "Là où tu mourras je mourrai"'},
+    {word:'ESTHER',    hint:'Reine juive qui sauva son peuple'},
+    {word:'DÉBORAH',   hint:'Seule femme juge d\'Israël, prophétesse'},
+    {word:'GÉDÉON',    hint:'Juge qui vainquit les Madianites avec 300 hommes'},
+    {word:'ÉZÉCHIEL',  hint:'Prophète de la vallée des ossements secs'},
+    {word:'BARNABAS',  hint:'Compagnon de Paul, "fils d\'encouragement"'},
+    {word:'THOMAS',    hint:'Apôtre du doute, dit "Mon Seigneur et mon Dieu"'},
+    {word:'ZACHÉE',    hint:'Percepteur qui monta sur un sycomore'},
+    {word:'NICODÈME',  hint:'Pharisien venu de nuit interroger Jésus'},
+    {word:'MATHUSALEM',hint:'Homme le plus vieux de la Bible, 969 ans'},
+  ],
+  lieux:[
+    {word:'JÉRUSALEM', hint:'Ville sainte, capitale du royaume de David'},
+    {word:'BETHLÉEM',  hint:'Ville de naissance de Jésus'},
+    {word:'NAZARETH',  hint:'Ville où Jésus grandit'},
+    {word:'ÉGYPTE',    hint:'Pays où Joseph et Moïse vécurent'},
+    {word:'CANAAN',    hint:'Terre promise aux descendants d\'Abraham'},
+    {word:'SINAÏ',     hint:'Mont où Moïse reçut les commandements'},
+    {word:'JOURDAIN',  hint:'Fleuve où Jésus fut baptisé'},
+    {word:'JÉRICHO',   hint:'Ville dont les murs tombèrent au son des trompettes'},
+    {word:'BABYLONE',  hint:'Grand empire qui détruisit le temple de Salomon'},
+    {word:'GALILÉE',   hint:'Région où Jésus accomplit la majorité de ses miracles'},
+    {word:'ÉDEN',      hint:'Jardin où Adam et Ève vivaient'},
+    {word:'TARSE',     hint:'Ville natale de l\'apôtre Paul'},
+    {word:'CORINTHE',  hint:'Ville grecque où Paul fonda une église'},
+    {word:'ÉPHÈSE',    hint:'Ville où Timothée dirigeait l\'Église'},
+    {word:'ANTIOCHE',  hint:'Ville où les disciples furent appelés chrétiens pour la première fois'},
+    {word:'PATMOS',    hint:'Île où Jean écrivit l\'Apocalypse'},
+    {word:'NINIVE',    hint:'Capitale d\'Assyrie où Jonas fut envoyé prêcher'},
+    {word:'DAMAS',     hint:'Ville où Paul fut converti sur la route'},
+    {word:'PHILIPPI',  hint:'Ville où Paul et Silas chantèrent en prison'},
+    {word:'GOLGOTHA',  hint:'Lieu du crâne où Jésus fut crucifié'},
+    {word:'CAPERNAÜM', hint:'Ville de pêcheurs, base du ministère de Jésus'},
+    {word:'BETHSAÏDA', hint:'Ville natale de Pierre, André et Philippe'},
+  ],
+  livres:[
+    {word:'GENÈSE',     hint:'Premier livre de la Bible, la création du monde'},
+    {word:'EXODE',      hint:'Sortie d\'Égypte et la Loi de Moïse'},
+    {word:'PSAUMES',    hint:'Livre de 150 poèmes et chants'},
+    {word:'PROVERBES',  hint:'Sagesse pratique attribuée à Salomon'},
+    {word:'ÉSAÏE',      hint:'Grand prophète, annonça le Messie'},
+    {word:'JÉRÉMIE',    hint:'Le prophète pleureur'},
+    {word:'MATTHIEU',   hint:'Premier Évangile, écrit pour les Juifs'},
+    {word:'MARC',       hint:'Évangile le plus court et le plus vif'},
+    {word:'LUC',        hint:'Évangile du médecin, le plus long'},
+    {word:'JEAN',       hint:'Quatrième Évangile, le plus théologique'},
+    {word:'ACTES',      hint:'Histoire de l\'Église primitive'},
+    {word:'ROMAINS',    hint:'Épître majeure de Paul sur la justification'},
+    {word:'GALATES',    hint:'Épître sur la liberté en Christ'},
+    {word:'HÉBREUX',    hint:'Épître sur la supériorité du Christ'},
+    {word:'APOCALYPSE', hint:'Dernier livre de la Bible, les derniers temps'},
+    {word:'RUTH',       hint:'Beau récit de fidélité et de rédemption'},
+    {word:'ESTHER',     hint:'Reine courageuse, délivrance du peuple juif'},
+    {word:'JOB',        hint:'Livre sur la souffrance et la justice divine'},
+    {word:'JOËL',       hint:'Prophète annonçant la Pentecôte'},
+    {word:'AMOS',       hint:'Prophète de la justice sociale'},
+  ],
+  concepts:[
+    {word:'GRÂCE',       hint:'Don gratuit de Dieu, non mérité'},
+    {word:'FOI',         hint:'Ferme assurance des choses espérées'},
+    {word:'SALUT',       hint:'Délivrance du péché et de la mort'},
+    {word:'REPENTANCE',  hint:'Se détourner du péché et revenir à Dieu'},
+    {word:'BAPTÊME',     hint:'Rite d\'initiation par l\'eau'},
+    {word:'ALLIANCE',    hint:'Pacte solennel entre Dieu et l\'homme'},
+    {word:'RÉSURRECTION',hint:'Retour à la vie après la mort'},
+    {word:'PARDON',      hint:'Remise de la faute, réconciliation'},
+    {word:'PROPHÉTIE',   hint:'Message divin annoncé à l\'avance'},
+    {word:'SACRIFICE',   hint:'Offrande à Dieu, culminant en la croix'},
+    {word:'RÉDEMPTION',  hint:'Rachat, libération par le sang du Christ'},
+    {word:'SANCTIFICATION',hint:'Processus d\'être mis à part pour Dieu'},
+    {word:'ÉVANGILE',    hint:'Bonne nouvelle du salut en Jésus-Christ'},
+    {word:'GLORIFICATION',hint:'État final du chrétien en présence de Dieu'},
+    {word:'INTERCESSION', hint:'Prier en faveur d\'une autre personne'},
+    {word:'MISÉRICORDE',  hint:'Compassion divine envers les pécheurs'},
+    {word:'JUSTIFICATION',hint:'Être déclaré juste devant Dieu'},
+    {word:'TRINITÉ',      hint:'Dieu en trois personnes : Père, Fils, Esprit'},
+    {word:'COMMUNION',    hint:'Partage du pain et du vin en mémoire du Christ'},
+    {word:'PENTECÔTE',    hint:'Effusion de l\'Esprit Saint sur les disciples'},
+  ],
+  evenements:[
+    {word:'CRÉATION',    hint:'Dieu crée le monde en six jours'},
+    {word:'DÉLUGE',      hint:'Grande inondation du temps de Noé'},
+    {word:'EXODE',       hint:'Sortie des Hébreux de l\'esclavage égyptien'},
+    {word:'TRANSFIGURATION',hint:'Jésus rayonne sur la montagne devant ses disciples'},
+    {word:'CRUCIFIXION', hint:'Mort de Jésus sur la croix'},
+    {word:'RÉSURRECTION',hint:'Jésus ressuscite trois jours après sa mort'},
+    {word:'ASCENSION',   hint:'Jésus monte au ciel devant ses disciples'},
+    {word:'PENTECÔTE',   hint:'L\'Esprit Saint descend sur les disciples'},
+    {word:'ANNONCIATION',hint:'L\'ange Gabriel annonce à Marie la naissance de Jésus'},
+    {word:'NATIVITÉ',    hint:'Naissance de Jésus à Bethléem'},
+    {word:'BAPTÊME',     hint:'Jean baptise Jésus dans le Jourdain'},
+    {word:'TENTATION',   hint:'Jésus est tenté par Satan dans le désert'},
+    {word:'TRANSFIGURATION',hint:'Jésus révèle sa gloire divine sur la montagne'},
+    {word:'PASSION',     hint:'Souffrances de Jésus avant sa mort'},
+    {word:'PENTECÔTE',   hint:'Naissance de l\'Église, 50 jours après Pâques'},
+    {word:'CONVERSION',  hint:'Paul rencontre Jésus sur le chemin de Damas'},
+    {word:'CAPTIVITÉ',   hint:'Exil des Hébreux à Babylone'},
+    {word:'RECONSTRUCTION',hint:'Retour des exilés et reconstruction du Temple'},
+    {word:'INCARNATION', hint:'Le Fils de Dieu prend chair humaine'},
+    {word:'GLORIFICATION',hint:'Transformation finale du croyant'},
+  ]
+};
+
+const TOTAL_ROUNDS=12;
+const ANSWER_TIME=30;
+const PTS_CORRECT=100;
+const PTS_SPEED=30;
+const PTS_HINT=-15;
+
+// ── État ──
+let players=[],scores={},currentRound=0,questions=[];
+let currentWord='',shuffledLetters=[],userLetters=[];
+let answered=false,answeredList=[];
+let timerVal=0,timerInt=null;
+let hintsLeft=3,hintPenalty=0;
+let gameChannel=null;
+let selectedCategory='all';
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+
+function getAllWords(){
+  return Object.entries(WORDS_DB).flatMap(([cat,words])=>words.map(w=>({...w,category:cat})));
+}
+
+function getWordsForCategory(cat){
+  if(cat==='all') return getAllWords();
+  return (WORDS_DB[cat]||[]).map(w=>({...w,category:cat}));
+}
+
+function normalizeStr(s){return s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z]/g,'');}
+
+function scrambleWord(word){
+  const normalized=normalizeStr(word);
+  let scrambled;
+  let attempts=0;
+  do{ scrambled=shuffle([...normalized]).join(''); attempts++; }
+  while(scrambled===normalized&&attempts<20);
+  return scrambled;
+}
+
+const CAT_LABELS={personnages:'👤 Personnages',lieux:'📍 Lieux',livres:'📖 Livres',concepts:'✨ Concepts',evenements:'⚡ Événements'};
+
+// ── Init ──
+async function init(){
+  if(!roomCode){window.location.href='index.html';return;}
+  const{data:pData}=await db.from('players').select('*').eq('room_code',roomCode).order('joined_at');
+  players=pData||[];
+  players.forEach(p=>scores[p.session_id]=0);
+
+  gameChannel=db.channel(`anagramme-${roomCode}`)
+    .on('broadcast',{event:'answer_submitted'},({payload})=>{if(payload.session_id!==mySessionId)receiveAnswer(payload);})
+    .on('broadcast',{event:'next_word'},({payload})=>{if(!isHost)loadWord(payload.index);})
+    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores))
+    .subscribe();
+
+  if(isHost) document.getElementById('cat-chips').style.display='flex';
+
+  questions=shuffle(getWordsForCategory('all')).slice(0,TOTAL_ROUNDS);
+
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('game-screen').style.display='block';
+  renderScoreboard();renderPlayers();
+  loadWord(0);
+}
+
+// ── Catégorie ──
+function setCategory(cat,btn){
+  if(!isHost)return;
+  selectedCategory=cat;
+  document.querySelectorAll('.cat-chip').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  questions=shuffle(getWordsForCategory(cat)).slice(0,TOTAL_ROUNDS);
+  loadWord(0);
+  showToast('Catégorie : '+btn.textContent,'inf');
+}
+
+// ── Charger un mot ──
+function loadWord(index){
+  currentRound=index;
+  answered=false;answeredList=[];
+  hintsLeft=3;hintPenalty=0;
+  userLetters=[];
+
+  const q=questions[index];
+  currentWord=normalizeStr(q.word);
+  shuffledLetters=scrambleWord(q.word).split('');
+
+  document.getElementById('rb-fill').style.width=`${((index+1)/TOTAL_ROUNDS)*100}%`;
+  document.getElementById('rb-num').textContent=`${index+1} / ${TOTAL_ROUNDS}`;
+  document.getElementById('rh-cat').textContent=CAT_LABELS[q.category]||q.category.toUpperCase();
+  document.getElementById('rh-hint').textContent='Indice : '+q.hint;
+  document.getElementById('feedback').className='feedback';
+  document.getElementById('btn-validate').disabled=true;
+  document.getElementById('btn-hint').disabled=false;
+  document.getElementById('btn-hint').textContent='💡 Indice';
+  document.getElementById('answered-strip').innerHTML='<span class="as-label">A trouvé :</span>';
+
+  renderLettersTiles();
+  renderAnswerSlots();
+  updateTurnPanel();
+  renderScoreboard();renderPlayers();
+  startTimer();
+}
+
+// ── Render lettres ──
+function renderLettersTiles(){
+  const row=document.getElementById('letters-row');
+  row.innerHTML=shuffledLetters.map((l,i)=>`
+    <div class="letter-tile" data-idx="${i}" onclick="typeLetter(${i},this)" style="animation-delay:${i*0.04}s">${l}</div>
+  `).join('');
+}
+
+function renderAnswerSlots(){
+  const zone=document.getElementById('answer-slots');
+  zone.innerHTML=Array.from({length:currentWord.length},(_,i)=>{
+    const letter=userLetters[i]||'';
+    return`<div class="answer-slot ${letter?'':'empty'}" data-pos="${i}" onclick="removeLetter(${i})">${letter}</div>`;
+  }).join('');
+  document.getElementById('btn-validate').disabled=userLetters.filter(Boolean).length<currentWord.length;
+}
+
+// ── Typer une lettre ──
+function typeLetter(tileIdx,el){
+  if(answered)return;
+  if(el.classList.contains('used'))return;
+  const nextEmpty=userLetters.findIndex(l=>!l);
+  if(nextEmpty===-1)return;
+  userLetters[nextEmpty]=shuffledLetters[tileIdx];
+  el.classList.add('used');
+  el.dataset.usedPos=nextEmpty;
+  renderAnswerSlots();
+}
+
+// ── Retirer une lettre ──
+function removeLetter(pos){
+  if(answered)return;
+  const letter=userLetters[pos];
+  if(!letter)return;
+  userLetters[pos]='';
+  // Retrouver la tile et la réactiver
+  document.querySelectorAll('.letter-tile').forEach(t=>{
+    if(t.classList.contains('used')&&t.dataset.usedPos==pos){
+      t.classList.remove('used');
+      delete t.dataset.usedPos;
+    }
+  });
+  renderAnswerSlots();
+}
+
+// ── Effacer tout ──
+function clearAnswer(){
+  if(answered)return;
+  userLetters=[];
+  document.querySelectorAll('.letter-tile').forEach(t=>{t.classList.remove('used');delete t.dataset.usedPos;});
+  renderAnswerSlots();
+}
+
+// ── Remélanger ──
+function reshuffleLetters(){
+  if(answered)return;
+  shuffledLetters=shuffle([...shuffledLetters]);
+  clearAnswer();
+  renderLettersTiles();
+}
+
+// ── Indice ──
+function useHint(){
+  if(answered||hintsLeft<=0)return;
+  // Trouver la première position vide et la remplir avec la bonne lettre
+  const nextEmpty=userLetters.findIndex(l=>!l);
+  if(nextEmpty===-1){showToast('Toutes les cases sont remplies !','inf');return;}
+
+  const correctLetter=currentWord[nextEmpty];
+  // Trouver une tile disponible avec cette lettre
+  let found=false;
+  document.querySelectorAll('.letter-tile').forEach(t=>{
+    if(!found&&!t.classList.contains('used')&&t.textContent===correctLetter){
+      userLetters[nextEmpty]=correctLetter;
+      t.classList.add('used');
+      t.dataset.usedPos=nextEmpty;
+      found=true;
+    }
+  });
+  if(!found){
+    // La lettre n'est pas dans les tiles restantes, l'ajouter directement
+    userLetters[nextEmpty]=correctLetter;
+  }
+  hintsLeft--;
+  hintPenalty+=Math.abs(PTS_HINT);
+  document.getElementById('btn-hint').textContent=`💡 Indice (${hintsLeft} restant${hintsLeft>1?'s':''})`;
+  if(hintsLeft<=0)document.getElementById('btn-hint').disabled=true;
+  renderAnswerSlots();
+  showToast(`💡 Lettre révélée : "${correctLetter}" (-${Math.abs(PTS_HINT)} pts)`,'inf');
+}
+
+// ── Valider ──
+function validateAnswer(){
+  if(answered)return;
+  const typed=userLetters.join('');
+  if(typed.length<currentWord.length){showToast('⚠️ Complete le mot !','err');return;}
+  stopTimer();
+  answered=true;
+
+  const correct=typed===currentWord;
+  const speedBonus=timerVal>20?PTS_SPEED:timerVal>10?15:0;
+  const pts=correct?Math.max(0,PTS_CORRECT+speedBonus-hintPenalty):0;
+  scores[mySessionId]=(scores[mySessionId]||0)+pts;
+
+  showFeedback(correct,pts,questions[currentRound].word);
+  answeredList.push(mySessionId);
+  addAnsweredChip(playerData.avatar||'🙏',playerData.pseudo||'');
+
+  gameChannel.send({type:'broadcast',event:'answer_submitted',payload:{
+    session_id:mySessionId,pseudo:playerData.pseudo,avatar:playerData.avatar,
+    correct,pts,round:currentRound
+  }});
+
+  renderScoreboard();renderPlayers();updateTurnPanel();
+  if(isHost)checkAllAnswered();
+}
+
+function showFeedback(correct,pts,word){
+  const fb=document.getElementById('feedback');
+  fb.className='feedback visible '+(correct?'correct':'wrong');
+  document.getElementById('fb-icon').textContent=correct?'🎯':'✗';
+  document.getElementById('fb-title').textContent=correct?'Excellent ! Tu as trouvé !':'Pas tout à fait…';
+  document.getElementById('fb-sub').textContent=correct?`"${word}" — ${hintPenalty>0?'-'+hintPenalty+' pts d\'indices':'Pas d\'indice utilisé !'}`:`La bonne réponse était : "${word}"`;
+  const pe=document.getElementById('fb-pts');
+  pe.textContent=pts>0?`+${pts}`:'0 pt';
+  pe.className='fb-pts '+(pts>0?'pos':'zero');
+  // Animer les slots
+  document.getElementById('answer-zone').className='answer-zone '+(correct?'correct':'wrong');
+  setTimeout(()=>{document.getElementById('answer-zone').className='answer-zone';},700);
+  document.getElementById('btn-validate').disabled=true;
+}
+
+function receiveAnswer(payload){
+  scores[payload.session_id]=(scores[payload.session_id]||0)+payload.pts;
+  answeredList.push(payload.session_id);
+  const p=players.find(x=>x.session_id===payload.session_id);
+  if(p)addAnsweredChip(p.avatar,p.pseudo);
+  renderScoreboard();renderPlayers();updateTurnPanel();
+  if(isHost)checkAllAnswered();
+}
+
+function addAnsweredChip(avatar,pseudo){
+  const strip=document.getElementById('answered-strip');
+  const chip=document.createElement('div');
+  chip.className='as-chip';chip.title=pseudo;chip.textContent=avatar;
+  strip.appendChild(chip);
+}
+
+function checkAllAnswered(){
+  if(answeredList.length>=players.length) setTimeout(()=>nextWord(),2400);
+}
+
+function nextWord(){
+  const next=currentRound+1;
+  if(next>=TOTAL_ROUNDS){
+    if(isHost){
+      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores}});
+      db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+    }
+    setTimeout(()=>showPodium(scores),400);
+    return;
+  }
+  if(isHost) gameChannel.send({type:'broadcast',event:'next_word',payload:{index:next}});
+  loadWord(next);
+}
+
+// ── Turn panel ──
+function updateTurnPanel(){
+  const remaining=players.length-answeredList.length;
+  const statusEl=document.getElementById('tp-status');
+  const subEl=document.getElementById('tp-sub');
+  const actEl=document.getElementById('tp-actions');
+  if(!answered){
+    statusEl.textContent='Reconstitue le mot !';
+    subEl.textContent=`${hintsLeft} indice${hintsLeft>1?'s':''} restant${hintsLeft>1?'s':''} · Bonus rapidité si < 10s`;
+  } else if(remaining>0){
+    statusEl.textContent=`${remaining} joueur${remaining>1?'s':''} encore en cours…`;
+    subEl.textContent='En attente des autres joueurs 🙏';
+  } else {
+    statusEl.textContent='Tout le monde a répondu ! ✦';
+    subEl.textContent=isHost?'Lance le mot suivant.':'En attente de l\'hôte…';
+  }
+  actEl.innerHTML=(isHost&&answered)?`<button class="btn-next-a" onclick="nextWord()">${currentRound+1>=TOTAL_ROUNDS?'🏁 Résultats':'▶ Mot suivant'}</button>`:'';
+}
+
+// ── Timer ──
+function startTimer(){
+  stopTimer();timerVal=ANSWER_TIME;updateTimerUI(timerVal);
+  timerInt=setInterval(()=>{
+    timerVal--;updateTimerUI(timerVal);
+    if(timerVal<=0){stopTimer();if(!answered){answered=true;showFeedback(false,0,questions[currentRound].word);answeredList.push(mySessionId);gameChannel.send({type:'broadcast',event:'answer_submitted',payload:{session_id:mySessionId,pseudo:playerData.pseudo,avatar:playerData.avatar,correct:false,pts:0,round:currentRound}});updateTurnPanel();renderPlayers();if(isHost)checkAllAnswered();showToast('⏰ Temps écoulé !','err');}}
+  },1000);
+}
+function stopTimer(){clearInterval(timerInt);timerInt=null;}
+function updateTimerUI(val){
+  const n=document.getElementById('t-num'),c=document.getElementById('timer-circle');
+  if(!n||!c)return;
+  n.textContent=val;n.classList.toggle('urgent',val<=8&&val>0);
+  c.classList.toggle('urgent',val<=8&&val>0);
+  c.style.strokeDashoffset=Math.round(226*(1-(val/ANSWER_TIME)));
+}
+
+// ── Scoreboard & Players ──
+function renderScoreboard(){
+  const max=Math.max(...Object.values(scores),1);
+  document.getElementById('scoreboard').innerHTML=players.map(p=>{
+    const s=scores[p.session_id]||0,isMe=p.session_id===mySessionId,lead=s===max&&s>0;
+    return`<div class="sc ${isMe?'me':''} ${lead?'leading':''}">
+      <div class="sc-av">${p.avatar}</div>
+      <div class="sc-nm">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div class="sc-sc" id="sc-${p.session_id.replace(/-/g,'_')}">${s}</div>
+    </div>`;
+  }).join('');
+}
+function renderPlayers(){
+  document.getElementById('pc-count').textContent=players.length;
+  document.getElementById('pl-list').innerHTML=players.map(p=>{
+    const isMe=p.session_id===mySessionId,done=answeredList.includes(p.session_id);
+    return`<div class="pl-row ${done?'answered':''}">
+      <div class="pl-av ${isMe?'me':''}">${p.avatar}</div>
+      <div class="pl-nm">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div class="pl-sc">${scores[p.session_id]||0}</div>
+      ${done?'<div class="pl-check">✓</div>':''}
+    </div>`;
+  }).join('');
+}
+
+// ── Podium ──
+function showPodium(finalScores){
+  stopTimer();
+  const sorted=players.map(p=>({...p,score:finalScores[p.session_id]||0})).sort((a,b)=>b.score-a.score);
+  const RANKS=['🥇','🥈','🥉'];
+  document.getElementById('pod-row').innerHTML=sorted.slice(0,3).map((p,i)=>`
+    <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
+      <div class="pod-rank">${RANKS[i]||''}</div>
+      <div class="pod-av">${p.avatar}</div>
+      <div class="pod-name">${p.pseudo}${p.session_id===mySessionId?' (Toi)':''}</div>
+      <div class="pod-score">${p.score} pts</div>
+    </div>`).join('');
+  document.getElementById('pod-overlay').classList.add('active');
+}
+
+async function replayGame(){
+  if(gameChannel)gameChannel.unsubscribe();
+  await db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
+  window.location.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+}
+function quitGame(){stopTimer();if(gameChannel)gameChannel.unsubscribe();return true;}
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',2600);
+}
+window.addEventListener('beforeunload',()=>quitGame());
+init();
+</script>
+</body>
+</html>

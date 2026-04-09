@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Verset Manquant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1117;
+      --bg2: #161b22;
+      --bg3: #21262d;
+      --gold: #d4a843;
+      --gold-dim: #8a6a20;
+      --gold-glow: rgba(212,168,67,0.18);
+      --teal: #39d0b8;
+      --teal-dim: rgba(57,208,184,0.12);
+      --text: #e8e0cc;
+      --text-muted: #8b949e;
+      --border: rgba(212,168,67,0.15);
+      --border2: rgba(255,255,255,0.06);
+      --green: #3fb950;
+      --red: #f85149;
+      --amber: #d29922;
+    }
+    html, body { height: 100%; }
+    body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+    /* ── BG ── */
+    .bg {
+      position:fixed; inset:0; z-index:0; pointer-events:none;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(212,168,67,0.08) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 0% 100%, rgba(57,208,184,0.05) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 60% at 100% 50%, rgba(212,168,67,0.04) 0%, transparent 55%);
+    }
+    .grid-lines {
+      position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+      background-image:
+        linear-gradient(rgba(212,168,67,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212,168,67,0.03) 1px, transparent 1px);
+      background-size:48px 48px;
+    }
+    .bg-cross { position:fixed; opacity:0.04; font-size:260px; color:var(--gold); user-select:none; pointer-events:none; z-index:0; line-height:1; }
+    .bg-cross.a { top:-40px; right:-30px; transform:rotate(12deg); }
+    .bg-cross.b { bottom:20px; left:-20px; transform:rotate(-8deg); font-size:160px; }
+
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes popIn    { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }
+    @keyframes glow     { 0%,100%{box-shadow:0 0 0 0 var(--gold-glow)} 50%{box-shadow:0 0 20px 4px var(--gold-glow)} }
+    @keyframes timerTick{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+    @keyframes correctPop { 0%{transform:scale(1)} 40%{transform:scale(1.08)} 100%{transform:scale(1)} }
+    @keyframes wrongShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+    @keyframes slideUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes pulseRing{ 0%,100%{box-shadow:0 0 0 0 rgba(212,168,67,0.35)} 50%{box-shadow:0 0 0 8px rgba(212,168,67,0)} }
+    @keyframes scoreFlash { 0%{color:var(--green);transform:scale(1.2)} 100%{color:var(--text);transform:scale(1)} }
+    @keyframes inkReveal { from{max-width:0;opacity:0} to{max-width:300px;opacity:1} }
+
+    /* ── HEADER ── */
+    header {
+      position:relative; z-index:10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 36px;
+      border-bottom:1px solid var(--border);
+      background:rgba(13,17,23,0.92); backdrop-filter:blur(14px);
+    }
+    .logo { font-family:'Lora',serif; font-size:1.4rem; font-weight:700; color:var(--text); text-decoration:none; display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:32px; height:32px; background:linear-gradient(135deg,var(--gold),#f0c060); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+    .logo span { color:var(--gold); }
+    .h-center { display:flex; align-items:center; gap:10px; }
+    .game-badge { font-size:0.8rem; font-weight:600; color:var(--gold); background:rgba(212,168,67,0.1); border:1px solid var(--border); padding:6px 14px; border-radius:9px; letter-spacing:0.04em; }
+    .room-badge { font-family:'Lora',serif; font-size:0.95rem; font-weight:700; color:var(--text-muted); letter-spacing:0.14em; }
+    .quit-btn { font-size:0.8rem; font-weight:500; color:var(--text-muted); background:none; border:1px solid var(--border2); padding:7px 14px; border-radius:8px; cursor:pointer; text-decoration:none; transition:all 0.2s; }
+    .quit-btn:hover { color:var(--red); border-color:rgba(248,81,73,0.3); }
+
+    /* ── LAYOUT ── */
+    .game-wrap { position:relative; z-index:5; max-width:960px; margin:0 auto; padding:28px 24px 60px; }
+
+    /* ── SCOREBOARD ── */
+    .scoreboard { display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap; animation:fadeDown 0.5s ease both; }
+    .score-card { flex:1; min-width:90px; background:var(--bg2); border:1px solid var(--border2); border-radius:13px; padding:12px 10px; text-align:center; transition:all 0.3s; position:relative; overflow:hidden; }
+    .score-card.me { border-color:rgba(57,208,184,0.35); }
+    .score-card.leading { border-color:rgba(212,168,67,0.45); animation:pulseRing 2.5s ease-in-out infinite; }
+    .score-card.leading::after { content:'👑'; position:absolute; top:4px; right:6px; font-size:11px; }
+    .sc-av { font-size:18px; margin-bottom:4px; }
+    .sc-name { font-size:0.74rem; font-weight:600; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sc-score { font-family:'Lora',serif; font-size:1.6rem; font-weight:700; color:var(--text); line-height:1; margin-top:4px; }
+    .sc-score.flash { animation:scoreFlash 0.5s ease; }
+    .sc-turn-dot { position:absolute; top:6px; left:6px; width:7px; height:7px; border-radius:50%; background:var(--gold); animation:pulseRing 1.5s ease-in-out infinite; }
+
+    /* ── PROGRESS ── */
+    .round-bar { display:flex; align-items:center; gap:12px; margin-bottom:20px; animation:fadeDown 0.5s 0.05s ease both; }
+    .rb-label { font-size:0.72rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap; }
+    .rb-track { flex:1; height:5px; background:var(--bg3); border-radius:3px; overflow:hidden; }
+    .rb-fill { height:100%; background:linear-gradient(90deg,var(--gold),#f0c060); border-radius:3px; transition:width 0.6s ease; }
+    .rb-count { font-family:'Lora',serif; font-size:0.9rem; font-weight:600; color:var(--gold); white-space:nowrap; }
+
+    /* ── CARTE PRINCIPALE ── */
+    .main-card {
+      background:var(--bg2); border:1px solid var(--border); border-radius:20px;
+      padding:36px 40px; margin-bottom:20px; position:relative; overflow:hidden;
+      animation:fadeUp 0.5s 0.1s ease both;
+    }
+    .main-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--gold),var(--teal),var(--gold),transparent); }
+
+    /* En-tête question */
+    .q-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:28px; gap:12px; }
+    .q-meta { }
+    .q-book { font-size:0.72rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold); margin-bottom:5px; }
+    .q-ref { font-family:'Lora',serif; font-size:1.1rem; font-weight:600; color:var(--text); }
+
+    /* Timer */
+    .timer-box { display:flex; flex-direction:column; align-items:center; gap:3px; flex-shrink:0; }
+    .timer-ring-svg { transform:rotate(-90deg); }
+    .tr-bg { fill:none; stroke:var(--bg3); stroke-width:4; }
+    .tr-fg { fill:none; stroke:var(--gold); stroke-width:4; stroke-linecap:round; stroke-dasharray:226; stroke-dashoffset:0; transition:stroke-dashoffset 1s linear, stroke 0.3s; }
+    .tr-fg.urgent { stroke:var(--red); }
+    .timer-num { font-family:'Lora',serif; font-size:1rem; font-weight:700; color:var(--text); }
+    .timer-num.urgent { color:var(--red); animation:timerTick 0.5s ease-in-out infinite; }
+
+    /* Verset avec blancs */
+    .verse-display {
+      font-family:'Lora',serif; font-size:1.35rem; font-style:italic;
+      line-height:2.2; color:var(--text); margin-bottom:28px;
+      text-align:center; padding:0 16px;
+    }
+    .word-blank {
+      display:inline-block; position:relative;
+      border-bottom:2px solid var(--gold); margin:0 4px;
+      min-width:80px; text-align:center;
+      cursor:pointer; transition:all 0.2s;
+      padding:2px 8px; border-radius:6px 6px 0 0;
+      vertical-align:bottom;
+    }
+    .word-blank:hover { background:var(--gold-glow); }
+    .word-blank.active { background:var(--gold-glow); border-color:#f0c060; animation:glow 1.5s ease-in-out infinite; }
+    .word-blank.filled { border-color:var(--teal); color:var(--teal); font-style:normal; font-weight:600; }
+    .word-blank.correct { border-color:var(--green); color:var(--green); background:rgba(63,185,80,0.08); }
+    .word-blank.wrong { border-color:var(--red); color:var(--red); background:rgba(248,81,73,0.08); animation:wrongShake 0.4s ease; }
+    .word-blank.revealed { border-color:var(--gold-dim); color:var(--gold); font-style:normal; }
+    .blank-idx { position:absolute; top:-16px; left:50%; transform:translateX(-50%); font-size:0.62rem; font-weight:700; color:var(--gold-dim); font-style:normal; font-family:'DM Sans',sans-serif; letter-spacing:0.06em; }
+
+    /* Zone de saisie */
+    .input-zone { display:flex; flex-direction:column; gap:12px; }
+    .input-hint { font-size:0.78rem; color:var(--text-muted); text-align:center; }
+    .letters-bank {
+      display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
+      padding:16px; background:var(--bg3); border-radius:14px; border:1px solid var(--border2);
+    }
+    .letter-tile {
+      width:40px; height:44px; border-radius:9px;
+      background:var(--bg2); border:1.5px solid var(--border);
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Lora',serif; font-size:1.1rem; font-weight:600; color:var(--text);
+      cursor:pointer; transition:all 0.18s; user-select:none;
+      animation:popIn 0.25s ease both;
+    }
+    .letter-tile:hover { border-color:var(--gold); color:var(--gold); transform:translateY(-3px); box-shadow:0 6px 16px rgba(212,168,67,0.2); }
+    .letter-tile.used { opacity:0.2; pointer-events:none; transform:none; }
+    .letter-tile.hint-hl { border-color:var(--teal); color:var(--teal); background:var(--teal-dim); }
+
+    /* Boutons action */
+    .action-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+    .btn-validate {
+      padding:12px 28px; font-family:'DM Sans',sans-serif; font-size:0.9rem; font-weight:600;
+      border:none; cursor:pointer; border-radius:11px;
+      background:linear-gradient(135deg,var(--gold),var(--gold-dim));
+      color:#0d1117; letter-spacing:0.04em;
+      box-shadow:0 4px 16px rgba(212,168,67,0.3); transition:all 0.25s;
+    }
+    .btn-validate:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 24px rgba(212,168,67,0.4); }
+    .btn-validate:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+    .btn-hint {
+      padding:12px 20px; font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;
+      border:1px solid var(--border); cursor:pointer; border-radius:11px;
+      background:transparent; color:var(--teal); transition:all 0.2s;
+    }
+    .btn-hint:hover:not(:disabled) { border-color:var(--teal); background:var(--teal-dim); }
+    .btn-hint:disabled { opacity:0.4; cursor:not-allowed; }
+    .btn-skip {
+      padding:12px 20px; font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;
+      border:1px solid var(--border2); cursor:pointer; border-radius:11px;
+      background:transparent; color:var(--text-muted); transition:all 0.2s;
+    }
+    .btn-skip:hover { border-color:rgba(248,81,73,0.3); color:var(--red); }
+
+    /* Feedback banner */
+    .feedback-banner {
+      display:none; align-items:center; gap:14px; padding:16px 22px;
+      background:var(--bg2); border:1px solid var(--border2); border-radius:14px;
+      margin-bottom:16px; animation:slideUp 0.3s ease both;
+    }
+    .feedback-banner.visible { display:flex; }
+    .feedback-banner.correct { border-color:rgba(63,185,80,0.35); background:rgba(63,185,80,0.06); }
+    .feedback-banner.wrong   { border-color:rgba(248,81,73,0.3);  background:rgba(248,81,73,0.05);  }
+    .feedback-banner.timeout { border-color:rgba(212,168,67,0.3); background:rgba(212,168,67,0.05); }
+    .fb-icon { font-size:1.8rem; flex-shrink:0; }
+    .fb-text { flex:1; }
+    .fb-title { font-family:'Lora',serif; font-size:1.05rem; font-weight:600; color:var(--text); margin-bottom:2px; }
+    .fb-sub { font-size:0.8rem; color:var(--text-muted); line-height:1.5; }
+    .fb-pts { font-family:'Lora',serif; font-size:1.4rem; font-weight:700; }
+    .fb-pts.pos { color:var(--green); }
+    .fb-pts.zero { color:var(--text-muted); }
+
+    /* Qui a répondu */
+    .answered-strip { display:flex; align-items:center; gap:6px; margin-top:10px; flex-wrap:wrap; }
+    .as-label { font-size:0.72rem; color:var(--text-muted); }
+    .as-chip { font-size:14px; width:26px; height:26px; border-radius:7px; background:rgba(63,185,80,0.12); border:1px solid rgba(63,185,80,0.3); display:flex; align-items:center; justify-content:center; animation:popIn 0.25s ease both; }
+
+    /* Tour panel */
+    .turn-panel {
+      background:var(--bg2); border:1px solid var(--border2); border-radius:16px;
+      padding:20px 24px; display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:16px; animation:fadeUp 0.5s 0.2s ease both;
+    }
+    .tp-info { }
+    .tp-label { font-size:0.72rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px; }
+    .tp-status { font-family:'Lora',serif; font-size:1.2rem; font-weight:600; color:var(--text); }
+    .tp-sub { font-size:0.8rem; color:var(--text-muted); margin-top:2px; }
+    .tp-actions { display:flex; gap:10px; align-items:center; }
+    .btn-ready-v { padding:11px 24px; font-family:'DM Sans',sans-serif; font-size:0.87rem; font-weight:600; border:1.5px solid var(--green); border-radius:10px; cursor:pointer; background:rgba(63,185,80,0.08); color:var(--green); transition:all 0.22s; }
+    .btn-ready-v:hover { background:var(--green); color:#0d1117; }
+    .btn-ready-v.is-ready { background:var(--green); color:#0d1117; }
+    .btn-next-v {
+      padding:11px 28px; font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;
+      border:none; cursor:pointer; border-radius:10px;
+      background:linear-gradient(135deg,var(--gold),var(--gold-dim));
+      color:#0d1117; box-shadow:0 3px 14px rgba(212,168,67,0.3); transition:all 0.22s;
+    }
+    .btn-next-v:hover:not(:disabled) { transform:translateY(-2px); }
+    .btn-next-v:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+
+    /* RIGHT COL */
+    .page-grid { display:grid; grid-template-columns:1fr 280px; gap:22px; }
+    .right-col { display:flex; flex-direction:column; gap:16px; }
+
+    .players-card { background:var(--bg2); border:1px solid var(--border2); border-radius:16px; padding:18px; position:sticky; top:18px; animation:fadeUp 0.5s 0.15s ease both; }
+    .pc-title { font-family:'Lora',serif; font-size:1rem; font-weight:700; color:var(--text); margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; }
+    .pc-count { font-size:0.75rem; font-weight:600; background:rgba(63,185,80,0.1); color:var(--green); border:1px solid rgba(63,185,80,0.2); padding:3px 9px; border-radius:7px; }
+    .pl-item { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; transition:background 0.15s; margin-bottom:4px; }
+    .pl-item:hover { background:var(--bg3); }
+    .pl-item.current-turn { background:rgba(212,168,67,0.06); border:1px solid rgba(212,168,67,0.2); }
+    .pl-av { width:34px; height:34px; border-radius:9px; background:var(--bg3); border:1px solid var(--border2); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; position:relative; }
+    .pl-av.me { border-color:rgba(57,208,184,0.4); }
+    .pl-host-icon { position:absolute; top:-6px; right:-5px; font-size:10px; }
+    .pl-info { flex:1; min-width:0; }
+    .pl-name { font-size:0.83rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pl-status { font-size:0.7rem; color:var(--text-muted); margin-top:1px; }
+    .pl-score-b { font-family:'Lora',serif; font-size:1rem; font-weight:700; color:var(--text); }
+    .turn-indicator { width:8px; height:8px; border-radius:50%; background:var(--gold); animation:pulseRing 1.5s ease-in-out infinite; flex-shrink:0; }
+
+    /* Règles */
+    .rules-card { background:rgba(212,168,67,0.04); border:1px solid var(--border); border-radius:14px; padding:14px 16px; }
+    .rc-title { font-family:'Lora',serif; font-size:0.88rem; font-weight:600; color:var(--gold); margin-bottom:10px; }
+    .rc-item { display:flex; gap:7px; font-size:0.76rem; color:var(--text-muted); line-height:1.5; margin-bottom:5px; }
+    .rc-num { width:16px; height:16px; border-radius:50%; background:var(--gold-dim); color:#0d1117; font-size:0.6rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+
+    /* Podium */
+    .podium-overlay { position:fixed; inset:0; z-index:200; background:rgba(13,17,23,0.97); backdrop-filter:blur(14px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; opacity:0; pointer-events:none; transition:opacity 0.5s; padding:24px; }
+    .podium-overlay.active { opacity:1; pointer-events:all; }
+    .pod-title { font-family:'Lora',serif; font-size:clamp(1.8rem,5vw,2.8rem); font-weight:700; color:var(--text); text-align:center; }
+    .pod-title span { color:var(--gold); font-style:italic; }
+    .pod-verse { font-family:'Lora',serif; font-size:0.95rem; font-style:italic; color:var(--text-muted); text-align:center; max-width:400px; }
+    .pod-row { display:flex; gap:14px; align-items:flex-end; justify-content:center; flex-wrap:wrap; }
+    .pod-card { background:var(--bg2); border:1px solid var(--border2); border-radius:16px; padding:18px 14px; text-align:center; min-width:110px; animation:popIn 0.5s ease both; }
+    .pod-card.p1 { border-color:rgba(212,168,67,0.5); box-shadow:0 0 24px rgba(212,168,67,0.12); }
+    .pod-rank { font-size:1.8rem; margin-bottom:6px; }
+    .pod-av { font-size:2rem; margin-bottom:5px; }
+    .pod-name { font-size:0.85rem; font-weight:600; color:var(--text); margin-bottom:3px; }
+    .pod-score { font-family:'Lora',serif; font-size:1.4rem; font-weight:700; color:var(--gold); }
+    .pod-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+    .btn-pod { padding:12px 28px; font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600; border:none; cursor:pointer; border-radius:11px; background:linear-gradient(135deg,var(--gold),var(--gold-dim)); color:#0d1117; box-shadow:0 4px 16px rgba(212,168,67,0.3); transition:all 0.22s; text-decoration:none; display:inline-flex; align-items:center; }
+    .btn-pod:hover { transform:translateY(-2px); }
+    .btn-pod.outline { background:transparent; border:1px solid var(--border); color:var(--text-muted); box-shadow:none; }
+    .btn-pod.outline:hover { border-color:var(--gold); color:var(--gold); }
+
+    /* Waiting */
+    .waiting-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; gap:18px; position:relative; z-index:5; }
+    .ws-cross { font-size:3rem; animation:pulseRing 2s ease-in-out infinite; }
+    .ws-title { font-family:'Lora',serif; font-size:1.5rem; font-weight:700; color:var(--text); }
+    .ws-sub { font-size:0.85rem; color:var(--text-muted); }
+
+    /* Toast */
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(12px); background:var(--bg2); color:var(--text); border:1px solid var(--border); padding:10px 20px; border-radius:10px; font-size:0.84rem; font-weight:500; box-shadow:0 6px 24px rgba(0,0,0,0.4); z-index:300; opacity:0; transition:all 0.3s; pointer-events:none; white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.success { border-color:rgba(63,185,80,0.4); color:var(--green); }
+    .toast.error { border-color:rgba(248,81,73,0.35); color:var(--red); }
+    .toast.info { border-color:rgba(57,208,184,0.3); color:var(--teal); }
+    .toast.gold { border-color:rgba(212,168,67,0.4); color:var(--gold); }
+
+    @media(max-width:760px) { .page-grid{grid-template-columns:1fr} .right-col{display:none} header{padding:12px 16px} .h-center{display:none} .main-card{padding:22px 18px} .verse-display{font-size:1.1rem} }
+  </style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="grid-lines"></div>
+<div class="bg-cross a">✝</div>
+<div class="bg-cross b">✝</div>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">✍️</div>Bible<span>Play</span></a>
+  <div class="h-center">
+    <span class="game-badge">✍️ Verset Manquant</span>
+    <span class="room-badge" id="h-room">—</span>
+  </div>
+  <a class="quit-btn" href="index.html" onclick="return quitGame()">✕ Quitter</a>
+</header>
+
+<!-- Loading -->
+<div class="waiting-screen" id="loading-screen">
+  <div class="ws-cross">✍️</div>
+  <div class="ws-title">Chargement…</div>
+  <div class="ws-sub">Préparation des versets 📖</div>
+</div>
+
+<!-- Jeu -->
+<div style="display:none" id="game-screen">
+  <div class="game-wrap">
+    <div class="page-grid">
+
+      <!-- COLONNE GAUCHE -->
+      <div class="left-col-inner">
+
+        <!-- Scores -->
+        <div class="scoreboard" id="scoreboard"></div>
+
+        <!-- Barre de progression -->
+        <div class="round-bar">
+          <span class="rb-label">Verset</span>
+          <div class="rb-track"><div class="rb-fill" id="rb-fill" style="width:0%"></div></div>
+          <span class="rb-count" id="rb-count">1 / 8</span>
+        </div>
+
+        <!-- Feedback -->
+        <div class="feedback-banner" id="feedback-banner">
+          <div class="fb-icon" id="fb-icon">✓</div>
+          <div class="fb-text">
+            <div class="fb-title" id="fb-title">Bravo !</div>
+            <div class="fb-sub" id="fb-sub"></div>
+          </div>
+          <div class="fb-pts" id="fb-pts">+80</div>
+        </div>
+
+        <!-- Carte principale -->
+        <div class="main-card" id="main-card">
+          <div class="q-top">
+            <div class="q-meta">
+              <div class="q-book" id="q-book">Chargement…</div>
+              <div class="q-ref" id="q-ref">—</div>
+            </div>
+            <div class="timer-box">
+              <svg class="timer-ring-svg" width="54" height="54" viewBox="0 0 76 76">
+                <circle class="tr-bg" cx="38" cy="38" r="36"/>
+                <circle class="tr-fg" id="timer-circle" cx="38" cy="38" r="36"/>
+              </svg>
+              <div class="timer-num" id="timer-num">—</div>
+            </div>
+          </div>
+
+          <div class="verse-display" id="verse-display">Chargement du verset…</div>
+
+          <div class="answered-strip" id="answered-strip">
+            <span class="as-label">A complété :</span>
+          </div>
+
+          <div class="input-zone" id="input-zone" style="margin-top:16px">
+            <div class="input-hint" id="input-hint">Clique sur un mot dans le verset, puis sur une lettre pour compléter.</div>
+            <div class="letters-bank" id="letters-bank"></div>
+            <div class="action-row">
+              <button class="btn-validate" id="btn-validate" onclick="validateAnswer()" disabled>✓ Valider</button>
+              <button class="btn-hint" id="btn-hint" onclick="useHint()">💡 Indice (-20 pts)</button>
+              <button class="btn-skip" onclick="skipVerse()">↷ Passer</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zone statut -->
+        <div class="turn-panel" id="turn-panel">
+          <div class="tp-info">
+            <div class="tp-label">Statut</div>
+            <div class="tp-status" id="tp-status">En attente…</div>
+            <div class="tp-sub" id="tp-sub">—</div>
+          </div>
+          <div class="tp-actions" id="tp-actions"></div>
+        </div>
+
+      </div>
+
+      <!-- COLONNE DROITE -->
+      <div class="right-col">
+        <div class="players-card">
+          <div class="pc-title">
+            Joueurs
+            <span class="pc-count" id="pc-count">0</span>
+          </div>
+          <div id="players-list-r"></div>
+        </div>
+
+        <div class="rules-card">
+          <div class="rc-title">✍️ Règles</div>
+          <div class="rc-item"><div class="rc-num">1</div><span>Un verset s'affiche avec des <strong>mots manquants</strong>.</span></div>
+          <div class="rc-item"><div class="rc-num">2</div><span>Clique sur un blanc, puis compose le mot avec les lettres.</span></div>
+          <div class="rc-item"><div class="rc-num">3</div><span><strong>+100 pts</strong> si tout est correct, bonus rapidité.</span></div>
+          <div class="rc-item"><div class="rc-num">4</div><span>L'indice révèle une lettre mais retire <strong>20 pts</strong>.</span></div>
+          <div class="rc-item"><div class="rc-num">5</div><span>8 versets par partie. Le plus haut score gagne !</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Podium -->
+<div class="podium-overlay" id="podium-overlay">
+  <div class="pod-title">✦ <span>Fin du Verset</span> Manquant ✦</div>
+  <div class="pod-verse">"Ta parole est une lampe à mes pieds." — Psaumes 119:105</div>
+  <div class="pod-row" id="pod-row"></div>
+  <div class="pod-actions">
+    <button class="btn-pod" onclick="replayGame()">↺ Rejouer</button>
+    <a class="btn-pod outline" href="lobby.html" id="back-lobby-btn">← Lobby</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Supabase ──
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── Session ──
+const params = new URLSearchParams(window.location.search);
+const roomCode = params.get('code') || '';
+let playerData = {};
+try { playerData = JSON.parse(sessionStorage.getItem('bp_player') || '{}'); } catch(e) {}
+const mySessionId = playerData.sessionId || sessionStorage.getItem('bp_session') || '';
+const isHost = playerData.role === 'host';
+document.getElementById('h-room').textContent = roomCode;
+const backBtn = document.getElementById('back-lobby-btn');
+if (backBtn) backBtn.href = `lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+
+// ── Versets (50 versets avec mots manquants) ──
+const VERSES = [
+  { ref:'Jean 3:16', book:'Jean', text:'Car Dieu a tant aimé le {monde} qu\'il a donné son Fils {unique}, afin que quiconque croit en lui ne {périsse} point, mais qu\'il ait la vie éternelle.' },
+  { ref:'Psaumes 23:1', book:'Psaumes', text:'L\'Éternel est mon {berger} : je ne {manquerai} de rien.' },
+  { ref:'Philippiens 4:13', book:'Philippiens', text:'Je puis {tout} par celui qui me {fortifie}.' },
+  { ref:'Psaumes 119:105', book:'Psaumes', text:'Ta {parole} est une {lampe} à mes pieds, et une lumière sur mon {sentier}.' },
+  { ref:'Jean 14:6', book:'Jean', text:'Jésus lui dit : Je suis le {chemin}, la {vérité}, et la {vie}.' },
+  { ref:'Romains 8:28', book:'Romains', text:'Nous savons, du reste, que toutes choses {concourent} au bien de ceux qui {aiment} Dieu.' },
+  { ref:'Jérémie 29:11', book:'Jérémie', text:'Car je connais les {projets} que j\'ai formés sur vous, dit l\'Éternel, projets de {paix} et non de malheur, afin de vous donner un {avenir} et de l\'espérance.' },
+  { ref:'Proverbes 3:5', book:'Proverbes', text:'Confie-toi en l\'Éternel de tout ton {cœur}, et ne t\'appuie pas sur ta propre {sagesse}.' },
+  { ref:'Matthieu 6:33', book:'Matthieu', text:'Cherchez {premièrement} le {royaume} et la justice de Dieu ; et toutes ces choses vous seront données par-dessus.' },
+  { ref:'Ésaïe 41:10', book:'Ésaïe', text:'Ne {crains} rien, car je suis avec toi ; ne promène pas des regards {inquiets}, car je suis ton {Dieu}.' },
+  { ref:'2 Timothée 1:7', book:'2 Timothée', text:'Car ce n\'est pas un esprit de {timidité} que Dieu nous a donné, mais un esprit de {force}, d\'{amour} et de sagesse.' },
+  { ref:'Matthieu 11:28', book:'Matthieu', text:'Venez à moi, vous tous qui êtes {fatigués} et {chargés}, et je vous donnerai du {repos}.' },
+  { ref:'1 Jean 4:8', book:'1 Jean', text:'Celui qui n\'aime pas n\'a pas connu Dieu, car Dieu est {amour}.' },
+  { ref:'Hébreux 11:1', book:'Hébreux', text:'Or la {foi} est une ferme {assurance} des choses qu\'on espère, une démonstration de celles qu\'on ne {voit} pas.' },
+  { ref:'Romains 5:8', book:'Romains', text:'Mais Dieu prouve son {amour} envers nous, en ce que, lorsque nous étions encore des {pécheurs}, Christ est {mort} pour nous.' },
+  { ref:'Apocalypse 3:20', book:'Apocalypse', text:'Voici, je me tiens à la {porte}, et je {frappe}. Si quelqu\'un entend ma {voix} et ouvre la porte, j\'entrerai chez lui.' },
+  { ref:'Psaumes 46:1', book:'Psaumes', text:'Dieu est pour nous un {refuge} et un appui, un secours qui ne manque jamais dans la {détresse}.' },
+  { ref:'Jean 11:25', book:'Jean', text:'Jésus lui dit : Je suis la {résurrection} et la {vie}. Celui qui croit en moi {vivra}, quand même il serait mort.' },
+  { ref:'Galates 5:22', book:'Galates', text:'Mais le fruit de l\'{Esprit}, c\'est l\'amour, la {joie}, la paix, la {patience}, la bonté, la bénignité, la fidélité.' },
+  { ref:'Psaumes 27:1', book:'Psaumes', text:'L\'Éternel est ma {lumière} et mon {salut} : de qui aurais-je {crainte} ?' },
+  { ref:'Matthieu 5:9', book:'Matthieu', text:'Heureux ceux qui procurent la {paix}, car ils seront appelés {fils} de Dieu !' },
+  { ref:'1 Corinthiens 13:4', book:'1 Corinthiens', text:'La charité est {patiente}, elle est pleine de {bonté} ; la charité n\'est point {envieuse}.' },
+  { ref:'Jean 1:1', book:'Jean', text:'Au {commencement} était la {Parole}, et la Parole était avec Dieu, et la Parole était {Dieu}.' },
+  { ref:'Proverbes 16:3', book:'Proverbes', text:'Recommande à l\'Éternel tes {œuvres}, et tes {projets} réussiront.' },
+  { ref:'Zacharie 4:6', book:'Zacharie', text:'C\'est par mon {Esprit}, dit l\'Éternel des armées, et non par la {force} ni par la {puissance}.' },
+  { ref:'Romains 12:2', book:'Romains', text:'Ne vous conformez pas au {siècle} présent, mais soyez {transformés} par le renouvellement de l\'intelligence.' },
+  { ref:'Psaumes 34:8', book:'Psaumes', text:'Sentez et {voyez} combien l\'Éternel est {bon} ! Heureux l\'homme qui se {réfugie} auprès de lui !' },
+  { ref:'Ésaïe 40:31', book:'Ésaïe', text:'Mais ceux qui se {confient} en l\'Éternel renouvellent leur {force}. Ils prennent le vol comme les {aigles}.' },
+  { ref:'Philippiens 4:6', book:'Philippiens', text:'Ne vous {inquiétez} de rien ; mais en toute chose faites connaître vos {besoins} à Dieu par des {prières}.' },
+  { ref:'Colossiens 3:23', book:'Colossiens', text:'Tout ce que vous faites, faites-le de bon {cœur}, comme pour le {Seigneur} et non pour des hommes.' },
+];
+
+const TOTAL_ROUNDS = 8;
+const ANSWER_TIME  = 45;
+const PTS_FULL     = 100;
+const PTS_BONUS    = 30;  // bonus rapidité (< 15s)
+const PTS_HINT     = -20;
+
+// ── État ──
+let players      = [];
+let scores       = {};
+let currentRound = 0;
+let questions    = [];
+let timerVal     = 0;
+let timerInt     = null;
+let answered     = false;
+let answeredList = [];
+let blanks       = [];       // [{word, userLetters, hintUsed}]
+let activeBlank  = 0;        // index du blanc actif
+let usedHint     = false;
+let gameChannel  = null;
+let hintsLeft    = 3;
+
+// ── Helpers ──
+function shuffle(arr) {
+  for (let i=arr.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return arr;
+}
+
+function extractBlanks(text) {
+  const matches = []; let m;
+  const re = /\{(\w+)\}/g;
+  while ((m=re.exec(text))!==null) matches.push(m[1]);
+  return matches;
+}
+
+function renderVerseWithBlanks(template, blankData, revealed=false) {
+  return template.replace(/\{(\w+)\}/g, (_, word) => {
+    const idx = blankData.findIndex(b => b.word === word);
+    if (idx === -1) return word;
+    const b = blankData[idx];
+    const typed = b.userLetters.join('');
+    const isActive = idx === activeBlank;
+    let cls = 'word-blank';
+    if (isActive) cls += ' active';
+    if (revealed) cls += ' revealed';
+    else if (typed.length > 0 && typed.length < word.length) cls += ' filled';
+    else if (typed.length === word.length) cls += b.correct ? ' correct' : ' filled';
+    const display = revealed ? word : (typed || '_'.repeat(Math.ceil(word.length * 0.5)));
+    return `<span class="${cls}" data-idx="${idx}" onclick="selectBlank(${idx})">
+      <span class="blank-idx">${idx+1}</span>${display}
+    </span>`;
+  });
+}
+
+function buildLettersBank(blankData) {
+  const active = blankData[activeBlank];
+  if (!active) return '';
+  const word = active.word;
+  const letters = shuffle([...word.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')]);
+  // Ajouter quelques leurres
+  const decoys = 'ABCDEFGHIJKLMNOPRSTUVX'.split('').filter(l => !letters.includes(l));
+  const extra = shuffle(decoys).slice(0, Math.max(2, 6 - letters.length));
+  const all = shuffle([...letters, ...extra]);
+  return all.map((l, i) => `<div class="letter-tile" data-letter="${l}" style="animation-delay:${i*0.03}s" onclick="typeLetter('${l}',this)">${l}</div>`).join('');
+}
+
+// ── Init ──
+async function init() {
+  if (!roomCode) { window.location.href='index.html'; return; }
+  const { data: pData } = await db.from('players').select('*').eq('room_code', roomCode).order('joined_at');
+  players = pData || [];
+  players.forEach(p => { scores[p.session_id] = 0; });
+  questions = shuffle([...VERSES]).slice(0, TOTAL_ROUNDS);
+
+  gameChannel = db.channel(`verset-${roomCode}`)
+    .on('broadcast', { event:'answer_submitted' }, ({payload}) => {
+      if (payload.session_id !== mySessionId) receiveAnswer(payload);
+    })
+    .on('broadcast', { event:'next_verse' }, ({payload}) => {
+      if (!isHost) loadVerse(payload.index);
+    })
+    .on('broadcast', { event:'game_over' }, ({payload}) => {
+      showPodium(payload.scores);
+    })
+    .subscribe();
+
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+  renderScoreboard();
+  renderPlayersList();
+  loadVerse(0);
+}
+
+// ── Charger un verset ──
+function loadVerse(index) {
+  currentRound = index;
+  answered     = false;
+  answeredList = [];
+  usedHint     = false;
+  hintsLeft    = 3;
+  activeBlank  = 0;
+
+  const q = questions[index];
+  const blankWords = extractBlanks(q.text);
+  blanks = blankWords.map(w => ({ word:w, userLetters:[], correct:false, hintUsed:false }));
+
+  // Mettre à jour UI
+  document.getElementById('q-book').textContent = q.book.toUpperCase();
+  document.getElementById('q-ref').textContent = q.ref;
+  document.getElementById('rb-fill').style.width = `${((index+1)/TOTAL_ROUNDS)*100}%`;
+  document.getElementById('rb-count').textContent = `${index+1} / ${TOTAL_ROUNDS}`;
+  document.getElementById('answered-strip').innerHTML = '<span class="as-label">A complété :</span>';
+  document.getElementById('feedback-banner').className = 'feedback-banner';
+
+  refreshVerseDisplay();
+  refreshLettersBank();
+  updateInputHint();
+  document.getElementById('btn-validate').disabled = true;
+  document.getElementById('btn-hint').disabled = false;
+
+  updateTurnPanel();
+  renderScoreboard();
+  renderPlayersList();
+  startTimer();
+}
+
+function refreshVerseDisplay() {
+  document.getElementById('verse-display').innerHTML = renderVerseWithBlanks(questions[currentRound].text, blanks);
+}
+
+function refreshLettersBank() {
+  document.getElementById('letters-bank').innerHTML = buildLettersBank(blanks);
+}
+
+function updateInputHint() {
+  const b = blanks[activeBlank];
+  if (!b) return;
+  document.getElementById('input-hint').textContent =
+    `Mot ${activeBlank+1}/${blanks.length} — ${b.userLetters.length}/${b.word.length} lettre${b.word.length>1?'s':''} saisies`;
+}
+
+// ── Sélectionner un blanc ──
+function selectBlank(idx) {
+  if (answered) return;
+  activeBlank = idx;
+  refreshVerseDisplay();
+  refreshLettersBank();
+  updateInputHint();
+}
+
+// ── Taper une lettre ──
+function typeLetter(letter, tile) {
+  if (answered) return;
+  const b = blanks[activeBlank];
+  if (!b) return;
+  if (b.userLetters.length >= b.word.length) return;
+
+  b.userLetters.push(letter);
+  tile.classList.add('used');
+  refreshVerseDisplay();
+  updateInputHint();
+
+  // Auto-passer au blanc suivant si complet
+  if (b.userLetters.length === b.word.length) {
+    const next = blanks.findIndex((bl, i) => i > activeBlank && bl.userLetters.length < bl.word.length);
+    if (next !== -1) {
+      setTimeout(() => { activeBlank = next; refreshVerseDisplay(); refreshLettersBank(); updateInputHint(); }, 250);
+    }
+    // Activer le bouton valider si tous les blancs sont remplis
+    const allFilled = blanks.every(b => b.userLetters.length === b.word.length);
+    document.getElementById('btn-validate').disabled = !allFilled;
+  }
+}
+
+// ── Valider ──
+function validateAnswer() {
+  if (answered) return;
+  const allFilled = blanks.every(b => b.userLetters.length === b.word.length);
+  if (!allFilled) { showToast('⚠️ Complète tous les mots !', 'error'); return; }
+
+  answered = true;
+  stopTimer();
+
+  // Normaliser pour comparaison (sans accents, majuscules)
+  function normalize(s) {
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
+  }
+
+  let allCorrect = true;
+  blanks.forEach(b => {
+    const typed = normalize(b.userLetters.join(''));
+    const expected = normalize(b.word);
+    b.correct = typed === expected;
+    if (!b.correct) allCorrect = false;
+  });
+
+  const correctCount = blanks.filter(b => b.correct).length;
+  const basePoints = Math.round((correctCount / blanks.length) * PTS_FULL);
+  const timeBonus = timerVal > 25 ? PTS_BONUS : timerVal > 12 ? 15 : 0;
+  const hintPenalty = usedHint ? PTS_HINT : 0;
+  const pts = Math.max(0, basePoints + timeBonus + hintPenalty);
+
+  scores[mySessionId] = (scores[mySessionId]||0) + pts;
+
+  gameChannel.send({ type:'broadcast', event:'answer_submitted', payload:{
+    session_id: mySessionId, pseudo: playerData.pseudo, avatar: playerData.avatar,
+    correct: allCorrect, pts, round: currentRound
+  }});
+
+  showFeedback(allCorrect, correctCount, pts);
+  refreshVerseDisplay();
+  renderScoreboard();
+
+  answeredList.push(mySessionId);
+  const strip = document.getElementById('answered-strip');
+  const chip = document.createElement('div');
+  chip.className = 'as-chip'; chip.title = playerData.pseudo; chip.textContent = playerData.avatar || '🙏';
+  strip.appendChild(chip);
+
+  if (isHost) checkAllAnswered();
+}
+
+function receiveAnswer(payload) {
+  scores[payload.session_id] = (scores[payload.session_id]||0) + payload.pts;
+  renderScoreboard();
+  answeredList.push(payload.session_id);
+  const p = players.find(x => x.session_id === payload.session_id);
+  if (p) {
+    const strip = document.getElementById('answered-strip');
+    const chip = document.createElement('div');
+    chip.className='as-chip'; chip.title=p.pseudo; chip.textContent=p.avatar||'🙏';
+    strip.appendChild(chip);
+  }
+  if (isHost) checkAllAnswered();
+}
+
+function checkAllAnswered() {
+  if (answeredList.length >= players.length) {
+    setTimeout(() => nextVerse(), 2400);
+  }
+}
+
+// ── Feedback ──
+function showFeedback(allCorrect, correctCount, pts) {
+  const banner = document.getElementById('feedback-banner');
+  banner.className = 'feedback-banner visible ' + (allCorrect ? 'correct' : correctCount > 0 ? 'timeout' : 'wrong');
+  document.getElementById('fb-icon').textContent = allCorrect ? '✨' : correctCount > 0 ? '🤔' : '✗';
+  document.getElementById('fb-title').textContent = allCorrect ? 'Parfait !' : correctCount > 0 ? `${correctCount}/${blanks.length} mots corrects` : 'Raté !';
+  const q = questions[currentRound];
+  document.getElementById('fb-sub').textContent = `${q.ref} — ${allCorrect?'Tous les mots trouvés !':'Révision: '+blanks.filter(b=>!b.correct).map(b=>b.word).join(', ')}`;
+  const ptsEl = document.getElementById('fb-pts');
+  ptsEl.textContent = pts > 0 ? `+${pts}` : '0 pt';
+  ptsEl.className = 'fb-pts ' + (pts > 0 ? 'pos' : 'zero');
+  document.getElementById('btn-validate').disabled = true;
+  document.getElementById('btn-hint').disabled = true;
+  document.querySelectorAll('.letter-tile').forEach(t => t.style.pointerEvents='none');
+  updateTurnPanel();
+}
+
+// ── Indice ──
+function useHint() {
+  if (answered || hintsLeft <= 0) return;
+  const b = blanks[activeBlank];
+  if (!b) return;
+  // Révéler la première lettre non encore saisie
+  const nextPos = b.userLetters.length;
+  if (nextPos >= b.word.length) { showToast('Ce mot est déjà completé !', ''); return; }
+
+  const realLetter = b.word[nextPos].toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  b.userLetters.push(realLetter);
+  b.hintUsed = true;
+  usedHint = true;
+  hintsLeft--;
+  document.getElementById('btn-hint').textContent = `💡 Indice (-20 pts) [${hintsLeft} restant${hintsLeft>1?'s':''}]`;
+  if (hintsLeft <= 0) document.getElementById('btn-hint').disabled = true;
+
+  // Marquer la tile correspondante comme used
+  document.querySelectorAll('.letter-tile').forEach(t => {
+    if (t.dataset.letter === realLetter && !t.classList.contains('used')) {
+      t.classList.add('used','hint-hl'); t.style.pointerEvents='none';
+      return;
+    }
+  });
+
+  refreshVerseDisplay();
+  updateInputHint();
+  const allFilled = blanks.every(b => b.userLetters.length === b.word.length);
+  document.getElementById('btn-validate').disabled = !allFilled;
+  showToast(`💡 Lettre révélée : "${realLetter}"`, 'info');
+}
+
+// ── Passer ──
+function skipVerse() {
+  if (answered) return;
+  answered = true;
+  stopTimer();
+  // Révéler tous les mots
+  blanks.forEach(b => { b.userLetters = [...b.word.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')]; b.correct = false; });
+  refreshVerseDisplay();
+  showFeedback(false, 0, 0);
+  answeredList.push(mySessionId);
+  if (isHost) checkAllAnswered();
+  showToast('↷ Verset passé', '');
+}
+
+// ── Timer ──
+function startTimer() {
+  stopTimer(); timerVal = ANSWER_TIME; updateTimerUI(timerVal);
+  timerInt = setInterval(() => {
+    timerVal--;
+    updateTimerUI(timerVal);
+    if (timerVal <= 0) { stopTimer(); if (!answered) skipVerse(); }
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInt); timerInt = null; }
+function updateTimerUI(val) {
+  const num = document.getElementById('timer-num');
+  const circle = document.getElementById('timer-circle');
+  if (!num||!circle) return;
+  num.textContent = val;
+  num.classList.toggle('urgent', val <= 10 && val > 0);
+  circle.classList.toggle('urgent', val <= 10 && val > 0);
+  const pct = (val / ANSWER_TIME);
+  circle.style.strokeDashoffset = Math.round(226 * (1 - pct));
+}
+
+// ── Suivant ──
+function nextVerse() {
+  const next = currentRound + 1;
+  if (next >= TOTAL_ROUNDS) {
+    if (isHost) {
+      gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores } });
+      db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
+    }
+    setTimeout(() => showPodium(scores), 400);
+    return;
+  }
+  if (isHost) {
+    gameChannel.send({ type:'broadcast', event:'next_verse', payload:{ index:next } });
+  }
+  loadVerse(next);
+}
+
+// ── Turn panel ──
+function updateTurnPanel() {
+  const remaining = players.length - answeredList.length;
+  const statusEl = document.getElementById('tp-status');
+  const subEl = document.getElementById('tp-sub');
+  const actionsEl = document.getElementById('tp-actions');
+
+  if (!answered) {
+    statusEl.textContent = 'Complète le verset !';
+    subEl.textContent = `${blanks.length} mot${blanks.length>1?'s':''} à trouver · ${hintsLeft} indice${hintsLeft>1?'s':''} disponible${hintsLeft>1?'s':''}`;
+  } else if (remaining > 0) {
+    statusEl.textContent = `${remaining} joueur${remaining>1?'s':''} encore en cours…`;
+    subEl.textContent = 'En attente des autres joueurs 🙏';
+  } else {
+    statusEl.textContent = 'Tout le monde a répondu ✦';
+    subEl.textContent = isHost ? 'Lance le verset suivant.' : 'En attente de l\'hôte…';
+  }
+
+  if (isHost && answered) {
+    actionsEl.innerHTML = `<button class="btn-next-v" onclick="nextVerse()">
+      ${currentRound+1 >= TOTAL_ROUNDS ? '🏁 Voir les résultats' : '▶ Verset suivant'}
+    </button>`;
+  } else {
+    actionsEl.innerHTML = '';
+  }
+}
+
+// ── Scoreboard ──
+function renderScoreboard() {
+  const maxScore = Math.max(...Object.values(scores), 1);
+  document.getElementById('scoreboard').innerHTML = players.map(p => {
+    const score = scores[p.session_id]||0;
+    const isMe = p.session_id === mySessionId;
+    const isLeading = score === maxScore && score > 0;
+    return `<div class="score-card ${isMe?'me':''} ${isLeading?'leading':''}">
+      ${isLeading&&!isMe?'<div class="sc-turn-dot"></div>':''}
+      <div class="sc-av">${p.avatar}</div>
+      <div class="sc-name">${p.pseudo}${isMe?' (Toi)':''}</div>
+      <div class="sc-score" id="scs-${p.session_id.replace(/-/g,'_')}">${score}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Players list ──
+function renderPlayersList() {
+  document.getElementById('pc-count').textContent = players.length;
+  document.getElementById('players-list-r').innerHTML = players.map(p => {
+    const isMe = p.session_id === mySessionId;
+    const hasAnswered = answeredList.includes(p.session_id);
+    return `<div class="pl-item ${hasAnswered?'current-turn':''}">
+      <div class="pl-av ${isMe?'me':''}">
+        ${p.avatar}
+        ${p.is_host?'<span class="pl-host-icon">👑</span>':''}
+      </div>
+      <div class="pl-info">
+        <div class="pl-name">${p.pseudo}${isMe?' (Toi)':''}</div>
+        <div class="pl-status">${hasAnswered?'✓ A répondu':'En cours…'}</div>
+      </div>
+      <div class="pl-score-b">${scores[p.session_id]||0}</div>
+      ${hasAnswered?'<div class="turn-indicator"></div>':''}
+    </div>`;
+  }).join('');
+}
+
+// ── Podium ──
+function showPodium(finalScores) {
+  stopTimer();
+  const sorted = players.map(p => ({...p,score:finalScores[p.session_id]||0})).sort((a,b)=>b.score-a.score);
+  const RANKS=['🥇','🥈','🥉'];
+  document.getElementById('pod-row').innerHTML = sorted.slice(0,3).map((p,i) => `
+    <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
+      <div class="pod-rank">${RANKS[i]||''}</div>
+      <div class="pod-av">${p.avatar}</div>
+      <div class="pod-name">${p.pseudo}${p.session_id===mySessionId?' (Toi)':''}</div>
+      <div class="pod-score">${p.score} pts</div>
+    </div>`).join('');
+  document.getElementById('podium-overlay').classList.add('active');
+}
+
+async function replayGame() {
+  if (gameChannel) gameChannel.unsubscribe();
+  await db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
+  window.location.href = `lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+}
+
+function quitGame() {
+  stopTimer();
+  if (gameChannel) gameChannel.unsubscribe();
+  return true;
+}
+
+// ── Toast ──
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  setTimeout(()=>t.className='toast', 2600);
+}
+
+window.addEventListener('beforeunload', () => quitGame());
+init();
+</script>
+</body>
+</html>

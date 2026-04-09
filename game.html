@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Quiz Battle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #fafaf5; --white: #fff;
+      --gold: #c9a84c; --gold-light: #e8cc7a; --gold-dark: #a0782a;
+      --sky: #4a90d9; --sky-dark: #2c6fad; --sky-light: #7ab8f0;
+      --text: #1a1a2e; --text-muted: #6b7280;
+      --border: #e8e0d0;
+      --green: #22c55e; --red: #ef4444; --amber: #f59e0b;
+    }
+    html, body { height: 100%; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+    /* BG */
+    .bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .bg::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 70% 50% at 20% 10%, rgba(74,144,217,0.07) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 80% 80%, rgba(201,168,76,0.09) 0%, transparent 60%); }
+
+    @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes popIn { 0% { transform:scale(0.85); opacity:0; } 100% { transform:scale(1); opacity:1; } }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
+    @keyframes pulse-dot { 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.5)} 50%{box-shadow:0 0 0 5px rgba(34,197,94,0)} }
+    @keyframes timerPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+    @keyframes correctFlash { 0%{background:rgba(34,197,94,0.12)} 100%{background:transparent} }
+    @keyframes wrongFlash { 0%{background:rgba(239,68,68,0.12)} 100%{background:transparent} }
+    @keyframes scoreUp { 0%{opacity:0;transform:translateY(0) scale(1.3)} 60%{opacity:1} 100%{opacity:0;transform:translateY(-40px) scale(1)} }
+    @keyframes spinPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.15);opacity:0.7} }
+
+    /* HEADER */
+    header { position: relative; z-index: 10; display:flex; align-items:center; justify-content:space-between; padding:16px 40px; border-bottom:1px solid rgba(201,168,76,0.18); background:rgba(250,250,245,0.9); backdrop-filter:blur(14px); }
+    .logo { font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:700; color:var(--text); text-decoration:none; display:flex; align-items:center; gap:8px; }
+    .logo-icon { width:30px; height:30px; background:linear-gradient(135deg,var(--gold),var(--gold-light)); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px; }
+    .logo span { color:var(--sky); }
+    .header-center { display:flex; align-items:center; gap:10px; }
+    .game-badge { font-size:0.8rem; font-weight:600; background:rgba(74,144,217,0.1); color:var(--sky-dark); padding:6px 14px; border-radius:10px; border:1px solid rgba(74,144,217,0.2); }
+    .room-badge { font-family:'Cormorant Garamond',serif; font-size:1rem; font-weight:700; color:var(--gold-dark); background:rgba(201,168,76,0.08); padding:6px 14px; border-radius:10px; border:1px solid rgba(201,168,76,0.2); letter-spacing:0.1em; }
+    .header-right { display:flex; align-items:center; gap:10px; }
+    .quit-btn { font-size:0.8rem; font-weight:500; color:var(--text-muted); background:none; border:1.5px solid var(--border); padding:7px 14px; border-radius:9px; cursor:pointer; text-decoration:none; transition:all 0.2s; }
+    .quit-btn:hover { color:var(--red); border-color:rgba(239,68,68,0.4); }
+
+    /* MAIN LAYOUT */
+    .game-wrap { position:relative; z-index:5; max-width:900px; margin:0 auto; padding:32px 24px 60px; }
+
+    /* SCOREBOARD */
+    .scoreboard { display:flex; gap:10px; margin-bottom:28px; flex-wrap:wrap; animation:fadeDown 0.5s ease both; }
+    .score-card { flex:1; min-width:100px; background:var(--white); border:1px solid var(--border); border-radius:14px; padding:12px 14px; text-align:center; position:relative; overflow:hidden; transition:all 0.3s; }
+    .score-card.me { border-color:rgba(74,144,217,0.4); box-shadow:0 0 0 3px rgba(74,144,217,0.08); }
+    .score-card.leading { border-color:rgba(201,168,76,0.5); box-shadow:0 0 0 3px rgba(201,168,76,0.1); }
+    .score-card.leading::before { content:'👑'; position:absolute; top:4px; right:6px; font-size:12px; }
+    .sc-avatar { font-size:20px; margin-bottom:4px; }
+    .sc-name { font-size:0.78rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sc-name .me-tag { font-size:0.62rem; color:var(--sky-dark); background:rgba(74,144,217,0.1); padding:1px 5px; border-radius:4px; margin-left:3px; }
+    .sc-score { font-family:'Cormorant Garamond',serif; font-size:1.7rem; font-weight:700; color:var(--text); line-height:1; margin-top:4px; }
+    .sc-score.flash-up { animation:scoreFlash 0.4s ease; }
+    @keyframes scoreFlash { 0%{color:var(--green);transform:scale(1.2)} 100%{color:var(--text);transform:scale(1)} }
+    .score-delta { position:absolute; top:8px; left:50%; transform:translateX(-50%); font-size:1rem; font-weight:700; color:var(--green); pointer-events:none; animation:scoreUp 1.2s ease forwards; }
+
+    /* QUESTION ZONE */
+    .question-zone { background:var(--white); border:1px solid var(--border); border-radius:24px; padding:36px 40px; margin-bottom:20px; position:relative; overflow:hidden; animation:fadeUp 0.5s 0.1s ease both; }
+    .question-zone::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--sky),var(--gold),var(--sky-light)); }
+    .question-zone.correct { animation:correctFlash 0.8s ease; }
+    .question-zone.wrong { animation:wrongFlash 0.8s ease, shake 0.4s ease; }
+
+    .q-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:10px; }
+    .q-progress { display:flex; align-items:center; gap:10px; }
+    .q-num { font-size:0.78rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); }
+    .progress-bar { width:140px; height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+    .progress-fill { height:100%; background:linear-gradient(90deg,var(--sky),var(--sky-light)); border-radius:3px; transition:width 0.5s ease; }
+    .q-category { font-size:0.72rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; background:rgba(201,168,76,0.1); color:var(--gold-dark); border:1px solid rgba(201,168,76,0.2); padding:4px 12px; border-radius:8px; }
+
+    .timer-wrap { display:flex; align-items:center; gap:8px; }
+    .timer-num { font-family:'Cormorant Garamond',serif; font-size:2rem; font-weight:700; color:var(--text); line-height:1; min-width:36px; text-align:center; transition:color 0.3s; }
+    .timer-num.urgent { color:var(--red); animation:timerPulse 0.5s ease infinite; }
+    .timer-ring { width:36px; height:36px; transform:rotate(-90deg); }
+    .timer-ring circle { fill:none; stroke-width:3; }
+    .timer-bg { stroke:var(--border); }
+    .timer-fg { stroke:var(--sky); stroke-linecap:round; transition:stroke-dashoffset 1s linear, stroke 0.3s; }
+    .timer-fg.urgent { stroke:var(--red); }
+
+    .question-text { font-family:'Cormorant Garamond',serif; font-size:clamp(1.4rem,3vw,1.85rem); font-weight:600; color:var(--text); line-height:1.4; margin-bottom:32px; }
+
+    /* OPTIONS */
+    .options-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .option-btn {
+      padding:16px 20px; font-family:'DM Sans',sans-serif; font-size:0.92rem; font-weight:500;
+      border:1.5px solid var(--border); border-radius:14px; background:var(--cream);
+      color:var(--text); cursor:pointer; text-align:left; transition:all 0.2s;
+      display:flex; align-items:center; gap:12px; line-height:1.35;
+      animation:popIn 0.35s ease both;
+    }
+    .option-btn:nth-child(1){animation-delay:0.05s} .option-btn:nth-child(2){animation-delay:0.1s} .option-btn:nth-child(3){animation-delay:0.15s} .option-btn:nth-child(4){animation-delay:0.2s}
+    .option-btn:hover:not(:disabled) { border-color:var(--sky); background:rgba(74,144,217,0.05); transform:translateY(-2px); box-shadow:0 4px 14px rgba(74,144,217,0.12); }
+    .option-btn:disabled { cursor:default; }
+    .option-btn.selected { border-color:var(--sky); background:rgba(74,144,217,0.08); }
+    .option-btn.correct { border-color:var(--green) !important; background:rgba(34,197,94,0.08) !important; color:#15803d; font-weight:600; }
+    .option-btn.wrong { border-color:var(--red) !important; background:rgba(239,68,68,0.08) !important; color:#b91c1c; }
+    .option-letter { width:30px; height:30px; border-radius:8px; background:rgba(74,144,217,0.1); color:var(--sky-dark); font-size:0.82rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.2s; }
+    .option-btn.correct .option-letter { background:rgba(34,197,94,0.15); color:#15803d; }
+    .option-btn.wrong .option-letter { background:rgba(239,68,68,0.12); color:#b91c1c; }
+    .option-btn.selected .option-letter { background:rgba(74,144,217,0.18); }
+
+    /* ANSWERED PLAYERS */
+    .answered-row { display:flex; align-items:center; gap:6px; margin-top:16px; flex-wrap:wrap; }
+    .answered-label { font-size:0.75rem; color:var(--text-muted); font-weight:500; }
+    .answered-avatar { font-size:16px; width:28px; height:28px; border-radius:7px; background:rgba(34,197,94,0.1); border:1.5px solid rgba(34,197,94,0.3); display:flex; align-items:center; justify-content:center; animation:popIn 0.3s ease both; }
+
+    /* WAITING / RESULT BANNER */
+    .result-banner { background:var(--white); border:1px solid var(--border); border-radius:16px; padding:20px 28px; display:flex; align-items:center; gap:16px; margin-bottom:20px; animation:fadeUp 0.4s ease both; }
+    .result-banner.hidden { display:none; }
+    .rb-icon { font-size:2rem; flex-shrink:0; }
+    .rb-text { flex:1; }
+    .rb-title { font-family:'Cormorant Garamond',serif; font-size:1.2rem; font-weight:700; color:var(--text); }
+    .rb-sub { font-size:0.82rem; color:var(--text-muted); margin-top:2px; }
+    .rb-points { font-family:'Cormorant Garamond',serif; font-size:1.6rem; font-weight:700; }
+    .rb-points.pos { color:var(--green); }
+    .rb-points.neg { color:var(--red); }
+
+    /* PODIUM FINAL */
+    .podium-overlay { position:fixed; inset:0; z-index:200; background:rgba(250,250,245,0.97); backdrop-filter:blur(12px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; opacity:0; pointer-events:none; transition:opacity 0.5s; padding:24px; }
+    .podium-overlay.active { opacity:1; pointer-events:all; }
+    .podium-title { font-family:'Cormorant Garamond',serif; font-size:clamp(2rem,5vw,3.2rem); font-weight:700; color:var(--text); text-align:center; }
+    .podium-title span { color:var(--gold); }
+    .podium-verse { font-family:'Cormorant Garamond',serif; font-size:1rem; font-style:italic; color:var(--text-muted); text-align:center; max-width:440px; }
+    .podium-grid { display:flex; gap:14px; align-items:flex-end; justify-content:center; flex-wrap:wrap; }
+    .podium-card { background:var(--white); border:1px solid var(--border); border-radius:18px; padding:20px 16px; text-align:center; min-width:110px; animation:popIn 0.5s ease both; position:relative; }
+    .podium-card.p1 { border-color:rgba(201,168,76,0.5); box-shadow:0 0 0 3px rgba(201,168,76,0.15); order:-1; }
+    .podium-card.p2 { order:0; }
+    .podium-card.p3 { order:1; }
+    .podium-rank { font-size:1.6rem; margin-bottom:6px; }
+    .podium-av { font-size:2rem; margin-bottom:6px; }
+    .podium-name { font-size:0.88rem; font-weight:600; color:var(--text); margin-bottom:4px; }
+    .podium-score { font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:700; color:var(--sky); }
+    .podium-score.gold { color:var(--gold); }
+    .podium-actions { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+    .btn-replay { padding:13px 32px; font-family:'DM Sans',sans-serif; font-size:0.9rem; font-weight:600; border:none; cursor:pointer; border-radius:13px; background:linear-gradient(135deg,var(--sky),var(--sky-dark)); color:white; letter-spacing:0.04em; box-shadow:0 4px 18px rgba(74,144,217,0.3); transition:all 0.25s; }
+    .btn-replay:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(74,144,217,0.38); }
+    .btn-lobby { padding:13px 32px; font-family:'DM Sans',sans-serif; font-size:0.9rem; font-weight:600; border:1.5px solid var(--border); cursor:pointer; border-radius:13px; background:transparent; color:var(--text-muted); transition:all 0.25s; text-decoration:none; display:inline-flex; align-items:center; }
+    .btn-lobby:hover { border-color:var(--sky-light); color:var(--sky-dark); }
+
+    /* WAITING SCREEN */
+    .waiting-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; gap:20px; animation:fadeUp 0.5s ease both; }
+    .waiting-cross { font-size:3rem; animation:spinPulse 1.8s ease-in-out infinite; }
+    .waiting-title { font-family:'Cormorant Garamond',serif; font-size:1.6rem; font-weight:700; color:var(--text); }
+    .waiting-sub { font-size:0.85rem; color:var(--text-muted); }
+
+    /* TOAST */
+    .toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(16px); background:var(--text); color:white; padding:11px 22px; border-radius:11px; font-size:0.86rem; font-weight:500; box-shadow:0 8px 30px rgba(0,0,0,0.2); z-index:100; opacity:0; transition:all 0.3s; pointer-events:none; white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.success { background:#15803d; }
+    .toast.error { background:#b91c1c; }
+    .toast.info { background:var(--sky-dark); }
+
+    @media(max-width:600px) {
+      header { padding:12px 16px; } .header-center { display:none; }
+      .question-zone { padding:24px 20px; }
+      .options-grid { grid-template-columns:1fr; }
+      .game-wrap { padding:20px 14px 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg"></div>
+
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">✝</div>Bible<span>Play</span></a>
+  <div class="header-center">
+    <span class="game-badge">📖 Quiz Battle</span>
+    <span class="room-badge" id="h-room-code">—</span>
+  </div>
+  <div class="header-right">
+    <a class="quit-btn" href="index.html" onclick="return quitGame()">✕ Quitter</a>
+  </div>
+</header>
+
+<!-- Écran d'attente initial -->
+<div class="game-wrap" id="waiting-screen">
+  <div class="waiting-screen">
+    <div class="waiting-cross">✝</div>
+    <div class="waiting-title">Chargement de la partie…</div>
+    <div class="waiting-sub">Un instant de grâce 🙏</div>
+  </div>
+</div>
+
+<!-- Zone de jeu principale -->
+<div class="game-wrap" id="game-screen" style="display:none">
+
+  <!-- Scores -->
+  <div class="scoreboard" id="scoreboard"></div>
+
+  <!-- Bannière résultat -->
+  <div class="result-banner hidden" id="result-banner">
+    <div class="rb-icon" id="rb-icon">✓</div>
+    <div class="rb-text">
+      <div class="rb-title" id="rb-title">Bonne réponse !</div>
+      <div class="rb-sub" id="rb-sub">La prochaine question arrive…</div>
+    </div>
+    <div class="rb-points" id="rb-points">+100</div>
+  </div>
+
+  <!-- Question -->
+  <div class="question-zone" id="question-zone">
+    <div class="q-header">
+      <div class="q-progress">
+        <span class="q-num" id="q-num">Question 1 / 10</span>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:10%"></div></div>
+      </div>
+      <span class="q-category" id="q-category">Personnages</span>
+      <div class="timer-wrap">
+        <svg class="timer-ring" viewBox="0 0 36 36" width="36" height="36">
+          <circle class="timer-bg" cx="18" cy="18" r="15.9"/>
+          <circle class="timer-fg" id="timer-circle" cx="18" cy="18" r="15.9" stroke-dasharray="100" stroke-dashoffset="0"/>
+        </svg>
+        <div class="timer-num" id="timer-num">15</div>
+      </div>
+    </div>
+    <div class="question-text" id="question-text">Chargement…</div>
+    <div class="options-grid" id="options-grid"></div>
+    <div class="answered-row" id="answered-row">
+      <span class="answered-label">A répondu :</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Podium final -->
+<div class="podium-overlay" id="podium-overlay">
+  <div class="podium-title">✦ Fin de la <span>partie</span> ✦</div>
+  <p class="podium-verse" id="podium-verse">"Courez de manière à remporter le prix." — 1 Corinthiens 9:24</p>
+  <div class="podium-grid" id="podium-grid"></div>
+  <div class="podium-actions">
+    <button class="btn-replay" onclick="replayGame()">↺ Rejouer</button>
+    <a class="btn-lobby" href="lobby.html" id="back-lobby">← Retour au lobby</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ───────────────────────────────────────────────
+// SUPABASE
+// ───────────────────────────────────────────────
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ───────────────────────────────────────────────
+// QUESTIONS BIBLIQUES (110 questions)
+// ───────────────────────────────────────────────
+const ALL_QUESTIONS = [
+
+  // ── PERSONNAGES (25) ──
+  { q:"Qui a construit l'arche selon la Bible ?", opts:["Noé","Abraham","Moïse","David"], ans:0, cat:"Personnages" },
+  { q:"Qui a tué Goliath ?", opts:["Samson","Saül","Jonathan","David"], ans:3, cat:"Personnages" },
+  { q:"Qui était le premier roi d'Israël ?", opts:["David","Salomon","Saül","Samuel"], ans:2, cat:"Personnages" },
+  { q:"Qui était le père d'Abraham ?", opts:["Noé","Sem","Tharé","Nachor"], ans:2, cat:"Personnages" },
+  { q:"Qui a interprété les songes du Pharaon ?", opts:["Moïse","Daniel","Joseph","Esdras"], ans:2, cat:"Personnages" },
+  { q:"Dans quel pays Moïse a-t-il grandi ?", opts:["Canaan","Israël","Égypte","Mésopotamie"], ans:2, cat:"Personnages" },
+  { q:"Quel roi était connu pour sa grande sagesse ?", opts:["David","Saül","Salomon","Ézéchias"], ans:2, cat:"Personnages" },
+  { q:"Dans quelle ville Paul a-t-il été converti ?", opts:["Jérusalem","Antioche","Damas","Rome"], ans:2, cat:"Personnages" },
+  { q:"Qui était le beau-père de Moïse ?", opts:["Aaron","Jéthro","Caleb","Éléazar"], ans:1, cat:"Personnages" },
+  { q:"Quel personnage biblique fut avalé par un grand poisson ?", opts:["Élie","Ézéchiel","Jonas","Amos"], ans:2, cat:"Personnages" },
+  { q:"Qui était la mère de Samuel ?", opts:["Anne","Marie","Ruth","Déborah"], ans:0, cat:"Personnages" },
+  { q:"Quel prophète fut emporté au ciel dans un char de feu ?", opts:["Élisée","Élie","Ézéchiel","Isaïe"], ans:1, cat:"Personnages" },
+  { q:"Qui était le frère aîné de Moïse ?", opts:["Josué","Caleb","Aaron","Hur"], ans:2, cat:"Personnages" },
+  { q:"Quel juge d'Israël avait une force surhumaine liée à ses cheveux ?", opts:["Gédéon","Déborah","Samson","Jephté"], ans:2, cat:"Personnages" },
+  { q:"Qui a vendu Joseph à des marchands ?", opts:["Benjamin","Ses frères","Potiphar","Jacob"], ans:1, cat:"Personnages" },
+  { q:"Quelle femme était l'épouse du roi Ahab et adoratrice de Baal ?", opts:["Dalila","Jézabel","Atalie","Séphora"], ans:1, cat:"Personnages" },
+  { q:"Quel apôtre était percepteur d'impôts avant de suivre Jésus ?", opts:["Pierre","Luc","Matthieu","Barthélemy"], ans:2, cat:"Personnages" },
+  { q:"Qui a écrit le livre de l'Apocalypse ?", opts:["Paul","Pierre","Matthieu","Jean"], ans:3, cat:"Personnages" },
+  { q:"Quel roi d'Israël a fait construire le temple de Jérusalem ?", opts:["David","Saül","Salomon","Roboam"], ans:2, cat:"Personnages" },
+  { q:"Qui était la belle-mère de Ruth ?", opts:["Naomi","Orpa","Déborah","Anne"], ans:0, cat:"Personnages" },
+  { q:"Quel disciple a trahi Jésus pour 30 pièces d'argent ?", opts:["Pierre","Thomas","Judas Iscariote","Simon"], ans:2, cat:"Personnages" },
+  { q:"Qui a remplacé Moïse pour conduire Israël en Canaan ?", opts:["Aaron","Caleb","Éléazar","Josué"], ans:3, cat:"Personnages" },
+  { q:"Quel patriarche a vécu 969 ans selon la Bible ?", opts:["Noé","Adam","Mathusalem","Énoch"], ans:2, cat:"Personnages" },
+  { q:"Qui était la femme de Job selon la Bible ?", opts:["Elle n'est pas nommée","Houlda","Séphora","Bathsheba"], ans:0, cat:"Personnages" },
+  { q:"Quel fils de David a essayé de s'emparer du trône ?", opts:["Salomon","Absalom","Amnon","Adonija"], ans:1, cat:"Personnages" },
+
+  // ── VIE DE JÉSUS (20) ──
+  { q:"Combien de jours Jésus a-t-il jeûné dans le désert ?", opts:["30 jours","40 jours","7 jours","20 jours"], ans:1, cat:"Vie de Jésus" },
+  { q:"Dans quelle ville Jésus est-il né ?", opts:["Nazareth","Jérusalem","Bethléem","Capharnaüm"], ans:2, cat:"Vie de Jésus" },
+  { q:"Quel apôtre a renié Jésus trois fois ?", opts:["Jean","André","Pierre","Jacques"], ans:2, cat:"Vie de Jésus" },
+  { q:"Quelle femme fut la première à voir Jésus ressuscité ?", opts:["Marie, mère de Jésus","Marie-Madeleine","Marthe","Salomé"], ans:1, cat:"Vie de Jésus" },
+  { q:"Dans quel fleuve Jésus a-t-il été baptisé ?", opts:["Nil","Euphrate","Tigre","Jourdain"], ans:3, cat:"Vie de Jésus" },
+  { q:"Combien de disciples Jésus avait-il choisis ?", opts:["7","10","12","14"], ans:2, cat:"Vie de Jésus" },
+  { q:"Combien de jours Lazare était-il au tombeau quand Jésus l'a ressuscité ?", opts:["1 jour","2 jours","3 jours","4 jours"], ans:3, cat:"Vie de Jésus" },
+  { q:"Quel miracle Jésus a-t-il accompli lors des noces de Cana ?", opts:["Guérir un aveugle","Multiplier les pains","Changer l'eau en vin","Ressusciter un mort"], ans:2, cat:"Vie de Jésus" },
+  { q:"Combien de pains Jésus a-t-il utilisés pour nourrir 5000 personnes ?", opts:["3","5","7","10"], ans:1, cat:"Vie de Jésus" },
+  { q:"Quel était le métier de Joseph, le père adoptif de Jésus ?", opts:["Pêcheur","Berger","Charpentier","Agriculteur"], ans:2, cat:"Vie de Jésus" },
+  { q:"Sur quelle montagne Jésus a-t-il été transfiguré ?", opts:["Mont Sinaï","Mont des Oliviers","Mont Thabor","Mont Carmel"], ans:2, cat:"Vie de Jésus" },
+  { q:"Qui a baptisé Jésus ?", opts:["Pierre","Jean le Baptiste","Élie","André"], ans:1, cat:"Vie de Jésus" },
+  { q:"Que portait Jésus sur la tête lors de sa crucifixion ?", opts:["Un bandeau","Une couronne d'épines","Un voile","Rien"], ans:1, cat:"Vie de Jésus" },
+  { q:"Quel gouverneur romain a ordonné la crucifixion de Jésus ?", opts:["Hérode","Tibère","Ponce Pilate","Caïphe"], ans:2, cat:"Vie de Jésus" },
+  { q:"Combien de jours après sa mort Jésus est-il ressuscité ?", opts:["Le même jour","2 jours","3 jours","7 jours"], ans:2, cat:"Vie de Jésus" },
+  { q:"Dans quelle ville Jésus a-t-il grandi ?", opts:["Bethléem","Jérusalem","Nazareth","Capharnaüm"], ans:2, cat:"Vie de Jésus" },
+  { q:"Qui a aidé Jésus à porter sa croix ?", opts:["Jean","Simon de Cyrène","Pierre","Marie-Madeleine"], ans:1, cat:"Vie de Jésus" },
+  { q:"Quel disciple a dit 'Mon Seigneur et mon Dieu' en voyant Jésus ressuscité ?", opts:["Pierre","Jean","Thomas","Philippe"], ans:2, cat:"Vie de Jésus" },
+  { q:"Combien d'hommes Jésus a-t-il envoyés deux par deux selon Luc 10 ?", opts:["12","24","70","40"], ans:2, cat:"Vie de Jésus" },
+  { q:"Quel arbre Zachée avait-il grimpé pour voir Jésus ?", opts:["Figuier","Palmier","Sycomore","Olivier"], ans:2, cat:"Vie de Jésus" },
+
+  // ── LIVRES & STRUCTURE (15) ──
+  { q:"Quel est le premier livre de la Bible ?", opts:["Exode","Psaumes","Genèse","Lévitique"], ans:2, cat:"Livres" },
+  { q:"Combien de livres compte la Bible (canon protestant) ?", opts:["66","73","39","72"], ans:0, cat:"Livres" },
+  { q:"Quel est le dernier livre de la Bible ?", opts:["Jude","Hébreux","Apocalypse","1 Jean"], ans:2, cat:"Livres" },
+  { q:"Combien de psaumes compte le livre des Psaumes ?", opts:["100","150","120","180"], ans:1, cat:"Livres" },
+  { q:"Qui a écrit la majorité des épîtres du Nouveau Testament ?", opts:["Pierre","Jean","Paul","Luc"], ans:2, cat:"Livres" },
+  { q:"Qui a écrit le livre des Actes des Apôtres ?", opts:["Paul","Jean","Marc","Luc"], ans:3, cat:"Livres" },
+  { q:"Combien de livres compte l'Ancien Testament (canon protestant) ?", opts:["27","39","46","50"], ans:1, cat:"Livres" },
+  { q:"Combien de livres compte le Nouveau Testament ?", opts:["21","27","30","33"], ans:1, cat:"Livres" },
+  { q:"Quel est le livre le plus long de la Bible (en chapitres) ?", opts:["Genèse","Ésaïe","Jérémie","Psaumes"], ans:3, cat:"Livres" },
+  { q:"Quel est le livre le plus court de la Bible ?", opts:["Philémon","2 Jean","3 Jean","Obadia"], ans:2, cat:"Livres" },
+  { q:"Quel livre suit immédiatement la Genèse ?", opts:["Lévitique","Nombres","Exode","Deutéronome"], ans:2, cat:"Livres" },
+  { q:"Dans quel livre de la Bible trouve-t-on les Béatitudes ?", opts:["Luc 6","Marc 5","Jean 3","Matthieu 5"], ans:3, cat:"Livres" },
+  { q:"Quel livre contient le chapitre 53 sur le Serviteur souffrant ?", opts:["Jérémie","Ézéchiel","Ésaïe","Daniel"], ans:2, cat:"Livres" },
+  { q:"Quel est le seul livre de la Bible qui ne mentionne pas le nom de Dieu ?", opts:["Ruth","Ecclésiaste","Esther","Cantique des cantiques"], ans:2, cat:"Livres" },
+  { q:"Quel livre de la Bible est entièrement consacré à la poésie amoureuse ?", opts:["Ruth","Esther","Cantique des cantiques","Lamentations"], ans:2, cat:"Livres" },
+
+  // ── VERSETS CÉLÈBRES (15) ──
+  { q:"Quel livre contient le célèbre verset 'Dieu a tant aimé le monde' (3:16) ?", opts:["Matthieu","Marc","Luc","Jean"], ans:3, cat:"Versets" },
+  { q:"Que signifie le nom 'Emmanuel' ?", opts:["Dieu guérit","Dieu est avec nous","Dieu sauve","Dieu juge"], ans:1, cat:"Versets" },
+  { q:"Quelle est la plus courte phrase de la Bible selon Jean 11:35 ?", opts:["Dieu est amour","Jésus pleura","Il est ressuscité","Alléluia"], ans:1, cat:"Versets" },
+  { q:"Selon Psaumes 23:1, que dit David de l'Éternel ?", opts:["Il est mon rocher","Il est mon berger","Il est ma forteresse","Il est ma lumière"], ans:1, cat:"Versets" },
+  { q:"Selon Philippiens 4:13, que peut faire Paul ?", opts:["Tout pardonner","Tout comprendre","Tout par Celui qui le fortifie","Tout endurer seul"], ans:2, cat:"Versets" },
+  { q:"Dans Romains 8:28, que dit Paul de 'toutes choses' ?", opts:["Elles passent","Elles concourent au bien","Elles sont vaines","Elles glorifient Dieu"], ans:1, cat:"Versets" },
+  { q:"Selon Psaumes 119:105, qu'est la Parole de Dieu ?", opts:["Un glaive","Une lumière","Une lampe et une lumière","Un bouclier"], ans:2, cat:"Versets" },
+  { q:"Quel verset dit 'Vous connaîtrez la vérité, et la vérité vous affranchira' ?", opts:["Jean 8:32","Jean 3:16","Jean 14:6","Jean 1:1"], ans:0, cat:"Versets" },
+  { q:"Selon Jean 14:6, comment Jésus se décrit-il ?", opts:["La lumière du monde","Le pain de vie","Le chemin, la vérité et la vie","Le bon berger"], ans:2, cat:"Versets" },
+  { q:"Dans quel verset Jésus dit-il 'Je suis la résurrection et la vie' ?", opts:["Jean 10:10","Jean 11:25","Jean 6:35","Jean 15:5"], ans:1, cat:"Versets" },
+  { q:"Selon Proverbes 3:5, à qui ne faut-il pas s'appuyer ?", opts:["À ses amis","À sa propre intelligence","À sa richesse","À ses œuvres"], ans:1, cat:"Versets" },
+  { q:"Selon Jérémie 29:11, quels sont les plans que Dieu a pour nous ?", opts:["Des plans de punition","Des plans de paix et d'espérance","Des plans de souffrance","Des plans de gloire"], ans:1, cat:"Versets" },
+  { q:"Quel verset commence par 'Au commencement était la Parole' ?", opts:["Genèse 1:1","Jean 1:1","Apocalypse 1:1","Hébreux 1:1"], ans:1, cat:"Versets" },
+  { q:"Selon Matthieu 5:9, qui sont les heureux ?", opts:["Les pauvres en esprit","Ceux qui pleurent","Les artisans de paix","Les purs en cœur"], ans:2, cat:"Versets" },
+  { q:"Dans Apocalypse 3:20, Jésus dit qu'il se tient à la porte et…", opts:["Il frappe","Il attend","Il crie","Il pleure"], ans:0, cat:"Versets" },
+
+  // ── HISTOIRE BIBLIQUE (20) ──
+  { q:"Quel animal Balaam montait-il quand il parla ?", opts:["Chameau","Cheval","Âne","Bœuf"], ans:2, cat:"Histoire biblique" },
+  { q:"Combien de jours et nuits dura le déluge ?", opts:["20 jours","40 jours","30 jours","7 jours"], ans:1, cat:"Histoire biblique" },
+  { q:"Quel était le 'fruit défendu' dans le jardin d'Éden ?", opts:["Une figue","Une grenade","Un fruit de l'arbre de la connaissance","Un raisin"], ans:2, cat:"Histoire biblique" },
+  { q:"Combien de plaies Dieu envoya-t-il sur l'Égypte ?", opts:["7","10","12","9"], ans:1, cat:"Histoire biblique" },
+  { q:"Quelle mer les Israélites traversèrent-ils à pied sec ?", opts:["La mer Morte","La mer Rouge","La mer Méditerranée","La mer de Galilée"], ans:1, cat:"Histoire biblique" },
+  { q:"Combien d'années les Israélites errèrent-ils dans le désert ?", opts:["20 ans","30 ans","40 ans","50 ans"], ans:2, cat:"Histoire biblique" },
+  { q:"Quelle tour les hommes voulurent-ils construire pour atteindre le ciel ?", opts:["Tour de Siloé","Tour de Babel","Tour d'Antonia","Tour de David"], ans:1, cat:"Histoire biblique" },
+  { q:"Combien d'animaux de chaque espèce Noé prit-il dans l'arche (par paire) ?", opts:["1 de chaque","2 de chaque (+ 7 des purs)","3 de chaque","5 de chaque"], ans:1, cat:"Histoire biblique" },
+  { q:"Où Abraham était-il prêt à sacrifier son fils Isaac ?", opts:["Mont Sinaï","Mont Carmel","Mont Moria","Mont Thabor"], ans:2, cat:"Histoire biblique" },
+  { q:"Quelle ville fut détruite à cause de sa perversité avec Gomorrhe ?", opts:["Babel","Ninive","Sodome","Jéricho"], ans:2, cat:"Histoire biblique" },
+  { q:"Comment mourut Jésus selon les Évangiles ?", opts:["Lapidé","Empoisonné","Crucifié","Décapité"], ans:2, cat:"Histoire biblique" },
+  { q:"Quel signe Dieu plaça-t-il dans le ciel après le déluge ?", opts:["Une étoile","Un arc-en-ciel","Une colombe","Une nuée"], ans:1, cat:"Histoire biblique" },
+  { q:"Combien d'années Joseph fut-il en prison en Égypte ?", opts:["2 ans","3 ans","5 ans","7 ans"], ans:0, cat:"Histoire biblique" },
+  { q:"Quelle muraille s'effondra après que les Israélites en eurent fait le tour ?", opts:["Muraille de Jérusalem","Muraille de Ninive","Muraille de Jéricho","Muraille de Babylone"], ans:2, cat:"Histoire biblique" },
+  { q:"Quel événement est célébré par la fête de Pâques (Pessah) juive ?", opts:["La création du monde","La sortie d'Égypte","Le don de la Loi","L'entrée en Canaan"], ans:1, cat:"Histoire biblique" },
+  { q:"Quel roi babylonien fit construire une statue d'or que tous devaient adorer ?", opts:["Cyrus","Darius","Nabuchodonosor","Belschatsar"], ans:2, cat:"Histoire biblique" },
+  { q:"Dans quelle fosse Daniel fut-il jeté ?", opts:["Une fosse de serpents","Une fosse de lions","Une fosse de feu","Une fosse d'eau"], ans:1, cat:"Histoire biblique" },
+  { q:"Combien de jours Jonas passa-t-il dans le ventre du grand poisson ?", opts:["1 jour","2 jours","3 jours","7 jours"], ans:2, cat:"Histoire biblique" },
+  { q:"Quelle était la profession de Simon Pierre avant de suivre Jésus ?", opts:["Charpentier","Berger","Pêcheur","Percepteur"], ans:2, cat:"Histoire biblique" },
+  { q:"À quelle fête juive l'Esprit Saint fut-il répandu sur les disciples (Actes 2) ?", opts:["Pâques","Souccot","Pentecôte","Roch Hachana"], ans:2, cat:"Histoire biblique" },
+
+  // ── APÔTRES & ÉGLISE (15) ──
+  { q:"Quel apôtre était le frère de Simon Pierre ?", opts:["Jean","Jacques","André","Philippe"], ans:2, cat:"Apôtres" },
+  { q:"Comment s'appelait l'apôtre Paul avant sa conversion ?", opts:["Barnabas","Saul","Silas","Étienne"], ans:1, cat:"Apôtres" },
+  { q:"Qui était le premier martyr chrétien mentionné dans les Actes ?", opts:["Jacques","Pierre","Philippe","Étienne"], ans:3, cat:"Apôtres" },
+  { q:"Quel apôtre marcha sur l'eau pour rejoindre Jésus ?", opts:["Jean","Pierre","André","Thomas"], ans:1, cat:"Apôtres" },
+  { q:"Dans quelle ville la première église chrétienne fut-elle appelée 'chrétienne' ?", opts:["Jérusalem","Rome","Éphèse","Antioche"], ans:3, cat:"Apôtres" },
+  { q:"Quel apôtre Paul laissa-t-il à Crète pour organiser les Églises ?", opts:["Timothée","Tite","Silas","Apollos"], ans:1, cat:"Apôtres" },
+  { q:"Qui était l'évangéliste qui baptisa l'eunuque éthiopien ?", opts:["Pierre","Paul","Philippe","Barnabas"], ans:2, cat:"Apôtres" },
+  { q:"Quel couple fut frappé de mort pour avoir menti à l'Esprit Saint (Actes 5) ?", opts:["Aquilas et Priscille","Ananias et Saphira","Zacharie et Élisabeth","Philémon et Apphie"], ans:1, cat:"Apôtres" },
+  { q:"Dans quelle prison Paul et Silas chantaient-ils à minuit ?", opts:["Rome","Jérusalem","Philippes","Corinthe"], ans:2, cat:"Apôtres" },
+  { q:"Quel apôtre est l'auteur de la lettre aux Hébreux selon la tradition ?", opts:["Paul","Pierre","Apollos","Barnabas"], ans:0, cat:"Apôtres" },
+  { q:"Quel apôtre était un zélote avant de suivre Jésus ?", opts:["Simon","Judas","Thaddée","Barthélemy"], ans:0, cat:"Apôtres" },
+  { q:"Combien d'épîtres générales Jean a-t-il écrites ?", opts:["1","2","3","4"], ans:2, cat:"Apôtres" },
+  { q:"Quel compagnon de Paul écrivit l'Évangile de Marc selon la tradition ?", opts:["Luc","Jean","Marc","Timothée"], ans:2, cat:"Apôtres" },
+  { q:"Dans quelle ville Paul fut-il lapidé et laissé pour mort ?", opts:["Lystre","Derbé","Iconium","Antioche"], ans:0, cat:"Apôtres" },
+  { q:"Quel apôtre demanda à Jésus de lui montrer le Père (Jean 14) ?", opts:["Thomas","Pierre","Philippe","Nathanaël"], ans:2, cat:"Apôtres" },
+];
+
+const LETTERS = ['A','B','C','D'];
+const QUESTION_TIME = 15; // secondes par question
+const POINTS_FAST = 100;
+const POINTS_SLOW = 50;
+const TOTAL_QUESTIONS = 12;
+
+// ───────────────────────────────────────────────
+// STATE
+// ───────────────────────────────────────────────
+const params = new URLSearchParams(window.location.search);
+const roomCode = params.get('code') || '';
+let playerData = {};
+try { playerData = JSON.parse(sessionStorage.getItem('bp_player') || '{}'); } catch(e) {}
+const mySessionId = playerData.sessionId || sessionStorage.getItem('bp_session') || '';
+const isHost = playerData.role === 'host';
+
+document.getElementById('h-room-code').textContent = roomCode;
+const backLobbyEl = document.getElementById('back-lobby');
+if(backLobbyEl) backLobbyEl.href = `lobby.html?code=${roomCode}`;
+
+let players = [];       // liste joueurs depuis Supabase
+let scores = {};        // { session_id: score }
+let currentQ = 0;       // index question courante (0-based)
+let questions = [];     // questions mélangées pour cette partie
+let answered = false;   // a-t-on répondu cette question ?
+let answeredPlayers = []; // session_ids qui ont répondu cette question
+let timerVal = QUESTION_TIME;
+let timerInterval = null;
+let gameChannel = null;
+let myPlayer = null;
+
+// ───────────────────────────────────────────────
+// INIT
+// ───────────────────────────────────────────────
+async function init() {
+  if (!roomCode) { window.location.href = 'index.html'; return; }
+
+  // Charger les joueurs
+  const { data: pData } = await db.from('players').select('*').eq('room_code', roomCode).order('joined_at');
+  players = pData || [];
+  myPlayer = players.find(p => p.session_id === mySessionId);
+
+  // Initialiser les scores
+  players.forEach(p => { scores[p.session_id] = 0; });
+
+  // Mélanger les questions
+  questions = shuffleArray([...ALL_QUESTIONS]).slice(0, TOTAL_QUESTIONS);
+
+  // Channel temps réel pour la synchronisation du jeu
+  gameChannel = db.channel(`game-${roomCode}`)
+    .on('broadcast', { event: 'answer' }, ({ payload }) => {
+      handleRemoteAnswer(payload);
+    })
+    .on('broadcast', { event: 'next_question' }, ({ payload }) => {
+      if (!isHost) loadQuestion(payload.index);
+    })
+    .on('broadcast', { event: 'game_over' }, ({ payload }) => {
+      showPodium(payload.scores);
+    })
+    .subscribe();
+
+  // Afficher l'écran de jeu
+  document.getElementById('waiting-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+
+  renderScoreboard();
+  loadQuestion(0);
+}
+
+// ───────────────────────────────────────────────
+// QUESTION
+// ───────────────────────────────────────────────
+function loadQuestion(index) {
+  currentQ = index;
+  answered = false;
+  answeredPlayers = [];
+
+  const q = questions[index];
+  if (!q) { endGame(); return; }
+
+  // Reset UI
+  document.getElementById('result-banner').classList.add('hidden');
+  const qZone = document.getElementById('question-zone');
+  qZone.className = 'question-zone';
+
+  document.getElementById('q-num').textContent = `Question ${index + 1} / ${TOTAL_QUESTIONS}`;
+  document.getElementById('progress-fill').style.width = `${((index + 1) / TOTAL_QUESTIONS) * 100}%`;
+  document.getElementById('q-category').textContent = q.cat;
+  document.getElementById('question-text').textContent = q.q;
+
+  // Options
+  const grid = document.getElementById('options-grid');
+  grid.innerHTML = q.opts.map((opt, i) => `
+    <button class="option-btn" data-idx="${i}" onclick="selectAnswer(${i})">
+      <span class="option-letter">${LETTERS[i]}</span>
+      ${opt}
+    </button>
+  `).join('');
+
+  // Answered row
+  document.getElementById('answered-row').innerHTML = '<span class="answered-label">A répondu :</span>';
+
+  startTimer();
+}
+
+// ───────────────────────────────────────────────
+// TIMER
+// ───────────────────────────────────────────────
+function startTimer() {
+  clearInterval(timerInterval);
+  timerVal = QUESTION_TIME;
+  updateTimerUI(timerVal);
+
+  timerInterval = setInterval(() => {
+    timerVal--;
+    updateTimerUI(timerVal);
+    if (timerVal <= 0) {
+      clearInterval(timerInterval);
+      if (!answered) timeOut();
+    }
+  }, 1000);
+}
+
+function updateTimerUI(val) {
+  const numEl = document.getElementById('timer-num');
+  const circle = document.getElementById('timer-circle');
+  numEl.textContent = val;
+  numEl.classList.toggle('urgent', val <= 5);
+  circle.classList.toggle('urgent', val <= 5);
+  const pct = (val / QUESTION_TIME) * 100;
+  circle.style.strokeDashoffset = 100 - pct;
+}
+
+// ───────────────────────────────────────────────
+// RÉPONDRE
+// ───────────────────────────────────────────────
+function selectAnswer(idx) {
+  if (answered) return;
+  answered = true;
+  clearInterval(timerInterval);
+
+  const q = questions[currentQ];
+  const correct = idx === q.ans;
+  const timeBonus = timerVal > 8 ? POINTS_FAST : POINTS_SLOW;
+  const points = correct ? timeBonus : 0;
+
+  // Broadcast aux autres
+  gameChannel.send({
+    type: 'broadcast',
+    event: 'answer',
+    payload: { session_id: mySessionId, answer_idx: idx, correct, points, question_idx: currentQ }
+  });
+
+  // Appliquer localement
+  applyAnswer(mySessionId, idx, correct, points, true);
+}
+
+function handleRemoteAnswer(payload) {
+  if (payload.question_idx !== currentQ) return;
+  if (payload.session_id === mySessionId) return;
+  applyAnswer(payload.session_id, payload.answer_idx, payload.correct, payload.points, false);
+}
+
+function applyAnswer(sessionId, answerIdx, correct, points, isMe) {
+  // Marquer joueur comme ayant répondu
+  if (!answeredPlayers.includes(sessionId)) {
+    answeredPlayers.push(sessionId);
+    const p = players.find(x => x.session_id === sessionId);
+    if (p) {
+      const row = document.getElementById('answered-row');
+      const av = document.createElement('div');
+      av.className = 'answered-avatar';
+      av.title = p.pseudo;
+      av.textContent = p.avatar;
+      row.appendChild(av);
+    }
+  }
+
+  // Update score
+  if (points > 0) {
+    scores[sessionId] = (scores[sessionId] || 0) + points;
+    renderScoreboard(sessionId);
+  }
+
+  if (isMe) {
+    showAnswerFeedback(answerIdx, correct, points);
+  }
+
+  // Si tout le monde a répondu → hôte passe à la suivante
+  if (answeredPlayers.length >= players.length && isHost) {
+    setTimeout(() => nextQuestion(), 2200);
+  }
+}
+
+function showAnswerFeedback(answerIdx, correct, points) {
+  const q = questions[currentQ];
+  const btns = document.querySelectorAll('.option-btn');
+
+  btns.forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === q.ans) btn.classList.add('correct');
+    else if (i === answerIdx && !correct) btn.classList.add('wrong');
+  });
+
+  const qZone = document.getElementById('question-zone');
+  qZone.className = 'question-zone ' + (correct ? 'correct' : 'wrong');
+
+  const banner = document.getElementById('result-banner');
+  banner.classList.remove('hidden');
+  document.getElementById('rb-icon').textContent = correct ? '✓' : '✗';
+  document.getElementById('rb-title').textContent = correct ? 'Bonne réponse ! 🎉' : 'Mauvaise réponse…';
+  document.getElementById('rb-sub').textContent = correct
+    ? `La prochaine question arrive…`
+    : `La bonne réponse était : ${q.opts[q.ans]}`;
+  const pts = document.getElementById('rb-points');
+  pts.textContent = correct ? `+${points}` : '0 pt';
+  pts.className = 'rb-points ' + (correct ? 'pos' : 'neg');
+}
+
+function timeOut() {
+  if (answered) return;
+  answered = true;
+
+  // Broadcast timeout
+  gameChannel.send({ type:'broadcast', event:'answer', payload:{ session_id:mySessionId, answer_idx:-1, correct:false, points:0, question_idx:currentQ } });
+  applyAnswer(mySessionId, -1, false, 0, true);
+  showToast('⏰ Temps écoulé !', 'error');
+}
+
+// ───────────────────────────────────────────────
+// QUESTION SUIVANTE (hôte uniquement)
+// ───────────────────────────────────────────────
+function nextQuestion() {
+  const next = currentQ + 1;
+  if (next >= TOTAL_QUESTIONS) {
+    endGame();
+    return;
+  }
+  // Broadcaster la prochaine question
+  gameChannel.send({ type:'broadcast', event:'next_question', payload:{ index: next } });
+  loadQuestion(next);
+}
+
+// ───────────────────────────────────────────────
+// FIN DE PARTIE
+// ───────────────────────────────────────────────
+function endGame() {
+  if (isHost) {
+    gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores } });
+    // Remettre la room en waiting
+    db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
+  }
+  setTimeout(() => showPodium(scores), 500);
+}
+
+function showPodium(finalScores) {
+  clearInterval(timerInterval);
+  const overlay = document.getElementById('podium-overlay');
+  const grid = document.getElementById('podium-grid');
+
+  // Trier par score
+  const sorted = players
+    .map(p => ({ ...p, score: finalScores[p.session_id] || 0 }))
+    .sort((a,b) => b.score - a.score);
+
+  const RANK_ICONS = ['🥇','🥈','🥉'];
+  grid.innerHTML = sorted.slice(0,3).map((p,i) => `
+    <div class="podium-card ${i===0?'p1':i===1?'p2':'p3'}" style="animation-delay:${i*0.15}s">
+      <div class="podium-rank">${RANK_ICONS[i] || ''}</div>
+      <div class="podium-av">${p.avatar}</div>
+      <div class="podium-name">${p.pseudo}${p.session_id===mySessionId?' (Toi)':''}</div>
+      <div class="podium-score ${i===0?'gold':''}">${p.score} pts</div>
+    </div>
+  `).join('');
+
+  overlay.classList.add('active');
+}
+
+// ───────────────────────────────────────────────
+// SCOREBOARD
+// ───────────────────────────────────────────────
+function renderScoreboard(updatedSession) {
+  const maxScore = Math.max(...Object.values(scores), 1);
+  const sb = document.getElementById('scoreboard');
+
+  sb.innerHTML = players.map(p => {
+    const score = scores[p.session_id] || 0;
+    const isMe = p.session_id === mySessionId;
+    const isLeading = score === maxScore && score > 0;
+    return `
+      <div class="score-card ${isMe?'me':''} ${isLeading?'leading':''}" id="sc-${p.session_id.replace(/-/g,'_')}">
+        <div class="sc-avatar">${p.avatar}</div>
+        <div class="sc-name">${p.pseudo}${isMe?'<span class="me-tag">Toi</span>':''}</div>
+        <div class="sc-score" id="score-val-${p.session_id.replace(/-/g,'_')}">${score}</div>
+      </div>`;
+  }).join('');
+
+  // Flash sur le score mis à jour
+  if (updatedSession) {
+    const el = document.getElementById(`score-val-${updatedSession.replace(/-/g,'_')}`);
+    if (el) { el.classList.remove('flash-up'); void el.offsetWidth; el.classList.add('flash-up'); }
+  }
+}
+
+// ───────────────────────────────────────────────
+// UTILS
+// ───────────────────────────────────────────────
+function shuffleArray(arr) {
+  for (let i = arr.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show '+type;
+  setTimeout(()=>t.className='toast', 2800);
+}
+
+function quitGame() {
+  clearInterval(timerInterval);
+  if (gameChannel) gameChannel.unsubscribe();
+  return true;
+}
+
+async function replayGame() {
+  if (gameChannel) gameChannel.unsubscribe();
+  // Remettre room en waiting
+  await db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
+  window.location.href = `lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
+}
+
+// ───────────────────────────────────────────────
+// START
+// ───────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
