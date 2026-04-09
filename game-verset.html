@@ -550,14 +550,22 @@ async function init() {
   const { data: pData } = await db.from('players').select('*').eq('room_code', roomCode).order('joined_at');
   players = pData || [];
   players.forEach(p => { scores[p.session_id] = 0; });
-  questions = shuffle([...VERSES]).slice(0, TOTAL_ROUNDS);
+  // Seul l'hôte mélange — les invités reçoivent chaque verset complet
+  if (isHost) {
+    questions = shuffle([...VERSES]).slice(0, TOTAL_ROUNDS);
+  }
+  let nextVerseTriggered = false;
 
   gameChannel = db.channel(`verset-${roomCode}`)
     .on('broadcast', { event:'answer_submitted' }, ({payload}) => {
       if (payload.session_id !== mySessionId) receiveAnswer(payload);
     })
-    .on('broadcast', { event:'next_verse' }, ({payload}) => {
-      if (!isHost) loadVerse(payload.index);
+    .on('broadcast', { event:'load_verse' }, ({payload}) => {
+      if (!isHost) {
+        questions[payload.index] = payload.question;
+        nextVerseTriggered = false;
+        loadVerse(payload.index);
+      }
     })
     .on('broadcast', { event:'game_over' }, ({payload}) => {
       showPodium(payload.scores);
@@ -568,7 +576,18 @@ async function init() {
   document.getElementById('game-screen').style.display = 'block';
   renderScoreboard();
   renderPlayersList();
-  loadVerse(0);
+
+  if (isHost) {
+    setTimeout(() => broadcastVerse(0), 400);
+  }
+  // Les invités attendent load_verse
+}
+
+function broadcastVerse(index) {
+  const q = questions[index];
+  if (!q) return;
+  gameChannel.send({ type:'broadcast', event:'load_verse', payload:{ index, question: q } });
+  loadVerse(index);
 }
 
 // ── Charger un verset ──
@@ -806,6 +825,8 @@ function updateTimerUI(val) {
 
 // ── Suivant ──
 function nextVerse() {
+  if (typeof nextVerseTriggered !== 'undefined' && nextVerseTriggered) return;
+  if (typeof nextVerseTriggered !== 'undefined') nextVerseTriggered = true;
   const next = currentRound + 1;
   if (next >= TOTAL_ROUNDS) {
     if (isHost) {
@@ -816,9 +837,8 @@ function nextVerse() {
     return;
   }
   if (isHost) {
-    gameChannel.send({ type:'broadcast', event:'next_verse', payload:{ index:next } });
+    broadcastVerse(next);
   }
-  loadVerse(next);
 }
 
 // ── Turn panel ──
