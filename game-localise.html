@@ -465,14 +465,22 @@ async function init() {
   const {data:pData} = await db.from('players').select('*').eq('room_code',roomCode).order('joined_at');
   players = pData||[];
   players.forEach(p => scores[p.session_id]=0);
-  questions = shuffle([...VERSES_DB]).slice(0, TOTAL_ROUNDS);
+  // Seul l'hôte mélange — les invités reçoivent chaque question complète
+  if (isHost) {
+    questions = shuffle([...VERSES_DB]).slice(0, TOTAL_ROUNDS);
+  }
+  let nextRoundTriggered = false;
 
   gameChannel = db.channel(`localise-${roomCode}`)
     .on('broadcast',{event:'round_answer'},({payload}) => {
       if (payload.session_id !== mySessionId) receiveAnswer(payload);
     })
-    .on('broadcast',{event:'next_round'},({payload}) => {
-      if (!isHost) loadRound(payload.index);
+    .on('broadcast',{event:'load_round'},({payload}) => {
+      if (!isHost) {
+        questions[payload.index] = payload.question;
+        nextRoundTriggered = false;
+        loadRound(payload.index);
+      }
     })
     .on('broadcast',{event:'game_over'},({payload}) => showPodium(payload.scores))
     .subscribe();
@@ -480,7 +488,17 @@ async function init() {
   document.getElementById('loading-screen').style.display='none';
   document.getElementById('game-screen').style.display='block';
   renderScoreboard(); renderPlayers();
-  loadRound(0);
+
+  if (isHost) {
+    setTimeout(() => broadcastRound(0), 400);
+  }
+}
+
+function broadcastRound(index) {
+  const q = questions[index];
+  if (!q) return;
+  gameChannel.send({type:'broadcast',event:'load_round',payload:{index, question:q}});
+  loadRound(index);
 }
 
 // ── Charger un round ──
@@ -681,7 +699,10 @@ function receiveAnswer(payload) {
 }
 
 function checkAllAnswered() {
-  if (answeredList.length >= players.length) setTimeout(() => nextRound(), 2500);
+  if (answeredList.length >= players.length && !nextRoundTriggered) {
+    nextRoundTriggered = true;
+    setTimeout(() => nextRound(), 2500);
+  }
 }
 
 function nextRound() {
@@ -694,8 +715,7 @@ function nextRound() {
     setTimeout(()=>showPodium(scores), 400);
     return;
   }
-  if (isHost) gameChannel.send({type:'broadcast',event:'next_round',payload:{index:next}});
-  loadRound(next);
+  if (isHost) broadcastRound(next);
 }
 
 // ── Turn panel ──
