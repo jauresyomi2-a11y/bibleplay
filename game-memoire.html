@@ -464,6 +464,23 @@ async function init(){
   players.forEach(p=>{scores[p.session_id]=0;pairsFound[p.session_id]=0;});
 
   gameChannel=db.channel(`memoire-${roomCode}`)
+    .on('broadcast',{event:'board_init'},({payload})=>{
+      // Invités : recevoir le plateau complet depuis l'hôte
+      if(!isHost){
+        board=payload.board;
+        gameMode=payload.mode;
+        totalPairs=payload.totalPairs; foundPairs=0; attempts=0; streak=0;
+        flippedCards=[]; currentTurnIdx=0;
+        players.forEach(p=>{scores[p.session_id]=0;pairsFound[p.session_id]=0;});
+        cardStates=board.map(()=>({flipped:false,matched:false}));
+        document.getElementById('pc-round').textContent=getModeLabel(gameMode);
+        setTurn(0);
+        renderBoard();
+        renderScoreboard();
+        renderPlayers();
+        updateScorePanel();
+      }
+    })
     .on('broadcast',{event:'card_flip'},({payload})=>{if(payload.session_id!==mySessionId)handleRemoteFlip(payload);})
     .on('broadcast',{event:'turn_change'},({payload})=>{if(!isHost)setTurn(payload.turnIdx);})
     .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores))
@@ -502,6 +519,17 @@ function setupGame(){
   renderScoreboard();
   renderPlayers();
   updateScorePanel();
+
+  // L'hôte envoie le plateau identique à tous les invités
+  if(isHost && gameChannel){
+    setTimeout(()=>{
+      gameChannel.send({type:'broadcast',event:'board_init',payload:{
+        board: board.map(c=>({id:c.id,pairId:c.pairId,text:c.text,type:c.type,flipped:false,matched:false})),
+        mode: gameMode,
+        totalPairs
+      }});
+    }, 600);
+  }
 }
 
 function getPairsForMode(mode){
