@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Jeux Bibliques Multijoueur</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #fafaf5; --white: #ffffff;
+      --gold: #c9a84c; --gold-light: #e8cc7a; --gold-dark: #a0782a;
+      --sky: #4a90d9; --sky-light: #7ab8f0; --sky-dark: #2c6fad;
+      --text: #1a1a2e; --text-muted: #6b7280;
+      --border: #e8e0d0;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+    .bg-layer { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .bg-layer::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 70% 50% at 15% 20%, rgba(74,144,217,0.08) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 85% 75%, rgba(201,168,76,0.10) 0%, transparent 60%); }
+    .cross-deco { position: absolute; opacity: 0.045; font-size: 220px; color: var(--gold); user-select: none; line-height: 1; }
+    .cross-deco.c1 { top: -40px; left: -30px; transform: rotate(-12deg); }
+    .cross-deco.c2 { bottom: 60px; right: -20px; transform: rotate(8deg); font-size: 160px; }
+    @keyframes floatUp { 0% { transform: translateY(100vh) scale(0); opacity: 0; } 10% { opacity: 0.5; } 90% { opacity: 0.2; } 100% { transform: translateY(-10vh) scale(1); opacity: 0; } }
+    @keyframes pulse-dot { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); } 50% { box-shadow: 0 0 0 5px rgba(34,197,94,0); } }
+    @keyframes fadeDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes spinPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.7; } }
+
+    header { position: relative; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 22px 48px; border-bottom: 1px solid rgba(201,168,76,0.18); background: rgba(250,250,245,0.85); backdrop-filter: blur(12px); }
+    .logo { display: flex; align-items: center; gap: 12px; font-family: 'Cormorant Garamond', serif; font-size: 1.7rem; font-weight: 700; color: var(--text); text-decoration: none; }
+    .logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--gold), var(--gold-light)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 12px rgba(201,168,76,0.3); }
+    .logo span { color: var(--sky); }
+    .nav-badge { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; background: rgba(74,144,217,0.08); color: var(--sky-dark); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(74,144,217,0.2); }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; animation: pulse-dot 1.8s ease-in-out infinite; }
+
+    .hero { position: relative; z-index: 5; display: flex; flex-direction: column; align-items: center; padding: 80px 24px 60px; text-align: center; }
+    .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-dark); background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.25); padding: 6px 16px; border-radius: 20px; margin-bottom: 28px; animation: fadeDown 0.7s ease both; }
+    .hero-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.8rem, 7vw, 5.2rem); font-weight: 700; line-height: 1.08; color: var(--text); max-width: 720px; margin-bottom: 22px; animation: fadeDown 0.7s 0.1s ease both; }
+    .hero-title em { font-style: italic; background: linear-gradient(135deg, var(--sky), var(--sky-dark)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero-title .gold-word { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero-verse { font-family: 'Cormorant Garamond', serif; font-size: 1.05rem; font-style: italic; color: var(--text-muted); max-width: 480px; margin-bottom: 52px; line-height: 1.7; animation: fadeDown 0.7s 0.2s ease both; }
+    .hero-verse cite { display: block; font-style: normal; font-size: 0.82rem; font-weight: 600; color: var(--gold-dark); margin-top: 6px; font-family: 'DM Sans', sans-serif; letter-spacing: 0.06em; }
+
+    .connect-card { background: var(--white); border: 1px solid var(--border); border-radius: 24px; padding: 44px 48px; width: 100%; max-width: 480px; box-shadow: 0 4px 24px rgba(74,144,217,0.10); animation: fadeUp 0.8s 0.3s ease both; position: relative; overflow: hidden; }
+    .connect-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--sky), var(--gold), var(--sky-light)); }
+    .card-title { font-family: 'Cormorant Garamond', serif; font-size: 1.55rem; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .card-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 32px; line-height: 1.5; }
+
+    .tabs { display: flex; gap: 4px; background: rgba(74,144,217,0.06); border-radius: 12px; padding: 4px; margin-bottom: 28px; }
+    .tab-btn { flex: 1; padding: 10px 0; font-family: 'DM Sans', sans-serif; font-size: 0.87rem; font-weight: 600; border: none; cursor: pointer; border-radius: 9px; background: transparent; color: var(--text-muted); transition: all 0.25s; }
+    .tab-btn.active { background: var(--white); color: var(--sky-dark); box-shadow: 0 2px 10px rgba(74,144,217,0.15); }
+
+    .form-group { margin-bottom: 18px; }
+    .form-label { display: block; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+    .form-input { width: 100%; padding: 13px 16px; font-family: 'DM Sans', sans-serif; font-size: 0.95rem; border: 1.5px solid var(--border); border-radius: 12px; background: var(--cream); color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+    .form-input:focus { border-color: var(--sky); box-shadow: 0 0 0 3px rgba(74,144,217,0.12); background: var(--white); }
+    .form-input::placeholder { color: #bbb; }
+
+    .avatar-label { display: block; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+    .avatar-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+    .avatar-opt { width: 46px; height: 46px; border-radius: 12px; border: 2px solid transparent; background: var(--cream); display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; transition: all 0.2s; }
+    .avatar-opt:hover { transform: scale(1.1); border-color: var(--sky-light); }
+    .avatar-opt.selected { border-color: var(--sky); background: rgba(74,144,217,0.08); box-shadow: 0 0 0 3px rgba(74,144,217,0.15); }
+
+    .room-code-input input { width: 100%; text-align: center; font-size: 1.4rem; font-weight: 700; letter-spacing: 0.2em; font-family: 'Cormorant Garamond', serif; padding: 12px 16px; border: 1.5px solid var(--border); border-radius: 12px; background: var(--cream); color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s; text-transform: uppercase; }
+    .room-code-input input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,0.12); background: var(--white); }
+
+    .btn-primary { width: 100%; padding: 15px; font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 600; border: none; cursor: pointer; border-radius: 14px; background: linear-gradient(135deg, var(--sky), var(--sky-dark)); color: white; letter-spacing: 0.04em; transition: all 0.25s; box-shadow: 0 4px 18px rgba(74,144,217,0.3); margin-top: 8px; }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(74,144,217,0.38); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-primary.gold { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); box-shadow: 0 4px 18px rgba(201,168,76,0.3); }
+    .btn-primary.gold:hover:not(:disabled) { box-shadow: 0 8px 28px rgba(201,168,76,0.38); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .stats-band { position: relative; z-index: 5; display: flex; justify-content: center; max-width: 680px; margin: 0 auto 60px; animation: fadeUp 0.8s 0.5s ease both; }
+    .stat-item { flex: 1; text-align: center; padding: 20px 16px; border-right: 1px solid var(--border); }
+    .stat-item:last-child { border-right: none; }
+    .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 4px; }
+    .stat-label { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); letter-spacing: 0.05em; }
+
+    .games-section { position: relative; z-index: 5; max-width: 900px; margin: 0 auto; padding: 0 24px 80px; }
+    .section-header { text-align: center; margin-bottom: 40px; }
+    .section-label { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 10px; }
+    .section-title { font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 700; color: var(--text); }
+    .games-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; }
+    .game-card { background: var(--white); border: 1px solid var(--border); border-radius: 20px; padding: 28px 22px; transition: all 0.3s; cursor: default; position: relative; overflow: hidden; }
+    .game-card:hover { transform: translateY(-5px); box-shadow: 0 4px 24px rgba(201,168,76,0.18); border-color: rgba(201,168,76,0.3); }
+    .game-icon { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px; }
+    .quiz .game-icon { background: rgba(74,144,217,0.1); }
+    .verset .game-icon { background: rgba(201,168,76,0.12); }
+    .localise .game-icon { background: rgba(168,85,247,0.1); }
+    .memoire .game-icon { background: rgba(34,197,94,0.1); }
+    .game-name { font-family: 'Cormorant Garamond', serif; font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .game-desc { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px; }
+    .game-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 600; padding: 4px 10px; border-radius: 8px; }
+    .quiz .game-badge { background: rgba(74,144,217,0.1); color: var(--sky-dark); }
+    .verset .game-badge { background: rgba(201,168,76,0.12); color: var(--gold-dark); }
+    .localise .game-badge { background: rgba(168,85,247,0.1); color: #7c3aed; }
+    .memoire .game-badge { background: rgba(34,197,94,0.1); color: #15803d; }
+
+    footer { position: relative; z-index: 5; text-align: center; padding: 28px 24px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-muted); }
+    footer strong { color: var(--gold-dark); font-family: 'Cormorant Garamond', serif; font-size: 1rem; }
+
+    .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: white; padding: 12px 24px; border-radius: 12px; font-size: 0.88rem; font-weight: 500; box-shadow: 0 8px 30px rgba(0,0,0,0.2); z-index: 100; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.success { background: #15803d; }
+    .toast.error { background: #b91c1c; }
+    .toast.info { background: var(--sky-dark); }
+
+    .loader-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(250,250,245,0.93); backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .loader-overlay.active { opacity: 1; pointer-events: all; }
+    .loader-cross { font-size: 3.5rem; animation: spinPulse 1.5s ease-in-out infinite; }
+    .loader-text { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-weight: 600; color: var(--text); }
+    .loader-sub { font-size: 0.85rem; color: var(--text-muted); }
+
+    @media (max-width: 600px) { header { padding: 16px 20px; } .connect-card { padding: 32px 24px; } }
+  </style>
+</head>
+<body>
+
+<div class="bg-layer">
+  <div class="cross-deco c1">✝</div>
+  <div class="cross-deco c2">✝</div>
+  <canvas id="particles-canvas" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+</div>
+
+<header>
+  <a class="logo" href="#"><div class="logo-icon">✝</div>Bible<span>Play</span></a>
+  <div class="nav-badge"><span class="live-dot"></span><span id="online-count">—</span> en ligne</div>
+</header>
+
+<section class="hero">
+  <div class="hero-eyebrow">✦ Plateforme multijoueur ✦</div>
+  <h1 class="hero-title">Joue, apprends,<br><em>grandis</em> dans la <span class="gold-word">Parole</span></h1>
+  <p class="hero-verse">« Ta parole est une lampe à mes pieds, et une lumière sur mon sentier. »<cite>— Psaumes 119:105</cite></p>
+
+  <div class="connect-card">
+    <h2 class="card-title">Rejoindre la partie</h2>
+    <p class="card-subtitle">Entre ton pseudo, choisis ton avatar et crée ou rejoins une salle.</p>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('create')">✦ Créer une salle</button>
+      <button class="tab-btn" onclick="switchTab('join')">↗ Rejoindre</button>
+    </div>
+
+    <div class="tab-panel active" id="panel-create">
+      <div class="form-group"><label class="form-label">Ton pseudo</label><input class="form-input" id="pseudo-create" type="text" placeholder="Ex : Samuel, Esther…" maxlength="20"/></div>
+      <div class="form-group"><span class="avatar-label">Choisis ton avatar</span><div class="avatar-grid" id="avatar-grid-create"></div></div>
+      <button class="btn-primary gold" id="btn-create" onclick="createRoom()">✦ Créer ma salle de jeu</button>
+    </div>
+
+    <div class="tab-panel" id="panel-join">
+      <div class="form-group"><label class="form-label">Ton pseudo</label><input class="form-input" id="pseudo-join" type="text" placeholder="Ex : David, Ruth…" maxlength="20"/></div>
+      <div class="form-group">
+        <label class="form-label">Code de la salle</label>
+        <div class="room-code-input"><input id="room-code" type="text" placeholder="EX: ABC1" maxlength="6"/></div>
+      </div>
+      <div class="form-group"><span class="avatar-label">Choisis ton avatar</span><div class="avatar-grid" id="avatar-grid-join"></div></div>
+      <button class="btn-primary" id="btn-join" onclick="joinRoom()">↗ Rejoindre la salle</button>
+    </div>
+  </div>
+</section>
+
+<div class="stats-band">
+  <div class="stat-item"><div class="stat-num" id="stat-rooms">—</div><div class="stat-label">Salles actives</div></div>
+  <div class="stat-item"><div class="stat-num" id="stat-players">—</div><div class="stat-label">Joueurs en ligne</div></div>
+  <div class="stat-item"><div class="stat-num" style="color:var(--gold)">9</div><div class="stat-label">Mini-jeux</div></div>
+  <div class="stat-item"><div class="stat-num" style="color:var(--sky)">600+</div><div class="stat-label">Questions & défis</div></div>
+</div>
+
+<!-- Liens rapides -->
+<div style="position:relative;z-index:5;display:flex;justify-content:center;gap:12px;margin-bottom:48px;flex-wrap:wrap;padding:0 24px">
+  <a href="scores.html" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:var(--white);border:1px solid var(--border);border-radius:12px;font-size:0.85rem;font-weight:600;color:var(--text-muted);text-decoration:none;transition:all 0.2s" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold-dark)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">🏆 Classements</a>
+  <a href="chat.html" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:var(--white);border:1px solid var(--border);border-radius:12px;font-size:0.85rem;font-weight:600;color:var(--text-muted);text-decoration:none;transition:all 0.2s" onmouseover="this.style.borderColor='#7c3aed';this.style.color='#7c3aed'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">💬 Salon de discussion</a>
+</div>
+
+<section class="games-section">
+  <div class="section-header"><div class="section-label">✦ Nos 9 mini-jeux</div><h2 class="section-title">Que veux-tu jouer ?</h2></div>
+  <div class="games-grid">
+    <div class="game-card quiz"><div class="game-icon" style="background:rgba(74,144,217,0.1)">📖</div><div class="game-name">Quiz Battle</div><div class="game-desc">110 questions sur les versets, personnages et événements bibliques.</div><span class="game-badge" style="background:rgba(74,144,217,0.1);color:var(--sky-dark)">⚡ Temps réel · 2–8 joueurs</span></div>
+    <div class="game-card verset"><div class="game-icon" style="background:rgba(201,168,76,0.12)">✍️</div><div class="game-name">Verset Manquant</div><div class="game-desc">Complète les mots manquants d'un verset biblique avant les autres.</div><span class="game-badge" style="background:rgba(201,168,76,0.12);color:var(--gold-dark)">🔄 Temps réel · 2–8 joueurs</span></div>
+    <div class="game-card predicateur"><div class="game-icon" style="background:rgba(217,119,6,0.1)">🎤</div><div class="game-name">Défi du Prédicateur</div><div class="game-desc">Chaque joueur pose sa propre question biblique aux autres.</div><span class="game-badge" style="background:rgba(217,119,6,0.1);color:#92400e">🔄 Tour par tour · 2–8 joueurs</span></div>
+    <div class="game-card localise"><div class="game-icon" style="background:rgba(124,58,237,0.1)">🗺️</div><div class="game-name">Où est-il écrit ?</div><div class="game-desc">Retrouve le livre et le chapitre exact d'un verset affiché.</div><span class="game-badge" style="background:rgba(124,58,237,0.1);color:#6d28d9">⚡ Temps réel · 2–8 joueurs</span></div>
+    <div class="game-card memoire"><div class="game-icon" style="background:rgba(34,197,94,0.1)">🃏</div><div class="game-name">Mémoire Sacré</div><div class="game-desc">118 paires à associer — Verset↔Référence, Verset↔Personnage.</div><span class="game-badge" style="background:rgba(34,197,94,0.1);color:#15803d">🔄 Tour par tour · 2–4 joueurs</span></div>
+    <div class="game-card anagramme"><div class="game-icon" style="background:rgba(236,72,153,0.1)">🔤</div><div class="game-name">Anagramme Biblique</div><div class="game-desc">120 mots bibliques mélangés à reconstituer le plus vite possible.</div><span class="game-badge" style="background:rgba(236,72,153,0.1);color:#9d174d">⚡ Temps réel · 2–8 joueurs</span></div>
+    <div class="game-card duel"><div class="game-icon" style="background:rgba(239,68,68,0.1)">⚔️</div><div class="game-name">Duel de Versets</div><div class="game-desc">2 joueurs face à face — 120 versets, premier à répondre gagne !</div><span class="game-badge" style="background:rgba(239,68,68,0.1);color:#b91c1c">⚡ Face à face · 2 joueurs</span></div>
+    <div class="game-card roue"><div class="game-icon" style="background:rgba(20,184,166,0.1)">🎲</div><div class="game-name">Roue Biblique</div><div class="game-desc">160 défis en 8 catégories — la roue décide, la communauté vote !</div><span class="game-badge" style="background:rgba(20,184,166,0.1);color:#0f766e">🗳️ Vote · 2–8 joueurs</span></div>
+    <div class="game-card motscroises"><div class="game-icon" style="background:rgba(13,115,119,0.1)">🧩</div><div class="game-name">Mots Croisés</div><div class="game-desc">Grille partagée coopérative — 55 mots bibliques, 10 minutes ensemble.</div><span class="game-badge" style="background:rgba(13,115,119,0.1);color:#0d7377">🤝 Coopératif · 2–8 joueurs</span></div>
+  </div>
+</section>
+
+<footer style="position:relative;z-index:5;text-align:center;padding:28px 24px;border-top:1px solid var(--border);font-size:0.82rem;color:var(--text-muted)">
+  <strong style="color:var(--gold-dark);font-family:'Cormorant Garamond',serif;font-size:1rem">BiblePlay</strong>
+  &nbsp;·&nbsp; Grandis dans la Parole en jouant &nbsp;·&nbsp;
+  <a href="scores.html" style="color:var(--sky);text-decoration:none">🏆 Classements</a>
+  &nbsp;·&nbsp;
+  <a href="chat.html" style="color:var(--sky);text-decoration:none">💬 Salon</a>
+  &nbsp;·&nbsp;
+  <span style="color:var(--sky)">Jaurès Yomi</span>
+</footer>
+
+<div class="toast" id="toast"></div>
+<div class="loader-overlay" id="loader">
+  <div class="loader-cross">✝</div>
+  <div class="loader-text" id="loader-text">Préparation de la salle…</div>
+  <div class="loader-sub">Un instant de grâce 🙏</div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const AVATARS = ['🙏','✝️','📖','🕊️','⭐','🌿','🔔','🏺','🌙','🌊','🌟','🦁'];
+
+  function buildAvatarGrid(containerId) {
+    const el = document.getElementById(containerId);
+    AVATARS.forEach((av, i) => {
+      const div = document.createElement('div');
+      div.className = 'avatar-opt' + (i===0?' selected':'');
+      div.textContent = av; div.dataset.av = av;
+      div.onclick = () => { el.querySelectorAll('.avatar-opt').forEach(d=>d.classList.remove('selected')); div.classList.add('selected'); };
+      el.appendChild(div);
+    });
+  }
+  buildAvatarGrid('avatar-grid-create');
+  buildAvatarGrid('avatar-grid-join');
+
+  function getAvatar(gridId) {
+    const sel = document.querySelector(`#${gridId} .avatar-opt.selected`);
+    return sel ? sel.dataset.av : '🙏';
+  }
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',(tab==='create'&&i===0)||(tab==='join'&&i===1)));
+    document.getElementById('panel-create').classList.toggle('active', tab==='create');
+    document.getElementById('panel-join').classList.toggle('active', tab==='join');
+  }
+
+  function showToast(msg, type='') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'toast show '+type;
+    setTimeout(()=>t.className='toast', 3200);
+  }
+
+  function setLoader(active, text='Préparation de la salle…') {
+    document.getElementById('loader-text').textContent = text;
+    document.getElementById('loader').classList.toggle('active', active);
+  }
+
+  function genCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({length:4},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+  }
+
+  // Session ID unique par onglet
+  let sessionId = sessionStorage.getItem('bp_session');
+  if (!sessionId) { sessionId = crypto.randomUUID(); sessionStorage.setItem('bp_session', sessionId); }
+
+  async function createRoom() {
+    const pseudo = document.getElementById('pseudo-create').value.trim();
+    if (!pseudo) { showToast('⚠️ Entre ton pseudo pour continuer', 'error'); return; }
+    const avatar = getAvatar('avatar-grid-create');
+    const btn = document.getElementById('btn-create');
+    btn.disabled = true;
+    setLoader(true, 'Création de la salle…');
+    try {
+      const code = genCode();
+      const { error: roomErr } = await db.from('rooms').insert({ code, host_id: sessionId, game: 'quiz', status: 'waiting' });
+      if (roomErr) throw roomErr;
+      const { error: playerErr } = await db.from('players').insert({ room_code: code, pseudo, avatar, is_host: true, is_ready: false, session_id: sessionId });
+      if (playerErr) throw playerErr;
+      sessionStorage.setItem('bp_player', JSON.stringify({ pseudo, avatar, role: 'host', code, sessionId }));
+      showToast(`✦ Salle ${code} créée !`, 'success');
+      setTimeout(()=>{ window.location.href = `lobby.html?code=${code}&host=1`; }, 900);
+    } catch(e) {
+      setLoader(false); btn.disabled = false;
+      showToast('❌ Erreur lors de la création. Réessaie.', 'error');
+      console.error(e);
+    }
+  }
+
+  async function joinRoom() {
+    const pseudo = document.getElementById('pseudo-join').value.trim();
+    const code = document.getElementById('room-code').value.trim().toUpperCase();
+    if (!pseudo) { showToast('⚠️ Entre ton pseudo', 'error'); return; }
+    if (code.length < 4) { showToast('⚠️ Entre un code valide (4 caractères)', 'error'); return; }
+    const avatar = getAvatar('avatar-grid-join');
+    const btn = document.getElementById('btn-join');
+    btn.disabled = true;
+    setLoader(true, 'Connexion à la salle…');
+    try {
+      const { data: room, error: roomErr } = await db.from('rooms').select('*').eq('code', code).eq('status', 'waiting').maybeSingle();
+      if (roomErr) throw roomErr;
+      if (!room) { setLoader(false); btn.disabled = false; showToast('❌ Salle introuvable ou partie déjà lancée.', 'error'); return; }
+      const { count } = await db.from('players').select('*', { count: 'exact', head: true }).eq('room_code', code);
+      if (count >= room.max_players) { setLoader(false); btn.disabled = false; showToast('❌ Salle complète !', 'error'); return; }
+      const { error: playerErr } = await db.from('players').insert({ room_code: code, pseudo, avatar, is_host: false, is_ready: false, session_id: sessionId });
+      if (playerErr) throw playerErr;
+      sessionStorage.setItem('bp_player', JSON.stringify({ pseudo, avatar, role: 'guest', code, sessionId }));
+      showToast(`↗ Connexion à la salle ${code}…`, 'info');
+      setTimeout(()=>{ window.location.href = `lobby.html?code=${code}`; }, 900);
+    } catch(e) {
+      setLoader(false); btn.disabled = false;
+      showToast('❌ Erreur de connexion. Réessaie.', 'error');
+      console.error(e);
+    }
+  }
+
+  async function loadStats() {
+    try {
+      const { count: rooms } = await db.from('rooms').select('*', { count: 'exact', head: true }).eq('status', 'waiting');
+      const { count: players } = await db.from('players').select('*', { count: 'exact', head: true });
+      document.getElementById('stat-rooms').textContent = rooms ?? '0';
+      document.getElementById('stat-players').textContent = players ?? '0';
+      document.getElementById('online-count').textContent = players ?? '0';
+    } catch(e) { console.error(e); }
+  }
+  loadStats();
+  setInterval(loadStats, 8000);
+
+  document.getElementById('pseudo-create').addEventListener('keydown', e=>e.key==='Enter'&&createRoom());
+  document.getElementById('pseudo-join').addEventListener('keydown', e=>e.key==='Enter'&&joinRoom());
+  document.getElementById('room-code').addEventListener('keydown', e=>e.key==='Enter'&&joinRoom());
+  document.getElementById('room-code').addEventListener('input', e=>{ e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''); });
+
+  // Particules
+  const canvas = document.getElementById('particles-canvas');
+  const ctx = canvas.getContext('2d');
+  function resizeCanvas() { canvas.width=window.innerWidth; canvas.height=window.innerHeight; }
+  resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+  const particles = Array.from({length:50}, ()=>({ x:Math.random()*window.innerWidth, y:Math.random()*window.innerHeight, r:Math.random()*2+0.5, speed:Math.random()*0.4+0.15, drift:(Math.random()-0.5)*0.3, color:Math.random()>0.5?'rgba(74,144,217,0.25)':'rgba(201,168,76,0.25)' }));
+  function animParticles() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p=>{ p.y-=p.speed; p.x+=p.drift; if(p.y<-10){p.y=canvas.height+10;p.x=Math.random()*canvas.width;} ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=p.color;ctx.fill(); });
+    requestAnimationFrame(animParticles);
+  }
+  animParticles();
+</script>
+</body>
+</html>
