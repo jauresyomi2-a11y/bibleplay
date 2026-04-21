@@ -4,6 +4,14 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiblePlay — Quiz Battle</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#c9a84c"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="BiblePlay"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
@@ -238,8 +246,10 @@
   <p class="podium-verse" id="podium-verse">"Courez de manière à remporter le prix." — 1 Corinthiens 9:24</p>
   <div class="podium-grid" id="podium-grid"></div>
   <div class="podium-actions">
-    <button class="btn-replay" onclick="replayGame()">↺ Rejouer</button>
-    <a class="btn-lobby" href="lobby.html" id="back-lobby">← Retour au lobby</a>
+    <button class="btn-replay" onclick="replayGame()">↺ Rejouer ce jeu</button>
+    <button class="btn-pod out" onclick="returnToLobby()">🎮 Autre jeu</button>
+    <button class="btn-lobby" onclick="returnToLobby()">🎮 Autre jeu</button>
+    <button class="btn-lobby" onclick="returnToLobby()">← Lobby</button>
   </div>
 </div>
 
@@ -446,18 +456,30 @@ async function init() {
     .on('broadcast', { event: 'game_over' }, ({ payload }) => {
       showPodium(payload.scores);
     })
-    .subscribe();
+    .on('broadcast', { event: 'reveal_answer' }, ({ payload }) => {
+      if (!isHost) {
+        // Stocker la bonne réponse reçue de l'hôte
+        if (questions[payload.index]) questions[payload.index].ans = payload.ans;
+        showAnswerFeedback(payload.my_answer !== undefined ? payload.my_answer : -1, false, 0);
+      }
+    })
+    .on('broadcast', { event: 'return_to_lobby' }, ({ payload }) => {
+      if (!isHost) {
+        if (gameChannel) gameChannel.unsubscribe();
+        window.location.href = `lobby.html?code=${roomCode}`;
+      }
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED' && isHost) {
+        setTimeout(() => broadcastQuestion(0), 800);
+      }
+    });
 
   // Afficher l'écran de jeu
   document.getElementById('waiting-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'block';
 
   renderScoreboard();
-
-  // L'hôte envoie la première question à tous (y compris lui-même)
-  if (isHost) {
-    setTimeout(() => broadcastQuestion(0), 400);
-  }
   // Les invités attendent le broadcast 'load_question'
 }
 
@@ -636,10 +658,12 @@ function broadcastQuestion(index) {
   const q = questions[index];
   if (!q) { endGame(); return; }
   // Envoyer la question complète à tous les joueurs (y compris l'hôte lui-même)
+  // Envoyer la question SANS la réponse aux invités (sécurité)
+  const sanitized = { q: q.q, opts: q.opts, cat: q.cat };
   gameChannel.send({
     type: 'broadcast',
     event: 'load_question',
-    payload: { index, question: q }
+    payload: { index, question: sanitized }
   });
   // L'hôte charge aussi la question localement
   loadQuestion(index);
@@ -755,6 +779,25 @@ async function replayGame() {
 // START
 // ───────────────────────────────────────────────
 init();
+
+
+// ── Retour lobby synchronisé ──
+function returnToLobby() {
+  if (typeof gameChannel !== 'undefined' && gameChannel) {
+    gameChannel.send({type:'broadcast', event:'return_to_lobby', payload:{code: roomCode}});
+    setTimeout(() => gameChannel.unsubscribe(), 200);
+  }
+  window.location.href = 'lobby.html?code=' + roomCode + (isHost ? '&host=1' : '');
+}
+
+// ── Blocage navigation accidentelle au clavier ──
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement?.tagName;
+  const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (e.key === 'Backspace' && !isInput) { e.preventDefault(); return; }
+  if ((e.key === 'Escape') && !isInput) { e.preventDefault(); return; }
+});
 </script>
+  <script src="/sw-register.js"></script>
 </body>
 </html>
