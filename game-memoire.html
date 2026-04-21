@@ -4,6 +4,14 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiblePlay — Mémoire Sacré</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#c9a84c"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="BiblePlay"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
@@ -292,7 +300,8 @@
   <div class="pod-row" id="pod-row"></div>
   <div class="pod-actions">
     <button class="btn-pod" onclick="replayGame()">↺ Rejouer</button>
-    <a class="btn-pod out" href="lobby.html" id="back-btn">← Lobby</a>
+    <button class="btn-pod out" onclick="returnToLobby()">🎮 Autre jeu</button>
+    <button class="btn-pod out" onclick="returnToLobby()">← Lobby</button>
   </div>
 </div>
 
@@ -484,14 +493,20 @@ async function init(){
     .on('broadcast',{event:'card_flip'},({payload})=>{if(payload.session_id!==mySessionId)handleRemoteFlip(payload);})
     .on('broadcast',{event:'turn_change'},({payload})=>{if(!isHost)setTurn(payload.turnIdx);})
     .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores))
-    .subscribe();
+    .subscribe(async (status)=>{
+      if(status==='SUBSCRIBED' && isHost){
+        // Attendre que tous les invités soient connectés avant de broadcaster le plateau
+        setTimeout(()=>setupGame(), 800);
+      }
+    });
 
   if(isHost){
     document.getElementById('mode-selector').style.display='flex';
   }
   document.getElementById('loading-screen').style.display='none';
   document.getElementById('game-screen').style.display='block';
-  setupGame();
+  if(!isHost){ /* invités attendent board_init */ }
+  else { /* hôte démarre via subscribe callback */ }
 }
 
 // ── Setup ──
@@ -750,6 +765,26 @@ function showToast(msg,type=''){
 
 window.addEventListener('beforeunload',()=>quitGame());
 init();
+
+
+// ── Retour lobby synchronisé ──
+function returnToLobby() {
+  if (typeof gameChannel !== 'undefined' && gameChannel) {
+    gameChannel.send({type:'broadcast', event:'return_to_lobby', payload:{code: roomCode}});
+    setTimeout(() => gameChannel.unsubscribe(), 200);
+  }
+  window.location.href = 'lobby.html?code=' + roomCode + (isHost ? '&host=1' : '');
+}
+
+// ── Blocage navigation accidentelle au clavier ──
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement?.tagName;
+  const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (e.key === 'Backspace' && !isInput) { e.preventDefault(); return; }
+  if ((e.key === 'Escape') && !isInput) { e.preventDefault(); return; }
+});
 </script>
+  <script src="/sw-register.js"></script>
 </body>
 </html>
+
