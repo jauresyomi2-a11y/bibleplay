@@ -4,6 +4,14 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiblePlay — Roue Biblique</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#c9a84c"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="BiblePlay"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=DM+Sans:wght@300;400;500;600&family=Crimson+Pro:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
@@ -334,7 +342,8 @@
   <div class="pod-row" id="pod-row"></div>
   <div class="pod-actions">
     <button class="btn-pod" onclick="replayGame()">↺ Rejouer</button>
-    <a class="btn-pod out" href="lobby.html" id="back-btn">← Lobby</a>
+    <button class="btn-pod out" onclick="returnToLobby()">🎮 Autre jeu</button>
+    <button class="btn-pod out" onclick="returnToLobby()">← Lobby</button>
   </div>
 </div>
 
@@ -575,7 +584,8 @@ async function init(){
     .on('broadcast',{event:'answer_sub'},({payload})=>{if(payload.session_id!==mySessionId)receiveAnswer(payload);})
     .on('broadcast',{event:'vote_cast'},({payload})=>{if(payload.voter!==mySessionId)receiveVote(payload);})
     .on('broadcast',{event:'next_turn'},({payload})=>{if(!isHost)loadTurn(payload.index);})
-    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores))
+    .on('broadcast',{event:'game_over'},({payload})
+    .on('broadcast',{event:'return_to_lobby'},({payload})=>{ if(!isHost){if(typeof gameChannel!=='undefined'&&gameChannel)gameChannel.unsubscribe();window.location.href='lobby.html?code='+roomCode;} })=>showPodium(payload.scores))
     .subscribe();
 
   buildWheel();
@@ -586,7 +596,10 @@ async function init(){
 
   if(isHost){
     document.getElementById('btn-spin').disabled=false;
-    document.getElementById('spin-hint').textContent='L\'hôte tourne la roue pour commencer !';
+    const firstSpinner = players[0];
+    const iAmFirst = firstSpinner && firstSpinner.session_id === mySessionId;
+    document.getElementById('btn-spin').disabled = !iAmFirst;
+    document.getElementById('spin-hint').textContent = iAmFirst ? '🎲 C\'est ton tour de tourner la roue !' : `En attente que ${firstSpinner?.pseudo||'le joueur'} tourne la roue…`;
   } else {
     document.getElementById('spin-hint').textContent='En attente que l\'hôte tourne la roue…';
   }
@@ -616,7 +629,11 @@ function buildWheel(){
 
 // ── SPIN ──
 function spinWheel(){
-  if(!isHost||wheelSpinning)return;
+  // Chaque joueur peut tourner quand c'est son tour
+  const spinnerIdx = currentTurn % players.length;
+  const spinner = players[spinnerIdx];
+  const isMyTurn = spinner && spinner.session_id === mySessionId;
+  if(!isMyTurn||wheelSpinning)return;
   wheelSpinning=true;
   document.getElementById('btn-spin').disabled=true;
   document.getElementById('wheel-pointer').classList.add('spinning');
@@ -816,10 +833,11 @@ function nextTurn(){
     setTimeout(()=>showPodium(scores),400);
     return;
   }
+  // L'hôte broadcaste le prochain tour pour tous
   if(isHost){
     gameChannel.send({type:'broadcast',event:'next_turn',payload:{index:next}});
-    loadTurn(next);
   }
+  loadTurn(next);
 }
 
 function loadTurn(index){
@@ -835,7 +853,10 @@ function loadTurn(index){
   document.getElementById('cr-cat').textContent='—';
   document.getElementById('cr-sub').textContent='Lance la roue pour commencer !';
   document.getElementById('dc-round').textContent=`Tour ${index+1} / ${TOTAL_TURNS}`;
-  if(isHost){document.getElementById('btn-spin').disabled=false;}
+  const spinnerIdx2 = currentTurn % players.length;
+  const spinner2 = players[spinnerIdx2];
+  const isMyTurn2 = spinner2 && spinner2.session_id === mySessionId;
+  document.getElementById('btn-spin').disabled = !isMyTurn2;
   stopTimer();
   updateStatusBar();
   renderScoreboard();
@@ -848,7 +869,14 @@ function updateStatusBar(){
   const actEl=document.getElementById('sb-actions');
   if(phase==='waiting'||phase==='spin'){
     statusEl.textContent=isHost?'À toi de tourner la roue !':'En attente de la roue…';
-    subEl.textContent=`Tour ${currentTurn+1} / ${TOTAL_TURNS}`;
+    const curSpinner = players[currentTurn % players.length];
+    const spinnerIsMe = curSpinner && curSpinner.session_id === mySessionId;
+    subEl.textContent = spinnerIsMe
+      ? `🎲 C'est TON tour de tourner la roue !`
+      : `Tour ${currentTurn+1} / ${TOTAL_TURNS} — ${curSpinner?.avatar||''} ${curSpinner?.pseudo||'Joueur'} tourne la roue`;
+    document.getElementById('spin-hint').textContent = spinnerIsMe
+      ? '🎲 Clique pour tourner la roue !'
+      : `En attente que ${curSpinner?.pseudo||'le joueur'} tourne…`;
     actEl.innerHTML='';
   } else if(phase==='answer'){
     statusEl.textContent='Répondez au défi !';
@@ -945,5 +973,6 @@ function showToast(msg,type=''){
 window.addEventListener('beforeunload',()=>quitGame());
 init();
 </script>
+  <script src="/sw-register.js"></script>
 </body>
 </html>
