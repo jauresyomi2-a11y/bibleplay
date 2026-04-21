@@ -4,6 +4,14 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiblePlay — Salle d'attente</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#c9a84c"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="BiblePlay"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
@@ -90,6 +98,9 @@
     .game-option.selected.c-teal{border-color:#14b8a6;background:rgba(20,184,166,0.04);box-shadow:0 0 0 3px rgba(20,184,166,0.1)}
     .game-option.selected.c-red{border-color:#ef4444;background:rgba(239,68,68,0.04);box-shadow:0 0 0 3px rgba(239,68,68,0.1)}
     .game-option.selected.teal2{border-color:#0d7377;background:rgba(13,115,119,0.04);box-shadow:0 0 0 3px rgba(13,115,119,0.1)}
+    .game-option.selected.c-stone{border-color:#92814a;background:rgba(146,129,74,0.05);box-shadow:0 0 0 3px rgba(146,129,74,0.12)}
+    .game-option.selected.c-stone .go-check{background:#92814a;border-color:#92814a}
+    .gi-stone{background:rgba(146,129,74,0.12)} .t-stone{background:rgba(146,129,74,0.1);color:#7a6a3a}
     .go-icon{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
     .gi-sky{background:rgba(74,144,217,0.1)}.gi-gold{background:rgba(201,168,76,0.12)}.gi-purple{background:rgba(124,58,237,0.1)}.gi-green{background:rgba(34,197,94,0.1)}.gi-amber{background:rgba(217,119,6,0.1)}.gi-pink{background:rgba(236,72,153,0.1)}.gi-teal{background:rgba(20,184,166,0.1)}.gi-red{background:rgba(239,68,68,0.1)}.gi-teal2{background:rgba(13,115,119,0.1)}
     .go-info{flex:1;min-width:0}
@@ -263,6 +274,9 @@
           <div class="game-option" data-game="motscroises" data-color="teal2" onclick="selectSingle(this,'motscroises')">
             <div class="go-icon gi-teal2">🧩</div><div class="go-info"><div class="go-name">Mots Croisés Bibliques</div><div class="go-desc">Grille partagée — complétez ensemble en 10 minutes. 55 mots.</div><div class="go-tags"><span class="go-tag t-teal2">🤝 Coopératif</span><span class="go-tag t-teal2">10 min</span></div></div><div class="go-check">✓</div>
           </div>
+          <div class="game-option" data-game="temple" data-color="c-stone" onclick="selectSingle(this,'temple')">
+            <div class="go-icon gi-stone">🏛️</div><div class="go-info"><div class="go-name">Bâtisseurs du Temple</div><div class="go-desc">Bâtissez ensemble le Temple de Salomon en répondant aux questions. 60 questions, 10 niveaux.</div><div class="go-tags"><span class="go-tag t-stone">🧱 Coopératif</span><span class="go-tag t-stone">2–8 joueurs</span></div></div><div class="go-check">✓</div>
+          </div>
         </div>
       </div>
 
@@ -279,6 +293,7 @@
           <div class="game-multi-opt" data-game="duel" onclick="toggleMulti(this,'duel')"><div class="checkbox">✓</div><div class="go-icon gi-red" style="width:34px;height:34px;font-size:17px">⚔️</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Duel de Versets</div><div class="go-desc">2 joueurs face à face</div></div></div>
           <div class="game-multi-opt" data-game="roue" onclick="toggleMulti(this,'roue')"><div class="checkbox">✓</div><div class="go-icon gi-teal" style="width:34px;height:34px;font-size:17px">🎲</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Roue Biblique</div><div class="go-desc">160 défis · 8 catégories</div></div></div>
           <div class="game-multi-opt" data-game="motscroises" onclick="toggleMulti(this,'motscroises')"><div class="checkbox">✓</div><div class="go-icon gi-teal2" style="width:34px;height:34px;font-size:17px">🧩</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Mots Croisés</div><div class="go-desc">Coopératif · 10 minutes</div></div></div>
+          <div class="game-multi-opt" data-game="temple" onclick="toggleMulti(this,'temple')"><div class="checkbox">✓</div><div class="go-icon gi-stone" style="width:34px;height:34px;font-size:17px">🏛️</div><div class="go-info"><div class="go-name" style="font-size:0.95rem">Bâtisseurs du Temple</div><div class="go-desc">Coopératif · 10 questions</div></div></div>
         </div>
         <div class="multi-queue">
           <div class="mq-label">Séquence de jeux</div>
@@ -330,7 +345,7 @@ const{createClient}=supabase;
 const db=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 
 const GAME_NAMES={quiz:'Quiz Battle',predicateur:'Défi du Prédicateur',verset:'Verset Manquant',localise:'Où est-il écrit ?',memoire:'Mémoire Sacré',anagramme:'Anagramme Biblique',duel:'Duel de Versets',roue:'Roue Biblique',motscroises:'Mots Croisés Bibliques'};
-const GAME_FILES={quiz:'game.html',predicateur:'game-predicateur.html',verset:'game-verset.html',localise:'game-localise.html',memoire:'game-memoire.html',anagramme:'game-anagramme.html',duel:'game-duel.html',roue:'game-roue.html',motscroises:'game-mots-croises.html'};
+const GAME_FILES={quiz:'game.html',predicateur:'game-predicateur.html',verset:'game-verset.html',localise:'game-localise.html',memoire:'game-memoire.html',anagramme:'game-anagramme.html',duel:'game-duel.html',roue:'game-roue.html',motscroises:'game-mots-croises.html',temple:'game-temple.html'};
 const GAME_ICONS={quiz:'📖',predicateur:'🎤',verset:'✍️',localise:'🗺️',memoire:'🃏',anagramme:'🔤',duel:'⚔️',roue:'🎲',motscroises:'🧩'};
 
 const DAILY_VERSES=[
@@ -582,5 +597,7 @@ document.addEventListener('keydown',(e)=>{
 
 loadPlayers();loadRoom();
 </script>
+  <script src="/sw-register.js"></script>
 </body>
 </html>
+
