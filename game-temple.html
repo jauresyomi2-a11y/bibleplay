@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiblePlay — Bâtisseurs du Temple</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#c9a84c"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="BiblePlay"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --stone:   #2a2418;
+      --stone2:  #3d3426;
+      --sand:    #c4a86b;
+      --sand2:   #e8cc8a;
+      --gold:    #d4a843;
+      --gold2:   #f0c060;
+      --ember:   #e05c2a;
+      --sky-d:   #1a3a5c;
+      --sky-m:   #2a5a8c;
+      --sky-l:   #4a90c8;
+      --parch:   #f5edd8;
+      --parch2:  #ede0c0;
+      --text:    #1c1408;
+      --text-m:  #6b5a3a;
+      --border:  rgba(196,168,107,0.3);
+      --green:   #2d8a4e;
+      --red:     #c0392b;
+      --white:   #fdfaf3;
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: 'Crimson Pro', serif;
+      background: var(--stone);
+      color: var(--parch);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── CIEL ÉTOILÉ BG ── */
+    .sky-bg {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background: linear-gradient(180deg, #0a1628 0%, #1a2d4a 40%, #2a3d3a 70%, #1a1408 100%);
+      overflow: hidden;
+    }
+    .stars { position: absolute; inset: 0; }
+    .star {
+      position: absolute; background: white; border-radius: 50%;
+      animation: twinkle linear infinite;
+    }
+    @keyframes twinkle {
+      0%,100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.3); }
+    }
+    /* Lune */
+    .moon {
+      position: absolute; top: 40px; right: 80px;
+      width: 60px; height: 60px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #f5e8a0, #d4b84a);
+      box-shadow: 0 0 30px rgba(212,184,74,0.4), 0 0 80px rgba(212,184,74,0.15);
+    }
+    /* Sol de sable */
+    .ground {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 80px; z-index: 0; pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgba(36,28,14,0.8) 40%, #1c1408 100%);
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes popIn    { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+    @keyframes blockRise{ from{opacity:0;transform:translateY(40px) scale(0.9)} to{opacity:1;transform:translateY(0) scale(1)} }
+    @keyframes shimmer  { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+    @keyframes glow     { 0%,100%{box-shadow:0 0 10px rgba(212,168,67,0.3)} 50%{box-shadow:0 0 30px rgba(212,168,67,0.8)} }
+    @keyframes shake    { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+    @keyframes correct  { 0%{transform:scale(1)} 40%{transform:scale(1.12)} 100%{transform:scale(1)} }
+    @keyframes timerPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    @keyframes flameFlicker { 0%,100%{transform:scaleY(1) scaleX(1)} 33%{transform:scaleY(1.1) scaleX(0.9)} 66%{transform:scaleY(0.9) scaleX(1.1)} }
+
+    /* ── HEADER ── */
+    header {
+      position: relative; z-index: 20;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 36px;
+      background: rgba(10,8,4,0.85); backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(196,168,107,0.2);
+    }
+    .logo {
+      font-family: 'Cinzel', serif; font-size: 1.35rem; font-weight: 700;
+      color: var(--sand2); text-decoration: none;
+      display: flex; align-items: center; gap: 10px; letter-spacing: 0.05em;
+    }
+    .logo-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--gold), var(--sand));
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+    }
+    .logo em { color: var(--gold2); font-style: normal; }
+    .h-center { display: flex; align-items: center; gap: 10px; }
+    .game-badge {
+      font-family: 'Cinzel', serif; font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--gold); background: rgba(212,168,67,0.1);
+      border: 1px solid rgba(212,168,67,0.3); padding: 5px 14px; border-radius: 8px;
+    }
+    .room-badge {
+      font-family: 'Cinzel', serif; font-size: 0.9rem; font-weight: 700;
+      letter-spacing: 0.12em; color: var(--parch);
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      padding: 5px 12px; border-radius: 8px;
+    }
+    .quit-btn {
+      font-family: 'Crimson Pro', serif; font-size: 0.9rem; font-weight: 400;
+      color: var(--text-m); background: none; border: 1px solid rgba(196,168,107,0.2);
+      padding: 6px 14px; border-radius: 8px; cursor: pointer; text-decoration: none;
+      transition: all 0.2s;
+    }
+    .quit-btn:hover { color: var(--red); border-color: rgba(192,57,43,0.4); }
+
+    /* ── LAYOUT ── */
+    .game-layout {
+      position: relative; z-index: 5;
+      display: grid; grid-template-columns: 1fr 340px;
+      gap: 20px; max-width: 1080px; margin: 0 auto;
+      padding: 24px 20px 60px; min-height: calc(100vh - 60px);
+    }
+
+    /* ── TEMPLE VISUEL ── */
+    .temple-zone { display: flex; flex-direction: column; gap: 16px; }
+
+    .temple-header-card {
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 16px;
+      padding: 18px 24px; animation: fadeDown 0.5s ease both;
+    }
+    .th-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .th-title { font-family: 'Cinzel', serif; font-size: 1.3rem; font-weight: 700; color: var(--sand2); letter-spacing: 0.05em; }
+    .th-progress { display: flex; align-items: center; gap: 10px; }
+    .progress-bar { width: 160px; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--sand2)); border-radius: 4px; transition: width 0.6s ease; }
+    .progress-label { font-family: 'Cinzel', serif; font-size: 0.78rem; font-weight: 600; color: var(--gold); letter-spacing: 0.06em; }
+
+    /* Le temple SVG animé */
+    .temple-canvas {
+      background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 16px;
+      overflow: hidden; position: relative;
+      height: 280px; animation: fadeUp 0.5s 0.1s ease both;
+      display: flex; align-items: flex-end; justify-content: center; padding-bottom: 20px;
+    }
+    .temple-svg-wrap {
+      position: relative; display: flex; align-items: flex-end; justify-content: center;
+      width: 100%; height: 100%;
+    }
+    /* Blocs du temple en CSS */
+    .temple-block {
+      position: absolute; border-radius: 3px;
+      transition: all 0.5s ease;
+      background: linear-gradient(180deg, var(--sand2) 0%, var(--sand) 60%, #a8883a 100%);
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 8px rgba(0,0,0,0.5);
+    }
+    .temple-block.type-gloire {
+      background: linear-gradient(180deg, #f0d060 0%, var(--gold) 50%, #8a6020 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 12px rgba(212,168,67,0.5);
+    }
+    .temple-block.type-colonne {
+      background: linear-gradient(180deg, #ede8d8 0%, #d4c898 50%, #b0a060 100%);
+    }
+    .temple-block.locked {
+      background: linear-gradient(180deg, rgba(100,80,40,0.4), rgba(60,48,24,0.4));
+      border-color: rgba(196,168,107,0.1);
+      box-shadow: none;
+    }
+    .temple-block.new {
+      animation: blockRise 0.6s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    .temple-block.gold-glow { animation: glow 1.5s ease-in-out infinite; }
+
+    /* Flambeaux */
+    .torch { position: absolute; display: flex; flex-direction: column; align-items: center; }
+    .torch-flame { font-size: 18px; animation: flameFlicker 0.8s ease-in-out infinite; transform-origin: bottom center; }
+    .torch-stick { width: 4px; height: 20px; background: linear-gradient(180deg, #8B6340, #5a3e1e); border-radius: 2px; }
+
+    /* Étoile du temple */
+    .temple-star { position: absolute; top: 20px; font-size: 28px; filter: drop-shadow(0 0 8px rgba(255,220,80,0.8)); animation: twinkle 2s ease-in-out infinite; }
+
+    /* Niveau label */
+    .level-tag {
+      position: absolute; top: 12px; left: 12px;
+      font-family: 'Cinzel', serif; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em;
+      color: var(--gold); background: rgba(0,0,0,0.6); border: 1px solid rgba(212,168,67,0.3);
+      padding: 4px 10px; border-radius: 6px; text-transform: uppercase;
+    }
+
+    /* ── QUESTION CARD ── */
+    .question-card {
+      background: rgba(0,0,0,0.55); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 16px;
+      padding: 26px 28px; position: relative; overflow: hidden;
+      animation: fadeUp 0.5s 0.15s ease both; flex: 1;
+    }
+    .question-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--ember), var(--gold), var(--sand2));
+    }
+    .qc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 8px; }
+    .qc-round {
+      font-family: 'Cinzel', serif; font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-m);
+    }
+    .qc-category {
+      font-family: 'Cinzel', serif; font-size: 0.7rem; font-weight: 600;
+      letter-spacing: 0.08em; color: var(--gold);
+      background: rgba(212,168,67,0.12); border: 1px solid rgba(212,168,67,0.25);
+      padding: 3px 10px; border-radius: 6px; text-transform: uppercase;
+    }
+
+    /* Timer circulaire */
+    .timer-zone { display: flex; align-items: center; gap: 8px; }
+    .timer-svg { transform: rotate(-90deg); }
+    .t-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 4; }
+    .t-fg { fill: none; stroke: var(--gold); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 283; transition: stroke-dashoffset 1s linear, stroke 0.3s; }
+    .t-fg.urgent { stroke: var(--ember); }
+    .timer-val { font-family: 'Cinzel', serif; font-size: 1.1rem; font-weight: 700; color: var(--sand2); }
+    .timer-val.urgent { color: var(--ember); animation: timerPulse 0.5s ease-in-out infinite; }
+
+    .question-text {
+      font-family: 'Cinzel', serif; font-size: clamp(1.1rem, 2.5vw, 1.45rem);
+      font-weight: 600; color: var(--sand2); line-height: 1.4;
+      margin-bottom: 22px; letter-spacing: 0.02em;
+    }
+
+    /* Options */
+    .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .opt-btn {
+      padding: 13px 16px; font-family: 'Crimson Pro', serif; font-size: 1rem; font-weight: 400;
+      border: 1px solid rgba(196,168,107,0.25); border-radius: 10px;
+      background: rgba(255,255,255,0.04); color: var(--parch2);
+      cursor: pointer; text-align: left; transition: all 0.2s;
+      display: flex; align-items: center; gap: 10px; line-height: 1.3;
+      animation: popIn 0.3s ease both;
+    }
+    .opt-btn:nth-child(1){animation-delay:0.05s}.opt-btn:nth-child(2){animation-delay:0.1s}
+    .opt-btn:nth-child(3){animation-delay:0.15s}.opt-btn:nth-child(4){animation-delay:0.2s}
+    .opt-btn:hover:not(:disabled) {
+      border-color: var(--gold); background: rgba(212,168,67,0.1);
+      transform: translateY(-2px); color: var(--sand2);
+    }
+    .opt-btn:disabled { cursor: default; }
+    .opt-btn.selected { border-color: var(--sky-l); background: rgba(74,144,200,0.12); color: var(--sand2); }
+    .opt-btn.correct { border-color: #4ade80 !important; background: rgba(74,222,128,0.1) !important; color: #86efac; animation: correct 0.4s ease; }
+    .opt-btn.wrong   { border-color: var(--ember) !important; background: rgba(224,92,42,0.1) !important; color: #fca5a5; animation: shake 0.4s ease; }
+    .opt-letter {
+      width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+      background: rgba(196,168,107,0.12); border: 1px solid rgba(196,168,107,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Cinzel', serif; font-size: 0.72rem; font-weight: 700; color: var(--gold);
+      transition: all 0.2s;
+    }
+    .opt-btn.correct .opt-letter { background: rgba(74,222,128,0.15); border-color: #4ade80; color: #86efac; }
+    .opt-btn.wrong   .opt-letter { background: rgba(224,92,42,0.15); border-color: var(--ember); color: #fca5a5; }
+
+    /* Feedback banner */
+    .feedback-banner {
+      margin-top: 14px; padding: 12px 16px; border-radius: 10px;
+      display: flex; align-items: center; gap: 12px;
+      animation: fadeUp 0.3s ease both;
+    }
+    .fb-correct { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); }
+    .fb-wrong   { background: rgba(224,92,42,0.08); border: 1px solid rgba(224,92,42,0.3); }
+    .fb-time    { background: rgba(212,168,67,0.08); border: 1px solid rgba(212,168,67,0.3); }
+    .fb-icon { font-size: 1.5rem; flex-shrink: 0; }
+    .fb-text { flex: 1; }
+    .fb-title { font-family: 'Cinzel', serif; font-size: 0.9rem; font-weight: 600; color: var(--sand2); }
+    .fb-sub { font-size: 0.85rem; color: var(--text-m); margin-top: 2px; }
+    .fb-pts { font-family: 'Cinzel', serif; font-size: 1.3rem; font-weight: 700; flex-shrink: 0; }
+    .fb-pts.pos { color: #4ade80; }
+    .fb-pts.neg { color: var(--text-m); }
+
+    /* Answered row */
+    .answered-row { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+    .ans-label { font-size: 0.78rem; color: var(--text-m); }
+    .ans-av {
+      width: 26px; height: 26px; border-radius: 7px;
+      background: rgba(212,168,67,0.1); border: 1px solid rgba(212,168,67,0.25);
+      display: flex; align-items: center; justify-content: center; font-size: 14px;
+      animation: popIn 0.3s ease both;
+    }
+
+    /* ── DROITE ── */
+    .right-col { display: flex; flex-direction: column; gap: 16px; }
+
+    /* Scores / Constructeurs */
+    .builders-card {
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 16px;
+      padding: 18px 18px; animation: fadeUp 0.5s 0.1s ease both;
+    }
+    .bc-title {
+      font-family: 'Cinzel', serif; font-size: 1rem; font-weight: 700;
+      color: var(--sand2); letter-spacing: 0.05em; margin-bottom: 14px;
+    }
+    .builder-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 10px; transition: background 0.2s;
+      margin-bottom: 6px;
+    }
+    .builder-row:hover { background: rgba(255,255,255,0.04); }
+    .builder-row.leading { background: rgba(212,168,67,0.08); border: 1px solid rgba(212,168,67,0.2); }
+    .br-av {
+      width: 36px; height: 36px; border-radius: 9px;
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+      flex-shrink: 0; position: relative;
+    }
+    .br-av.me { border-color: rgba(74,144,200,0.6); box-shadow: 0 0 0 2px rgba(74,144,200,0.2); }
+    .br-crown { position: absolute; top: -7px; right: -5px; font-size: 11px; }
+    .br-info { flex: 1; min-width: 0; }
+    .br-name { font-family: 'Cinzel', serif; font-size: 0.82rem; font-weight: 600; color: var(--parch2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .br-sub { font-size: 0.72rem; color: var(--text-m); margin-top: 1px; }
+    .br-score { font-family: 'Cinzel', serif; font-size: 1.3rem; font-weight: 700; color: var(--gold); flex-shrink: 0; }
+    .br-blocks { font-size: 0.7rem; color: var(--text-m); text-align: right; margin-top: 2px; }
+
+    /* Score flash */
+    @keyframes scoreGlow { 0%{color:var(--gold2);text-shadow:0 0 10px rgba(240,192,96,0.8)} 100%{color:var(--gold)} }
+    .br-score.flash { animation: scoreGlow 0.5s ease; }
+
+    /* Info du temple */
+    .temple-info-card {
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 16px;
+      padding: 18px 18px;
+    }
+    .ti-title { font-family: 'Cinzel', serif; font-size: 0.9rem; font-weight: 700; color: var(--sand2); letter-spacing: 0.05em; margin-bottom: 12px; }
+    .ti-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .ti-label { font-size: 0.82rem; color: var(--text-m); }
+    .ti-val { font-family: 'Cinzel', serif; font-size: 0.88rem; font-weight: 600; color: var(--sand2); }
+
+    /* Niveaux */
+    .levels-track { display: flex; gap: 5px; margin-top: 4px; }
+    .lv-dot { width: 28px; height: 10px; border-radius: 3px; background: rgba(255,255,255,0.08); border: 1px solid var(--border); transition: all 0.4s; }
+    .lv-dot.done { background: linear-gradient(90deg, var(--gold), var(--sand2)); border-color: var(--gold); }
+    .lv-dot.current { background: rgba(212,168,67,0.3); border-color: var(--gold); animation: glow 1.5s ease-in-out infinite; }
+
+    /* Verset inspirant */
+    .verse-card {
+      background: linear-gradient(135deg, rgba(212,168,67,0.08), rgba(42,90,140,0.08));
+      border: 1px solid rgba(212,168,67,0.2); border-radius: 14px; padding: 16px;
+    }
+    .vc-label { font-family: 'Cinzel', serif; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+    .vc-text { font-family: 'Crimson Pro', serif; font-size: 0.95rem; font-style: italic; color: var(--parch2); line-height: 1.6; margin-bottom: 6px; }
+    .vc-ref { font-size: 0.75rem; font-weight: 600; color: var(--gold); letter-spacing: 0.05em; }
+
+    /* ── LOADING ── */
+    .loading-screen {
+      position: relative; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 80vh; gap: 20px;
+    }
+    .ls-icon { font-size: 4rem; filter: drop-shadow(0 0 16px rgba(212,168,67,0.6)); }
+    .ls-title { font-family: 'Cinzel', serif; font-size: 1.8rem; font-weight: 700; color: var(--sand2); letter-spacing: 0.06em; text-align: center; }
+    .ls-sub { font-size: 1rem; color: var(--text-m); font-style: italic; }
+
+    /* ── PODIUM ── */
+    .podium-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(10,8,4,0.96); backdrop-filter: blur(16px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 24px; padding: 24px;
+      opacity: 0; pointer-events: none; transition: opacity 0.5s;
+    }
+    .podium-overlay.active { opacity: 1; pointer-events: all; }
+
+    /* Temple complet au podium */
+    .podium-temple {
+      font-size: 80px; line-height: 1;
+      filter: drop-shadow(0 0 30px rgba(212,168,67,0.6));
+      animation: glow 2s ease-in-out infinite;
+    }
+    .podium-title {
+      font-family: 'Cinzel', serif; font-size: clamp(1.6rem, 4vw, 2.5rem);
+      font-weight: 900; color: var(--sand2); text-align: center; letter-spacing: 0.06em;
+    }
+    .podium-title span { color: var(--gold2); }
+    .podium-sub { font-family: 'Crimson Pro', serif; font-size: 1.05rem; font-style: italic; color: var(--text-m); text-align: center; max-width: 400px; }
+    .podium-row { display: flex; gap: 14px; align-items: flex-end; justify-content: center; flex-wrap: wrap; }
+    .pod-card {
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 14px; text-align: center; min-width: 110px;
+      animation: popIn 0.5s ease both;
+    }
+    .pod-card.p1 { border-color: rgba(212,168,67,0.5); background: rgba(212,168,67,0.06); box-shadow: 0 0 20px rgba(212,168,67,0.2); }
+    .pod-rank { font-size: 1.8rem; margin-bottom: 6px; }
+    .pod-av { font-size: 2rem; margin-bottom: 6px; }
+    .pod-name { font-family: 'Cinzel', serif; font-size: 0.78rem; font-weight: 600; color: var(--parch2); margin-bottom: 4px; letter-spacing: 0.04em; }
+    .pod-score { font-family: 'Cinzel', serif; font-size: 1.4rem; font-weight: 700; color: var(--gold); }
+    .pod-blocks { font-size: 0.72rem; color: var(--text-m); margin-top: 2px; }
+    .pod-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .btn-pod-gold {
+      padding: 12px 28px; font-family: 'Cinzel', serif; font-size: 0.82rem; font-weight: 700;
+      letter-spacing: 0.06em; border: none; cursor: pointer; border-radius: 10px;
+      background: linear-gradient(135deg, var(--gold), #a07020);
+      color: var(--stone); box-shadow: 0 4px 16px rgba(212,168,67,0.35); transition: all 0.25s;
+    }
+    .btn-pod-gold:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(212,168,67,0.5); }
+    .btn-pod-out {
+      padding: 12px 28px; font-family: 'Cinzel', serif; font-size: 0.82rem; font-weight: 600;
+      letter-spacing: 0.06em; border: 1px solid var(--border); cursor: pointer; border-radius: 10px;
+      background: transparent; color: var(--text-m); transition: all 0.25s;
+    }
+    .btn-pod-out:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px);
+      background: rgba(20,16,8,0.95); color: var(--parch); border: 1px solid var(--border);
+      padding: 10px 20px; border-radius: 10px; font-size: 0.88rem;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5); z-index: 200; opacity: 0;
+      transition: all 0.3s; pointer-events: none; white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.ok { border-color: rgba(74,222,128,0.4); color: #86efac; }
+    .toast.err { border-color: rgba(224,92,42,0.4); color: #fca5a5; }
+    .toast.gold { border-color: rgba(212,168,67,0.5); color: var(--gold2); }
+
+    @media(max-width:780px) { .game-layout{grid-template-columns:1fr;} header{padding:12px 16px;} .h-center{display:none;} .options-grid{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+
+<!-- Ciel étoilé -->
+<div class="sky-bg">
+  <div class="stars" id="stars"></div>
+  <div class="moon"></div>
+</div>
+<div class="ground"></div>
+
+<!-- Header -->
+<header>
+  <a class="logo" href="index.html"><div class="logo-icon">🏛️</div>Bible<em>Play</em></a>
+  <div class="h-center">
+    <span class="game-badge">🏛️ Bâtisseurs du Temple</span>
+    <span class="room-badge" id="h-room">—</span>
+  </div>
+  <button class="quit-btn" onclick="confirmQuit()">✕ Quitter</button>
+</header>
+
+<!-- Loading -->
+<div id="loading-screen" class="loading-screen">
+  <div class="ls-icon">🏛️</div>
+  <div class="ls-title">Préparation du chantier…</div>
+  <div class="ls-sub">« Que ta maison soit bâtie sur le roc » 🙏</div>
+</div>
+
+<!-- Jeu -->
+<div class="game-layout" id="game-layout" style="display:none">
+
+  <!-- GAUCHE -->
+  <div class="temple-zone">
+
+    <!-- Header temple -->
+    <div class="temple-header-card">
+      <div class="th-top">
+        <div class="th-title" id="temple-name">Temple de Salomon</div>
+        <div class="th-progress">
+          <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+          <div class="progress-label" id="prog-label">0 / 10</div>
+        </div>
+      </div>
+      <div style="font-size:0.82rem;color:var(--text-m)">Chaque bonne réponse ajoute une pierre au temple. Bâtissez-le ensemble !</div>
+    </div>
+
+    <!-- Temple visuel -->
+    <div class="temple-canvas" id="temple-canvas">
+      <div class="level-tag" id="level-tag">Fondations</div>
+      <div class="temple-star" id="temple-star" style="display:none">⭐</div>
+      <div class="temple-svg-wrap" id="temple-wrap">
+        <!-- Blocs générés par JS -->
+      </div>
+    </div>
+
+    <!-- Question -->
+    <div class="question-card" id="question-card">
+      <div class="qc-top">
+        <div class="qc-round" id="qc-round">Question 1 / 10</div>
+        <div class="qc-category" id="qc-cat">—</div>
+        <div class="timer-zone">
+          <svg class="timer-svg" width="44" height="44" viewBox="0 0 100 100">
+            <circle class="t-bg" cx="50" cy="50" r="45"/>
+            <circle class="t-fg" id="t-fg" cx="50" cy="50" r="45"/>
+          </svg>
+          <div class="timer-val" id="timer-val">—</div>
+        </div>
+      </div>
+      <div class="question-text" id="question-text">Chargement de la question…</div>
+      <div class="options-grid" id="options-grid"></div>
+      <div id="feedback-zone"></div>
+      <div class="answered-row" id="answered-row">
+        <span class="ans-label">A répondu :</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DROITE -->
+  <div class="right-col">
+
+    <!-- Bâtisseurs -->
+    <div class="builders-card">
+      <div class="bc-title">🔨 Les Bâtisseurs</div>
+      <div id="builders-list"></div>
+    </div>
+
+    <!-- Info temple -->
+    <div class="temple-info-card">
+      <div class="ti-title">📐 Chantier</div>
+      <div class="ti-row">
+        <span class="ti-label">Pierres posées</span>
+        <span class="ti-val" id="ti-blocks">0 / 10</span>
+      </div>
+      <div class="ti-row">
+        <span class="ti-label">Niveau</span>
+        <span class="ti-val" id="ti-level">Fondations</span>
+      </div>
+      <div class="ti-row" style="margin-bottom:8px">
+        <span class="ti-label">Progression</span>
+      </div>
+      <div class="levels-track" id="levels-track"></div>
+    </div>
+
+    <!-- Verset -->
+    <div class="verse-card">
+      <div class="vc-label">✦ Parole du bâtisseur</div>
+      <div class="vc-text" id="vc-text">"Si l'Éternel ne bâtit la maison, ceux qui la bâtissent travaillent en vain."</div>
+      <div class="vc-ref" id="vc-ref">— Psaumes 127:1</div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Podium -->
+<div class="podium-overlay" id="podium-overlay">
+  <div class="podium-temple" id="podium-temple">🏛️</div>
+  <div class="podium-title">Le Temple est <span>bâti</span> !</div>
+  <div class="podium-sub" id="podium-verse">"Seigneur, j'aime la demeure de ta maison." — Psaumes 26:8</div>
+  <div class="podium-row" id="podium-row"></div>
+  <div class="pod-actions">
+    <button class="btn-pod-gold" onclick="replayGame()">↺ Reconstruire</button>
+    <button class="btn-pod-out" onclick="returnToLobby()">🎮 Autre jeu</button>
+    <button class="btn-pod-out" onclick="returnToLobby()">← Lobby</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Supabase ──
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── Session ──
+const params = new URLSearchParams(window.location.search);
+const roomCode = params.get('code') || '';
+let playerData = {};
+try { playerData = JSON.parse(sessionStorage.getItem('bp_player') || '{}'); } catch(e) {}
+const mySessionId = playerData.sessionId || sessionStorage.getItem('bp_session') || '';
+const isHost = playerData.role === 'host';
+document.getElementById('h-room').textContent = roomCode;
+
+// ── Constantes ──
+const TOTAL_Q       = 60;   // questions par partie
+const QUESTION_TIME = 18;   // secondes
+const PTS_FAST      = 120;  // réponse rapide (>10s restantes)
+const PTS_NORMAL    = 80;   // réponse normale
+const PTS_SLOW      = 40;   // réponse lente
+
+// Niveaux du temple
+const TEMPLE_LEVELS = [
+  { name:'Fondations',     min:0,  max:10, emoji:'🪨' },
+  { name:'Socle',          min:10, max:20, emoji:'🧱' },
+  { name:'Murs extérieurs',min:20, max:30, emoji:'🏗️' },
+  { name:'Colonnes',       min:30, max:40, emoji:'🏛️' },
+  { name:'Fronton & Toit', min:40, max:50, emoji:'⛪' },
+  { name:'Temple Glorieux',min:50, max:60, emoji:'⭐' },
+];
+
+const VERSES_TEMPLE = [
+  { text:'"Si l\'Éternel ne bâtit la maison, ceux qui la bâtissent travaillent en vain."', ref:'Psaumes 127:1' },
+  { text:'"Vous êtes l\'édifice de Dieu."', ref:'1 Corinthiens 3:9' },
+  { text:'"Bâtissez des maisons et habitez-les."', ref:'Jérémie 29:5' },
+  { text:'"Seigneur, j\'aime la demeure de ta maison."', ref:'Psaumes 26:8' },
+  { text:'"Salomon bâtit la maison et l\'acheva."', ref:'1 Rois 6:14' },
+];
+
+// ── Questions bibliques (60 questions variées) ──
+const ALL_QUESTIONS = [
+  {q:"Qui a ordonné la construction du Temple de Jérusalem ?",opts:["Saül","David","Salomon","Roboam"],ans:2,cat:"Temple"},
+  {q:"Combien d'années dura la construction du Temple de Salomon ?",opts:["3 ans","5 ans","7 ans","10 ans"],ans:2,cat:"Temple"},
+  {q:"Quel bois précieux fut utilisé pour construire le Temple ?",opts:["Chêne","Cèdre du Liban","Olivier","Acacia"],ans:1,cat:"Temple"},
+  {q:"Qui a détruit le premier Temple de Jérusalem ?",opts:["Cyrus","Alexandre le Grand","Nabuchodonosor","Titus"],ans:2,cat:"Temple"},
+  {q:"Quel roi perse autorisa la reconstruction du Temple ?",opts:["Darius","Artaxerxès","Cyrus","Xerxès"],ans:2,cat:"Temple"},
+  {q:"Quelle arche se trouvait dans le Temple ?",opts:["L'Arche de Noé","L'Arche d'Alliance","L'Arche de Jacob","L'Arche de Moïse"],ans:1,cat:"Temple"},
+  {q:"Qui a construit l'arche de Noé ?",opts:["Sem","Noé","Abraham","Japheth"],ans:1,cat:"Personnages"},
+  {q:"Combien de jours Jésus a-t-il jeûné dans le désert ?",opts:["20 jours","30 jours","40 jours","50 jours"],ans:2,cat:"Vie de Jésus"},
+  {q:"Quel est le premier livre de la Bible ?",opts:["Exode","Genèse","Psaumes","Job"],ans:1,cat:"Livres"},
+  {q:"Qui a tué Goliath ?",opts:["Saül","Samson","Jonathan","David"],ans:3,cat:"Personnages"},
+  {q:"Dans quelle ville Jésus est-il né ?",opts:["Nazareth","Jérusalem","Bethléem","Hébron"],ans:2,cat:"Vie de Jésus"},
+  {q:"Qui était le premier roi d'Israël ?",opts:["David","Salomon","Saül","Samuel"],ans:2,cat:"Personnages"},
+  {q:"Combien de livres compte la Bible (canon protestant) ?",opts:["66","73","39","72"],ans:0,cat:"Livres"},
+  {q:"Quel apôtre a renié Jésus trois fois ?",opts:["Jean","André","Pierre","Jacques"],ans:2,cat:"Apôtres"},
+  {q:"Dans quel fleuve Jésus a-t-il été baptisé ?",opts:["Nil","Euphrate","Tigre","Jourdain"],ans:3,cat:"Vie de Jésus"},
+  {q:"Quel personnage biblique fut avalé par un grand poisson ?",opts:["Élie","Ézéchiel","Jonas","Amos"],ans:2,cat:"Personnages"},
+  {q:"Qui était la mère de Samuel ?",opts:["Anne","Marie","Ruth","Déborah"],ans:0,cat:"Personnages"},
+  {q:"Quel prophète fut emporté au ciel dans un char de feu ?",opts:["Élisée","Élie","Ézéchiel","Isaïe"],ans:1,cat:"Personnages"},
+  {q:"Qui était le frère aîné de Moïse ?",opts:["Josué","Caleb","Aaron","Hur"],ans:2,cat:"Personnages"},
+  {q:"Quel miracle Jésus a-t-il accompli lors des noces de Cana ?",opts:["Guérir un aveugle","Multiplier les pains","Changer l'eau en vin","Ressusciter un mort"],ans:2,cat:"Vie de Jésus"},
+  {q:"Qui a interprété les songes du Pharaon ?",opts:["Moïse","Daniel","Joseph","Esdras"],ans:2,cat:"Personnages"},
+  {q:"Quelle femme fut la première à voir Jésus ressuscité ?",opts:["Marie mère de Jésus","Marie-Madeleine","Marthe","Salomé"],ans:1,cat:"Vie de Jésus"},
+  {q:"Qui a écrit la majorité des épîtres du Nouveau Testament ?",opts:["Pierre","Jean","Paul","Luc"],ans:2,cat:"Livres"},
+  {q:"Combien de jours Lazare était-il au tombeau ?",opts:["1 jour","2 jours","3 jours","4 jours"],ans:3,cat:"Vie de Jésus"},
+  {q:"Que signifie 'Emmanuel' ?",opts:["Dieu guérit","Dieu est avec nous","Dieu sauve","Dieu juge"],ans:1,cat:"Versets"},
+  {q:"Quel est le dernier livre de la Bible ?",opts:["Jude","Hébreux","Apocalypse","1 Jean"],ans:2,cat:"Livres"},
+  {q:"Combien de psaumes compte le livre des Psaumes ?",opts:["100","150","120","180"],ans:1,cat:"Livres"},
+  {q:"Quel disciple a trahi Jésus pour 30 pièces d'argent ?",opts:["Pierre","Thomas","Judas Iscariote","Simon"],ans:2,cat:"Apôtres"},
+  {q:"Qui a remplacé Moïse pour conduire Israël en Canaan ?",opts:["Aaron","Caleb","Éléazar","Josué"],ans:3,cat:"Personnages"},
+  {q:"Quelle muraille s'effondra après que les Israélites en firent le tour ?",opts:["Muraille de Jérusalem","Muraille de Ninive","Muraille de Jéricho","Muraille de Babylone"],ans:2,cat:"Histoire"},
+  {q:"Combien de plaies Dieu envoya-t-il sur l'Égypte ?",opts:["7","10","12","9"],ans:1,cat:"Histoire"},
+  {q:"Quelle mer les Israélites traversèrent-ils à pied sec ?",opts:["Mer Morte","Mer Rouge","Mer Méditerranée","Mer de Galilée"],ans:1,cat:"Histoire"},
+  {q:"Combien d'années les Israélites errèrent-ils dans le désert ?",opts:["20 ans","30 ans","40 ans","50 ans"],ans:2,cat:"Histoire"},
+  {q:"Quelle était la profession de Simon Pierre avant de suivre Jésus ?",opts:["Charpentier","Berger","Pêcheur","Percepteur"],ans:2,cat:"Apôtres"},
+  {q:"À quelle fête l'Esprit Saint fut-il répandu sur les disciples (Actes 2) ?",opts:["Pâques","Souccot","Pentecôte","Roch Hachana"],ans:2,cat:"Histoire"},
+  {q:"Quel roi babylonien fit construire une statue d'or que tous devaient adorer ?",opts:["Cyrus","Darius","Nabuchodonosor","Belschatsar"],ans:2,cat:"Histoire"},
+  {q:"Dans quelle fosse Daniel fut-il jeté ?",opts:["Fosse de serpents","Fosse de lions","Fosse de feu","Fosse d'eau"],ans:1,cat:"Personnages"},
+  {q:"Combien de jours Jonas passa-t-il dans le ventre du grand poisson ?",opts:["1 jour","2 jours","3 jours","7 jours"],ans:2,cat:"Personnages"},
+  {q:"Quel outil Esdras utilisa-t-il pour reconstruire les murs de Jérusalem ?",opts:["Une épée","Un marteau","Une truelle","Ses mains"],ans:2,cat:"Temple"},
+  {q:"Qui fut l'architecte principal du Tabernacle dans le désert ?",opts:["Moïse","Aaron","Bétsaléel","Josué"],ans:2,cat:"Temple"},
+  {q:"Quel objet était placé dans le Saint des Saints du Temple ?",opts:["Le chandelier","L'autel d'or","L'Arche d'Alliance","La table des pains"],ans:2,cat:"Temple"},
+  {q:"Combien de bras avait le chandelier (Menorah) du Temple ?",opts:["5","6","7","9"],ans:2,cat:"Temple"},
+  {q:"Quel roi d'Israël commença à construire le Temple mais mourut avant ?",opts:["Saül","David","Roboam","Jéroboam"],ans:1,cat:"Temple"},
+  {q:"Quelle ville était le centre du culte avant la construction du Temple ?",opts:["Jéricho","Silo","Bethléem","Hébron"],ans:1,cat:"Temple"},
+  {q:"Qui a écrit le livre de l'Apocalypse ?",opts:["Paul","Pierre","Matthieu","Jean"],ans:3,cat:"Livres"},
+  {q:"Quel outil Néhémie porta-t-il en reconstruisant les murs ?",opts:["Une épée dans une main et une truelle dans l'autre","Seulement une truelle","Seulement une épée","Un marteau"],ans:0,cat:"Temple"},
+  {q:"Quel verset dit : 'Je suis le chemin, la vérité et la vie' ?",opts:["Jean 3:16","Jean 14:6","Jean 11:25","Jean 1:1"],ans:1,cat:"Versets"},
+  {q:"Selon Psaumes 23:1, l'Éternel est mon…",opts:["Roi","Berger","Père","Rocher"],ans:1,cat:"Versets"},
+  {q:"Selon Philippiens 4:13, je puis tout par…",opts:["Ma foi","Mes frères","Celui qui me fortifie","La prière"],ans:2,cat:"Versets"},
+  {q:"Quelle est la plus courte phrase de la Bible (Jean 11:35) ?",opts:["Dieu est amour","Jésus pleura","Il est ressuscité","Alléluia"],ans:1,cat:"Versets"},
+  {q:"Quel apôtre était percepteur d'impôts avant de suivre Jésus ?",opts:["Pierre","Luc","Matthieu","Barthélemy"],ans:2,cat:"Apôtres"},
+  {q:"Dans quelle ville la première église chrétienne fut appelée 'chrétienne' ?",opts:["Jérusalem","Rome","Éphèse","Antioche"],ans:3,cat:"Apôtres"},
+  {q:"Qui a aidé Jésus à porter sa croix ?",opts:["Jean","Simon de Cyrène","Pierre","Marie-Madeleine"],ans:1,cat:"Vie de Jésus"},
+  {q:"Combien de fois Pierre renia-t-il Jésus ?",opts:["1 fois","2 fois","3 fois","4 fois"],ans:2,cat:"Apôtres"},
+  {q:"Quel arbre Zachée avait-il grimpé pour voir Jésus ?",opts:["Figuier","Palmier","Sycomore","Olivier"],ans:2,cat:"Vie de Jésus"},
+  {q:"Qui a écrit les Psaumes pour la plupart ?",opts:["Salomon","Moïse","Asaph","David"],ans:3,cat:"Livres"},
+  {q:"Quel livre biblique raconte l'histoire de Ruth ?",opts:["Le livre de Ruth","Juges","1 Samuel","Esther"],ans:0,cat:"Livres"},
+  {q:"Quel signe Dieu plaça-t-il dans le ciel après le déluge ?",opts:["Une étoile","Un arc-en-ciel","Une colombe","Une nuée"],ans:1,cat:"Histoire"},
+  {q:"Dans quelle mer la ville de Sodome était-elle proche ?",opts:["Mer Méditerranée","Mer Rouge","Mer Morte","Lac de Tibériade"],ans:2,cat:"Histoire"},
+  {q:"Combien de fils avait Jacob ?",opts:["10","11","12","13"],ans:2,cat:"Personnages"},
+  {q:"Quel était le nom du fils que Dieu demanda à Abraham de sacrifier ?",opts:["Ismaël","Jacob","Isaac","Ésaü"],ans:2,cat:"Personnages"},
+];
+
+const LETTERS = ['A','B','C','D'];
+
+// ── État ──
+let players = [], scores = {}, blocksPerPlayer = {};
+let questions = [], currentQ = 0;
+let answered = false, answeredPlayers = [];
+let timerVal = 0, timerInt = null;
+let nextTriggered = false;
+let totalBlocks = 0; // blocs posés collectivement
+let gameChannel = null;
+
+// ── Init étoiles ──
+(function() {
+  const s = document.getElementById('stars');
+  for (let i=0;i<120;i++) {
+    const el = document.createElement('div');
+    el.className = 'star';
+    const sz = Math.random()*2+0.5;
+    el.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random()*70}%;left:${Math.random()*100}%;animation-duration:${Math.random()*3+2}s;animation-delay:${Math.random()*3}s`;
+    s.appendChild(el);
+  }
+})();
+
+// ── Verset aléatoire ──
+const vv = VERSES_TEMPLE[Math.floor(Math.random()*VERSES_TEMPLE.length)];
+document.getElementById('vc-text').textContent = vv.text;
+document.getElementById('vc-ref').textContent = vv.ref;
+
+// ── Init ──
+async function init() {
+  if (!roomCode) { window.location.href='index.html'; return; }
+
+  const { data: pData } = await db.from('players').select('*').eq('room_code', roomCode).order('joined_at');
+  players = pData || [];
+  players.forEach(p => { scores[p.session_id] = 0; blocksPerPlayer[p.session_id] = 0; });
+
+  if (isHost) questions = shuffleArr([...ALL_QUESTIONS]).slice(0, TOTAL_Q);
+
+  gameChannel = db.channel(`temple-${roomCode}`)
+    .on('broadcast', { event:'load_question' }, ({ payload }) => {
+      if (!isHost) {
+        questions[payload.index] = payload.question;
+        loadQuestion(payload.index);
+      }
+    })
+    .on('broadcast', { event:'answer' }, ({ payload }) => {
+      if (payload.session_id !== mySessionId) handleRemoteAnswer(payload);
+    })
+    .on('broadcast', { event:'block_placed' }, ({ payload }) => {
+      if (!isHost) {
+        totalBlocks = payload.totalBlocks;
+        blocksPerPlayer[payload.session_id] = (blocksPerPlayer[payload.session_id]||0) + 1;
+        renderTemple();
+        renderBuilders();
+      }
+    })
+    .on('broadcast', { event:'game_over' }, ({ payload }) => {
+      showPodium(payload.scores, payload.blocks);
+    })
+    .on('broadcast', { event:'return_to_lobby' }, ({ payload }) => {
+      if (!isHost) { if(gameChannel) gameChannel.unsubscribe(); window.location.href='lobby.html?code='+roomCode; }
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED' && isHost) {
+        setTimeout(() => broadcastQuestion(0), 800);
+      }
+    });
+
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('game-layout').style.display = 'grid';
+  renderBuilders();
+  renderTemple();
+  renderLevelsTrack();
+}
+
+// ── Question ──
+function broadcastQuestion(index) {
+  const q = questions[index];
+  if (!q) { endGame(); return; }
+  const sanitized = { q: q.q, opts: q.opts, cat: q.cat };
+  gameChannel.send({ type:'broadcast', event:'load_question', payload:{ index, question: sanitized } });
+  loadQuestion(index);
+}
+
+function loadQuestion(index) {
+  currentQ = index;
+  answered = false;
+  answeredPlayers = [];
+  nextTriggered = false;
+
+  const q = questions[index];
+  if (!q) { endGame(); return; }
+
+  document.getElementById('qc-round').textContent = `Pierre ${index+1} / ${TOTAL_Q}`;
+  document.getElementById('qc-cat').textContent = q.cat || '—';
+  document.getElementById('question-text').textContent = q.q;
+  document.getElementById('feedback-zone').innerHTML = '';
+  document.getElementById('answered-row').innerHTML = '<span class="ans-label">A répondu :</span>';
+
+  // Progress
+  const pct = (index / TOTAL_Q) * 100;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-label').textContent = `${totalBlocks} / ${TOTAL_Q}`;
+
+  // Options
+  const grid = document.getElementById('options-grid');
+  grid.innerHTML = q.opts.map((opt, i) => `
+    <button class="opt-btn" data-idx="${i}" onclick="selectAnswer(${i})">
+      <span class="opt-letter">${LETTERS[i]}</span>${opt}
+    </button>`).join('');
+
+  startTimer();
+}
+
+// ── Timer ──
+function startTimer() {
+  clearInterval(timerInt);
+  timerVal = QUESTION_TIME;
+  updateTimerUI(timerVal);
+  timerInt = setInterval(() => {
+    timerVal--;
+    updateTimerUI(timerVal);
+    if (timerVal <= 0) {
+      clearInterval(timerInt);
+      if (!answered) timeOut();
+      if (isHost && !nextTriggered) { nextTriggered=true; setTimeout(nextQuestion, 2400); }
+    }
+  }, 1000);
+}
+
+function updateTimerUI(val) {
+  const n = document.getElementById('timer-val');
+  const c = document.getElementById('t-fg');
+  if (!n||!c) return;
+  n.textContent = val > 0 ? val : '';
+  n.classList.toggle('urgent', val<=5 && val>0);
+  c.classList.toggle('urgent', val<=5 && val>0);
+  c.style.strokeDashoffset = Math.round(283 * ((QUESTION_TIME - val) / QUESTION_TIME));
+}
+
+// ── Répondre ──
+function selectAnswer(idx) {
+  if (answered) return;
+  answered = true;
+  clearInterval(timerInt);
+
+  const q = questions[currentQ];
+  const correct = idx === q.ans;
+  const pts = correct ? (timerVal >= 12 ? PTS_FAST : timerVal >= 6 ? PTS_NORMAL : PTS_SLOW) : 0;
+
+  gameChannel.send({ type:'broadcast', event:'answer', payload:{
+    session_id: mySessionId, answer_idx: idx, correct, pts, question_idx: currentQ
+  }});
+
+  applyAnswer(mySessionId, idx, correct, pts, true);
+}
+
+function handleRemoteAnswer(payload) {
+  if (payload.question_idx !== currentQ) return;
+  applyAnswer(payload.session_id, payload.answer_idx, payload.correct, payload.pts, false);
+}
+
+function applyAnswer(sessionId, ansIdx, correct, pts, isMe) {
+  if (!answeredPlayers.includes(sessionId)) {
+    answeredPlayers.push(sessionId);
+    const p = players.find(x => x.session_id === sessionId);
+    if (p) {
+      const row = document.getElementById('answered-row');
+      const av = document.createElement('div');
+      av.className = 'ans-av'; av.title = p.pseudo; av.textContent = p.avatar;
+      row.appendChild(av);
+    }
+  }
+
+  if (pts > 0) {
+    scores[sessionId] = (scores[sessionId]||0) + pts;
+    // Chaque bonne réponse pose une pierre
+    blocksPerPlayer[sessionId] = (blocksPerPlayer[sessionId]||0) + 1;
+    totalBlocks = Math.min(Object.values(blocksPerPlayer).reduce((a,b)=>a+b,0), TOTAL_Q);
+    renderTemple();
+    renderBuilders(sessionId);
+
+    // Broadcaster le placement du bloc
+    if (isMe) {
+      gameChannel.send({ type:'broadcast', event:'block_placed', payload:{
+        session_id: sessionId, totalBlocks
+      }});
+    }
+  }
+
+  if (isMe) showFeedback(ansIdx, correct, pts);
+
+  if (isHost && answeredPlayers.length >= players.length && !nextTriggered) {
+    nextTriggered = true;
+    clearInterval(timerInt);
+    setTimeout(nextQuestion, 2400);
+  }
+}
+
+function showFeedback(ansIdx, correct, pts) {
+  const q = questions[currentQ];
+  document.querySelectorAll('.opt-btn').forEach((b, i) => {
+    b.disabled = true;
+    if (i === q.ans) b.classList.add('correct');
+    else if (i === ansIdx && !correct) b.classList.add('wrong');
+  });
+
+  const zone = document.getElementById('feedback-zone');
+  zone.innerHTML = `
+    <div class="feedback-banner ${correct?'fb-correct':ansIdx===-1?'fb-time':'fb-wrong'}">
+      <div class="fb-icon">${correct?'🧱':ansIdx===-1?'⏰':'💔'}</div>
+      <div class="fb-text">
+        <div class="fb-title">${correct?'Pierre posée ! +'+pts+' pts':ansIdx===-1?'Temps écoulé…':'Mauvaise réponse…'}</div>
+        <div class="fb-sub">${correct?'Excellent travail, bâtisseur !':'La bonne réponse : '+q.opts[q.ans]}</div>
+      </div>
+      <div class="fb-pts ${correct?'pos':'neg'}">${correct?'+'+pts:'0'}</div>
+    </div>`;
+}
+
+function timeOut() {
+  if (answered) return;
+  answered = true;
+  gameChannel.send({ type:'broadcast', event:'answer', payload:{
+    session_id: mySessionId, answer_idx: -1, correct: false, pts: 0, question_idx: currentQ
+  }});
+  applyAnswer(mySessionId, -1, false, 0, true);
+  showToast('⏰ Temps écoulé !', 'err');
+}
+
+function nextQuestion() {
+  const next = currentQ + 1;
+  if (next >= TOTAL_Q) { endGame(); return; }
+  broadcastQuestion(next);
+}
+
+// ── Temple ── 
+function renderTemple() {
+  const wrap = document.getElementById('temple-wrap');
+  const canvas = document.getElementById('temple-canvas');
+  const W = canvas.offsetWidth || 600;
+  const H = canvas.offsetHeight || 280;
+
+  // Architecture du temple en couches
+  // 60 blocs répartis sur 6 niveaux de 10 pierres chacun
+  // Le temple se construit de bas en haut, niveau par niveau
+  const LAYOUT = [];
+
+  // ── Niveau 0 : Fondations (blocs larges, très bas) ──
+  // 5 dalles larges en quinconce
+  const F = [
+    {cx:0.50, yb:0.05, w:360, h:18},
+    {cx:0.48, yb:0.10, w:340, h:16},
+    {cx:0.52, yb:0.15, w:320, h:16},
+    {cx:0.50, yb:0.20, w:300, h:16},
+    {cx:0.48, yb:0.25, w:280, h:16},
+    {cx:0.52, yb:0.30, w:260, h:16},
+    {cx:0.50, yb:0.35, w:240, h:16},
+    {cx:0.48, yb:0.40, w:220, h:14},
+    {cx:0.52, yb:0.44, w:200, h:14},
+    {cx:0.50, yb:0.48, w:180, h:14},
+  ];
+  F.forEach((b,i) => LAYOUT.push({...b, layer:i, type:'fondation'}));
+
+  // ── Niveau 1 : Socle (blocs moyens) ──
+  const S = [
+    {cx:0.50, yb:0.52, w:180, h:14},
+    {cx:0.48, yb:0.55, w:175, h:13},
+    {cx:0.52, yb:0.58, w:170, h:13},
+    {cx:0.50, yb:0.61, w:165, h:13},
+    {cx:0.48, yb:0.64, w:160, h:12},
+    {cx:0.30, yb:0.64, w:28,  h:40}, // pilier gauche début
+    {cx:0.70, yb:0.64, w:28,  h:40}, // pilier droit début
+    {cx:0.50, yb:0.66, w:155, h:12},
+    {cx:0.50, yb:0.69, w:150, h:12},
+    {cx:0.50, yb:0.72, w:145, h:12},
+  ];
+  S.forEach((b,i) => LAYOUT.push({...b, layer:10+i, type:'socle'}));
+
+  // ── Niveau 2 : Murs extérieurs ──
+  const M = [
+    {cx:0.18, yb:0.48, w:44, h:16}, // mur gauche bas
+    {cx:0.82, yb:0.48, w:44, h:16}, // mur droit bas
+    {cx:0.18, yb:0.55, w:44, h:16},
+    {cx:0.82, yb:0.55, w:44, h:16},
+    {cx:0.18, yb:0.62, w:44, h:16},
+    {cx:0.82, yb:0.62, w:44, h:16},
+    {cx:0.18, yb:0.69, w:44, h:16},
+    {cx:0.82, yb:0.69, w:44, h:16},
+    {cx:0.50, yb:0.74, w:140, h:10}, // linteau intermédiaire
+    {cx:0.50, yb:0.77, w:135, h:10},
+  ];
+  M.forEach((b,i) => LAYOUT.push({...b, layer:20+i, type:'mur'}));
+
+  // ── Niveau 3 : Colonnes ──
+  const C = [
+    {cx:0.27, yb:0.52, w:20, h:65}, // col 1
+    {cx:0.38, yb:0.52, w:20, h:65}, // col 2
+    {cx:0.62, yb:0.52, w:20, h:65}, // col 3
+    {cx:0.73, yb:0.52, w:20, h:65}, // col 4
+    {cx:0.27, yb:0.79, w:20, h:12}, // chapiteaux col 1
+    {cx:0.38, yb:0.79, w:20, h:12},
+    {cx:0.62, yb:0.79, w:20, h:12},
+    {cx:0.73, yb:0.79, w:20, h:12},
+    {cx:0.50, yb:0.79, w:200, h:12}, // entablement
+    {cx:0.50, yb:0.82, w:195, h:10},
+  ];
+  C.forEach((b,i) => LAYOUT.push({...b, layer:30+i, type:'colonne'}));
+
+  // ── Niveau 4 : Fronton & Toit ──
+  const T = [
+    {cx:0.50, yb:0.84, w:190, h:10},
+    {cx:0.50, yb:0.87, w:175, h:10},
+    {cx:0.50, yb:0.89, w:155, h:10}, // fronton bas
+    {cx:0.50, yb:0.91, w:130, h:10},
+    {cx:0.50, yb:0.93, w:105, h:10},
+    {cx:0.50, yb:0.95, w:82,  h:10},
+    {cx:0.50, yb:0.97, w:60,  h:10}, // pointe du fronton
+    {cx:0.22, yb:0.84, w:40,  h:12}, // acrothères gauche
+    {cx:0.78, yb:0.84, w:40,  h:12}, // acrothères droit
+    {cx:0.50, yb:0.84, w:14,  h:30}, // ornement central
+  ];
+  T.forEach((b,i) => LAYOUT.push({...b, layer:40+i, type:'toit'}));
+
+  // ── Niveau 5 : Temple Glorieux — dorures et finitions ──
+  const G = [
+    {cx:0.50, yb:0.99, w:24, h:16},  // finial doré sommet
+    {cx:0.50, yb:0.96, w:8,  h:20},  // flèche centrale
+    {cx:0.27, yb:0.85, w:12, h:18},  // ornement col 1
+    {cx:0.38, yb:0.85, w:12, h:18},
+    {cx:0.62, yb:0.85, w:12, h:18},
+    {cx:0.73, yb:0.85, w:12, h:18},
+    {cx:0.14, yb:0.62, w:16, h:18},  // mensula gauche
+    {cx:0.86, yb:0.62, w:16, h:18},  // mensula droit
+    {cx:0.50, yb:0.74, w:60, h:14},  // linteau porte
+    {cx:0.50, yb:0.68, w:40, h:20},  // porte sacrée
+  ];
+  G.forEach((b,i) => LAYOUT.push({...b, layer:50+i, type:'gloire'}));
+
+  const level = getLevel();
+  document.getElementById('level-tag').textContent = level.name;
+  document.getElementById('ti-level').textContent = level.name;
+  document.getElementById('ti-blocks').textContent = `${totalBlocks} / ${TOTAL_Q}`;
+
+  // Étoile quand temple complet
+  const star = document.getElementById('temple-star');
+  star.style.display = totalBlocks >= TOTAL_Q ? 'block' : 'none';
+  if (totalBlocks >= TOTAL_Q) star.style.left = (W/2 - 16) + 'px';
+
+  // Flambeaux
+  const hasTorches = totalBlocks >= 4;
+
+  wrap.innerHTML = '';
+  wrap.style.position = 'relative';
+  wrap.style.width = W + 'px';
+  wrap.style.height = H + 'px';
+
+  // Flambeaux
+  if (hasTorches) {
+    [[0.12, 0.35],[0.88, 0.35]].forEach(([cx, yb]) => {
+      const t = document.createElement('div');
+      t.className = 'torch';
+      t.style.cssText = `position:absolute;left:${cx*W-8}px;bottom:${yb*H}px;`;
+      t.innerHTML = '<div class="torch-flame">🔥</div><div class="torch-stick"></div>';
+      wrap.appendChild(t);
+    });
+  }
+
+  LAYOUT.forEach((block, i) => {
+    const el = document.createElement('div');
+    el.className = 'temple-block type-'+block.type + (i >= totalBlocks ? ' locked' : '') + (i === totalBlocks - 1 ? ' new gold-glow' : '');
+    el.style.cssText = `
+      width:${block.w}px; height:${block.h}px;
+      left:${block.cx * W - block.w/2}px;
+      bottom:${block.yb * H}px;
+    `;
+    wrap.appendChild(el);
+  });
+}
+
+function getLevel() {
+  return TEMPLE_LEVELS.find(l => totalBlocks >= l.min && totalBlocks < l.max) || TEMPLE_LEVELS[TEMPLE_LEVELS.length-1];
+}
+
+function renderLevelsTrack() {
+  const track = document.getElementById('levels-track');
+  track.innerHTML = TEMPLE_LEVELS.map((l, i) => {
+    const done = totalBlocks > l.min;
+    const cur  = totalBlocks >= l.min && totalBlocks < l.max;
+    return `<div class="lv-dot ${done?'done':cur?'current':''}" title="${l.name}"></div>`;
+  }).join('');
+}
+
+// ── Bâtisseurs ──
+function renderBuilders(flashSid) {
+  const maxScore = Math.max(...Object.values(scores), 1);
+  const list = document.getElementById('builders-list');
+  list.innerHTML = [...players]
+    .sort((a,b) => (scores[b.session_id]||0) - (scores[a.session_id]||0))
+    .map(p => {
+      const sc = scores[p.session_id]||0;
+      const isMe = p.session_id === mySessionId;
+      const leading = sc === maxScore && sc > 0;
+      return `
+        <div class="builder-row ${leading?'leading':''}">
+          <div class="br-av ${isMe?'me':''}">
+            ${p.avatar}
+            ${leading?'<span class="br-crown">👑</span>':''}
+          </div>
+          <div class="br-info">
+            <div class="br-name">${p.pseudo}${isMe?' (Toi)':''}</div>
+            <div class="br-sub">${blocksPerPlayer[p.session_id]||0} pierre${(blocksPerPlayer[p.session_id]||0)>1?'s':''} posée${(blocksPerPlayer[p.session_id]||0)>1?'s':''}</div>
+          </div>
+          <div>
+            <div class="br-score ${p.session_id===flashSid?'flash':''}" id="brs-${p.session_id.replace(/-/g,'_')}">${sc}</div>
+          </div>
+        </div>`;
+    }).join('');
+  renderLevelsTrack();
+}
+
+// ── Fin ──
+function endGame() {
+  clearInterval(timerInt);
+  if (isHost) {
+    gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores, blocks: totalBlocks }});
+    db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
+  }
+  setTimeout(() => showPodium(scores, totalBlocks), 500);
+}
+
+function showPodium(finalScores, blocks) {
+  clearInterval(timerInt);
+  const overlay = document.getElementById('podium-overlay');
+  const row = document.getElementById('podium-row');
+  const complete = (blocks||0) >= TOTAL_Q;
+
+  document.getElementById('podium-temple').textContent = complete ? '🏛️' : '🏗️';
+
+  const sorted = players.map(p=>({...p,score:finalScores[p.session_id]||0})).sort((a,b)=>b.score-a.score);
+  const RANKS = ['🥇','🥈','🥉'];
+  row.innerHTML = sorted.slice(0,3).map((p,i)=>`
+    <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
+      <div class="pod-rank">${RANKS[i]||''}</div>
+      <div class="pod-av">${p.avatar}</div>
+      <div class="pod-name">${p.pseudo}${p.session_id===mySessionId?' (Toi)':''}</div>
+      <div class="pod-score">${p.score} pts</div>
+      <div class="pod-blocks">${blocksPerPlayer[p.session_id]||0} 🧱</div>
+    </div>`).join('');
+
+  overlay.classList.add('active');
+}
+
+// ── Retour ──
+function returnToLobby() {
+  if (gameChannel) {
+    gameChannel.send({type:'broadcast', event:'return_to_lobby', payload:{code:roomCode}});
+    setTimeout(()=>gameChannel.unsubscribe(), 200);
+  }
+  window.location.href = 'lobby.html?code='+roomCode+(isHost?'&host=1':'');
+}
+
+async function replayGame() {
+  if (gameChannel) gameChannel.unsubscribe();
+  await db.from('rooms').update({status:'waiting'}).eq('code', roomCode);
+  window.location.href = 'lobby.html?code='+roomCode+(isHost?'&host=1':'');
+}
+
+function confirmQuit() {
+  if (confirm('Quitter la partie ?')) {
+    clearInterval(timerInt);
+    if (gameChannel) gameChannel.unsubscribe();
+    window.location.href = 'index.html';
+  }
+}
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show '+type;
+  setTimeout(()=>t.className='toast', 2800);
+}
+
+function shuffleArr(arr) {
+  for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+  return arr;
+}
+
+window.addEventListener('resize', renderTemple);
+window.addEventListener('beforeunload', ()=>{ if(gameChannel) gameChannel.unsubscribe(); });
+
+// ── Clavier ──
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement?.tagName;
+  const isInput = tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
+  if (e.key==='Backspace' && !isInput) { e.preventDefault(); return; }
+  if (e.key==='Escape' && !isInput) { e.preventDefault(); return; }
+  // Raccourcis A/B/C/D
+  if (!isInput && !answered) {
+    const map = {a:0,b:1,c:2,d:3,A:0,B:1,C:2,D:3};
+    if (map[e.key] !== undefined) {
+      const btns = document.querySelectorAll('.opt-btn');
+      if (btns[map[e.key]]) btns[map[e.key]].click();
+    }
+  }
+});
+
+init();
+</script>
+  <script src="/sw-register.js"></script>
+</body>
+</html>
