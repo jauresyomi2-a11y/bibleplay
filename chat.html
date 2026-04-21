@@ -4,6 +4,14 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiblePlay — Salon de discussion</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#c9a84c"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="BiblePlay"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
@@ -358,7 +366,7 @@
     <div class="online-badge"><span class="live-dot"></span><span id="online-count">—</span> en ligne</div>
   </div>
   <div class="header-right">
-    <button class="nav-btn" onclick="safeNav('lobby.html')">← Lobby</button>
+    <button class="nav-btn" onclick="safeNav('lobby.html')">← Menu</button>
     <button class="nav-btn primary" onclick="safeNav('index.html')">🎮 Jouer</button>
   </div>
 </header>
@@ -1013,5 +1021,6 @@ window.addEventListener('beforeunload', () => {
 init();
 appendSystemMsg(`✝️ Bienvenue ${myPseudo} ! Que la grâce soit avec toi 🙏`);
 </script>
+  <script src="/sw-register.js"></script>
 </body>
 </html>
