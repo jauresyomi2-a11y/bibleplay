@@ -4,6 +4,14 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiblePlay — Verset Manquant</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json"/>
+  <meta name="theme-color" content="#c9a84c"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="BiblePlay"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>window.SUPABASE_URL="https://kthxsmcjcbzisgqjgivq.supabase.co";window.SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0aHhzbWNqY2J6aXNncWpnaXZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2NDc2OTEsImV4cCI6MjA5MTIyMzY5MX0.dLHzhdIIz42AfFkd-TJ5p9-yD6y0-MWnzdw8tGjc-h0";</script>
@@ -174,6 +182,13 @@
     }
     .btn-validate:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 24px rgba(212,168,67,0.4); }
     .btn-validate:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+    .btn-erase {
+      padding:10px 16px; font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;
+      border:1.5px solid rgba(239,68,68,0.3); border-radius:10px; cursor:pointer;
+      background:rgba(239,68,68,0.06); color:#dc2626; transition:all 0.2s;
+    }
+    .btn-erase:hover:not(:disabled) { background:rgba(239,68,68,0.12); border-color:#dc2626; transform:translateY(-1px); }
+    .btn-erase:disabled { opacity:0.35; cursor:not-allowed; }
     .btn-hint {
       padding:12px 20px; font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;
       border:1px solid var(--border); cursor:pointer; border-radius:11px;
@@ -374,6 +389,7 @@
             <div class="letters-bank" id="letters-bank"></div>
             <div class="action-row">
               <button class="btn-validate" id="btn-validate" onclick="validateAnswer()" disabled>✓ Valider</button>
+              <button class="btn-erase" id="btn-erase" onclick="deleteLastLetter()" disabled>⌫ Effacer</button>
               <button class="btn-hint" id="btn-hint" onclick="useHint()">💡 Indice (-20 pts)</button>
               <button class="btn-skip" onclick="skipVerse()">↷ Passer</button>
             </div>
@@ -423,7 +439,8 @@
   <div class="pod-row" id="pod-row"></div>
   <div class="pod-actions">
     <button class="btn-pod" onclick="replayGame()">↺ Rejouer</button>
-    <a class="btn-pod outline" href="lobby.html" id="back-lobby-btn">← Lobby</a>
+    <button class="btn-pod out" onclick="returnToLobby()">🎮 Autre jeu</button>
+    <button class="btn-pod outline" onclick="returnToLobby()">← Lobby</button>
   </div>
 </div>
 
@@ -562,7 +579,13 @@ async function init() {
     })
     .on('broadcast', { event:'load_verse' }, ({payload}) => {
       if (!isHost) {
-        questions[payload.index] = payload.question;
+        // Reconstruire le texte avec des blancs nommés
+        let q = {...payload.question};
+        if (payload.words && payload.words.length) {
+          let wi = 0;
+          q.text = q.text.replace(/\{BLANK\}/g, () => '{' + payload.words[wi++] + '}');
+        }
+        questions[payload.index] = q;
         nextVerseTriggered = false;
         loadVerse(payload.index);
       }
@@ -570,23 +593,29 @@ async function init() {
     .on('broadcast', { event:'game_over' }, ({payload}) => {
       showPodium(payload.scores);
     })
-    .subscribe();
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED' && isHost) {
+        setTimeout(() => broadcastVerse(0), 800);
+      }
+    });
 
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'block';
   renderScoreboard();
   renderPlayersList();
-
-  if (isHost) {
-    setTimeout(() => broadcastVerse(0), 400);
-  }
   // Les invités attendent load_verse
 }
 
 function broadcastVerse(index) {
   const q = questions[index];
   if (!q) return;
-  gameChannel.send({ type:'broadcast', event:'load_verse', payload:{ index, question: q } });
+  // Masquer les mots dans le texte pour les invités
+  let masked = q.text;
+  const words = [];
+  masked = masked.replace(/\{(\w+)\}/g, (_, w) => { words.push(w); return '{BLANK}'; });
+  const sanitized = { ...q, text: masked, _wordCount: words.length };
+  // L'hôte envoie le texte masqué + révèle les vrais mots après validation
+  gameChannel.send({ type:'broadcast', event:'load_verse', payload:{ index, question: sanitized, words } });
   loadVerse(index);
 }
 
@@ -616,6 +645,8 @@ function loadVerse(index) {
   updateInputHint();
   document.getElementById('btn-validate').disabled = true;
   document.getElementById('btn-hint').disabled = false;
+  const erBt = document.getElementById('btn-erase');
+  if (erBt) erBt.disabled = true;
 
   updateTurnPanel();
   renderScoreboard();
@@ -658,6 +689,10 @@ function typeLetter(letter, tile) {
   tile.classList.add('used');
   refreshVerseDisplay();
   updateInputHint();
+
+  // Activer le bouton effacer
+  const eraseBtn = document.getElementById('btn-erase');
+  if (eraseBtn) eraseBtn.disabled = false;
 
   // Auto-passer au blanc suivant si complet
   if (b.userLetters.length === b.word.length) {
@@ -941,6 +976,36 @@ function showToast(msg, type='') {
 
 window.addEventListener('beforeunload', () => quitGame());
 init();
+
+
+// ── Retour lobby synchronisé ──
+function returnToLobby() {
+  if (typeof gameChannel !== 'undefined' && gameChannel) {
+    gameChannel.send({type:'broadcast', event:'return_to_lobby', payload:{code: roomCode}});
+    setTimeout(() => gameChannel.unsubscribe(), 200);
+  }
+  window.location.href = 'lobby.html?code=' + roomCode + (isHost ? '&host=1' : '');
+}
+
+// ── Clavier : Backspace efface dernière lettre ──
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement?.tagName;
+  const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (e.key === 'Backspace' && !isInput) {
+    e.preventDefault();
+    deleteLastLetter(); // utiliser Backspace pour effacer
+    return;
+  }
+  if (e.key === 'Escape' && !isInput) { e.preventDefault(); return; }
+  // Saisie clavier directe
+  if (!isInput && e.key.length === 1 && e.key.match(/[a-zA-Z]/)) {
+    const letter = e.key.toUpperCase();
+    const tile = [...document.querySelectorAll('#letters-bank .letter-tile:not(.used)')]
+      .find(t => t.dataset.letter === letter);
+    if (tile) typeLetter(letter, tile);
+  }
+});
 </script>
+  <script src="/sw-register.js"></script>
 </body>
 </html>
