@@ -491,8 +491,8 @@ async function init(){
       }
     })
     .on('broadcast',{event:'card_flip'},({payload})=>{if(payload.session_id!==mySessionId)handleRemoteFlip(payload);})
-    .on('broadcast',{event:'turn_change'},({payload})=>{if(!isHost)setTurn(payload.turnIdx);})
-    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores))
+    .on('broadcast',{event:'turn_change'},({payload})=>{ setTurn(payload.turnIdx); })
+    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores, null, payload.players))
     .subscribe(async (status)=>{
       if(status==='SUBSCRIBED' && isHost){
         // Attendre que tous les invités soient connectés avant de broadcaster le plateau
@@ -630,6 +630,8 @@ function evaluatePair(){
       scores[mySessionId]=(scores[mySessionId]||0)+pts;
       pairsFound[mySessionId]=(pairsFound[mySessionId]||0)+1;
       showToast(`✓ Paire trouvée ! +${pts} pts${bonus>0?' (série bonus !)':''}`, 'ok');
+      // Broadcaster le score pour que les autres voient
+      gameChannel.send({type:'broadcast',event:'pair_found',payload:{session_id:mySessionId,pts,pairId:board[i1].pairId}});
       markCards('matched',[i1,i2]);
       flippedCards=[];
       canFlip=true;
@@ -642,8 +644,9 @@ function evaluatePair(){
         flippedCards=[];
         // Passer le tour
         const nextTurn=(currentTurnIdx+1)%players.length;
-        if(isHost) gameChannel.send({type:'broadcast',event:'turn_change',payload:{turnIdx:nextTurn}});
-        setTurn(nextTurn);
+        // Broadcaster à tous (y compris soi-même via le listener)
+        gameChannel.send({type:'broadcast',event:'turn_change',payload:{turnIdx:nextTurn}});
+        // L'hôte applique aussi via le listener ci-dessus
         canFlip=true;
       },900);
     }
@@ -700,7 +703,7 @@ function updateScorePanel(){
 
 function endGame(){
   if(isHost){
-    gameChannel.send({type:'broadcast',event:'game_over',payload:{scores}});
+    gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,players}});
     db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
   }
   setTimeout(()=>showPodium(scores),400);
@@ -735,10 +738,11 @@ function renderPlayers(){
 }
 
 // ── Podium ──
-function showPodium(finalScores){
+function showPodium(finalScores, extra, remotePlayers){
+  if(remotePlayers && remotePlayers.length) players = remotePlayers;
   const sorted=players.map(p=>({...p,score:finalScores[p.session_id]||0,pairs:pairsFound[p.session_id]||0})).sort((a,b)=>b.score-a.score);
-  const RANKS=['🥇','🥈','🥉'];
-  document.getElementById('pod-row').innerHTML=sorted.slice(0,3).map((p,i)=>`
+  const RANKS=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣'];
+  document.getElementById('pod-row').innerHTML=sorted.map((p,i)=>`
     <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
       <div class="pod-rank">${RANKS[i]||''}</div>
       <div class="pod-av">${p.avatar}</div>
@@ -750,6 +754,7 @@ function showPodium(finalScores){
 }
 
 async function replayGame(){
+  if(gameChannel){ gameChannel.send({type:'broadcast',event:'replay',payload:{}}); await new Promise(r=>setTimeout(r,300)); }
   if(gameChannel)gameChannel.unsubscribe();
   await db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
   window.location.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
