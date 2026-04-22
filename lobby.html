@@ -564,8 +564,11 @@ function copyCode(){
 
 async function leaveRoom(){
   const me=allPlayers.find(p=>p.session_id===mySessionId);
-  if(me)await db.from('players').delete().eq('id',me.id);
-  playersChannel.unsubscribe();roomChannel.unsubscribe();return true;
+  if(me) await db.from('players').delete().eq('id',me.id);
+  // Supprimer la salle si plus aucun joueur
+  const {count} = await db.from('players').select('*',{count:'exact',head:true}).eq('room_code',roomCode);
+  if(count === 0) await db.from('rooms').delete().eq('code',roomCode);
+  playersChannel.unsubscribe(); roomChannel.unsubscribe(); return true;
 }
 
 function showToast(msg,type=''){
@@ -600,4 +603,3 @@ loadPlayers();loadRoom();
   <script src="/sw-register.js"></script>
 </body>
 </html>
-
