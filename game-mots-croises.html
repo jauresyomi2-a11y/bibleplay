@@ -463,20 +463,30 @@ async function init(){
   players.forEach(p=>{scores[p.session_id]=0;wordCounts[p.session_id]=0;});
 
   gameChannel=db.channel(`mots-croises-${roomCode}`)
+    .on('broadcast',{event:'grid_init'},({payload})=>{
+      // Invités : recevoir la grille depuis l'hôte
+      if(!isHost){ buildGrid(payload.gridDef); startTimer(); updateStatusBar(); }
+    })
     .on('broadcast',{event:'word_found'},({payload})=>{if(payload.session_id!==mySessionId)receiveWord(payload);})
-    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores,payload.wordCounts))
-    .subscribe();
-
-  // Choisir une grille aléatoire
-  const gridDef=shuffle([...GRIDS])[0];
-  buildGrid(gridDef);
+    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores,payload.wordCounts,payload.players))
+    .on('broadcast',{event:'return_to_lobby'},({payload})
+    .on('broadcast',{event:'replay'},({payload})=>{ if(!isHost){ if(gameChannel)gameChannel.unsubscribe(); window.location.href=window.location.href; } })=>{ if(!isHost){if(gameChannel)gameChannel.unsubscribe();window.location.href='lobby.html?code='+roomCode;} })
+    .subscribe(async(status)=>{
+      if(status==='SUBSCRIBED' && isHost){
+        setTimeout(()=>{
+          const gridDef=shuffle([...GRIDS])[0];
+          // Broadcaster la même grille à tous
+          gameChannel.send({type:'broadcast',event:'grid_init',payload:{gridDef}});
+          buildGrid(gridDef);
+          startTimer(); updateStatusBar();
+        }, 800);
+      }
+    });
 
   document.getElementById('loading-screen').style.display='none';
   document.getElementById('game-screen').style.display='block';
   document.getElementById('pc-count').textContent=players.length;
   renderScoreboard();renderPlayers();renderClues();
-  startTimer();
-  updateStatusBar();
 
   // Écouter input clavier
   document.getElementById('sc-input').addEventListener('keydown',e=>{if(e.key==='Enter')submitWord();});
@@ -690,7 +700,7 @@ function checkCompletion(){
   if(words.every(w=>w.solved)){
     stopTimer();
     if(isHost){
-      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,wordCounts}});
+      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,wordCounts,players}});
       db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
     }
     setTimeout(()=>showPodium(scores,wordCounts),600);
@@ -710,7 +720,7 @@ function updateStatusBar(){
 
 function endGame(){
   stopTimer();
-  gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,wordCounts}});
+  gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,wordCounts,players}});
   db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
   showPodium(scores,wordCounts);
 }
@@ -762,10 +772,11 @@ function renderPlayers(){
 
 // ── PODIUM ──
 function showPodium(finalScores,finalWords){
+  if(remotePlayers && remotePlayers.length) players = remotePlayers;
   stopTimer();
   const sorted=players.map(p=>({...p,score:finalScores[p.session_id]||0,words:finalWords[p.session_id]||0})).sort((a,b)=>b.score-a.score);
-  const RANKS=['🥇','🥈','🥉'];
-  document.getElementById('pod-row').innerHTML=sorted.slice(0,3).map((p,i)=>`
+  const RANKS=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣'];
+  document.getElementById('pod-row').innerHTML=sorted.map((p,i)=>`
     <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
       <div class="pod-rank">${RANKS[i]||''}</div>
       <div class="pod-av">${p.avatar}</div>
@@ -790,7 +801,23 @@ function showToast(msg,type=''){
 window.addEventListener('beforeunload',()=>quitGame());
 init();
 </script>
-  <script src="/sw-register.js"></script>
+  <script src="/sw-register.js">
+// ── Navigation ──
+function returnToLobby() {
+  if (typeof gameChannel !== 'undefined' && gameChannel) {
+    gameChannel.send({type:'broadcast', event:'return_to_lobby', payload:{code: roomCode}});
+    setTimeout(() => gameChannel.unsubscribe(), 200);
+  }
+  window.location.href = 'lobby.html?code=' + roomCode + (isHost ? '&host=1' : '');
+}
+
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement?.tagName;
+  const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (e.key === 'Backspace' && !isInput) { e.preventDefault(); return; }
+  if (e.key === 'Escape' && !isInput) { e.preventDefault(); return; }
+});
+</script>
 </body>
 </html>
 
