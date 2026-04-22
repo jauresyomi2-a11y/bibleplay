@@ -585,8 +585,13 @@ async function init(){
     .on('broadcast',{event:'vote_cast'},({payload})=>{if(payload.voter!==mySessionId)receiveVote(payload);})
     .on('broadcast',{event:'next_turn'},({payload})=>{if(!isHost)loadTurn(payload.index);})
     .on('broadcast',{event:'game_over'},({payload})
-    .on('broadcast',{event:'return_to_lobby'},({payload})=>{ if(!isHost){if(typeof gameChannel!=='undefined'&&gameChannel)gameChannel.unsubscribe();window.location.href='lobby.html?code='+roomCode;} })=>showPodium(payload.scores))
-    .subscribe();
+    .on('broadcast',{event:'return_to_lobby'},({payload})
+    .on('broadcast',{event:'replay'},({payload})=>{ if(!isHost){ if(gameChannel)gameChannel.unsubscribe(); window.location.href=window.location.href; } })=>{ if(!isHost){if(typeof gameChannel!=='undefined'&&gameChannel)gameChannel.unsubscribe();window.location.href='lobby.html?code='+roomCode;} })=>showPodium(payload.scores, null, payload.players))
+    .subscribe(async(status)=>{
+      if(status==='SUBSCRIBED' && isHost){
+        setTimeout(()=>{ document.getElementById('btn-spin').disabled=false; }, 800);
+      }
+    });
 
   buildWheel();
   document.getElementById('loading-screen').style.display='none';
@@ -595,7 +600,6 @@ async function init(){
   renderScoreboard();renderPlayers();
 
   if(isHost){
-    document.getElementById('btn-spin').disabled=false;
     const firstSpinner = players[0];
     const iAmFirst = firstSpinner && firstSpinner.session_id === mySessionId;
     document.getElementById('btn-spin').disabled = !iAmFirst;
@@ -729,6 +733,7 @@ function passRound(){
 
 function receiveAnswer(payload){
   if(payload.turn!==currentTurn)return;
+  renderScoreboard();
   answers[payload.session_id]={answer:payload.answer,votes:{},validated:null,pseudo:payload.pseudo,avatar:payload.avatar};
   addAnsweredChip(payload.avatar,payload.pseudo);
   checkAllAnswered();
@@ -827,7 +832,7 @@ function nextTurn(){
   const next=currentTurn+1;
   if(next>=TOTAL_TURNS){
     if(isHost){
-      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores}});
+      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,players}});
       db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
     }
     setTimeout(()=>showPodium(scores),400);
@@ -945,11 +950,12 @@ function launchConfetti(){
 }
 
 // ── PODIUM ──
-function showPodium(finalScores){
+function showPodium(finalScores, extra, remotePlayers){
+  if(remotePlayers && remotePlayers.length) players = remotePlayers;
   stopTimer();launchConfetti();
   const sorted=players.map(p=>({...p,score:finalScores[p.session_id]||0})).sort((a,b)=>b.score-a.score);
-  const RANKS=['🥇','🥈','🥉'];
-  document.getElementById('pod-row').innerHTML=sorted.slice(0,3).map((p,i)=>`
+  const RANKS=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣'];
+  document.getElementById('pod-row').innerHTML=sorted.map((p,i)=>`
     <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
       <div class="pod-rank">${RANKS[i]||''}</div>
       <div class="pod-av">${p.avatar}</div>
@@ -973,6 +979,15 @@ function showToast(msg,type=''){
 window.addEventListener('beforeunload',()=>quitGame());
 init();
 </script>
-  <script src="/sw-register.js"></script>
+  <script src="/sw-register.js">
+// ── Backspace guard ──
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement?.tagName;
+  const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (e.key === 'Backspace' && !isInput) { e.preventDefault(); return; }
+  if (e.key === 'Escape' && !isInput) { e.preventDefault(); return; }
+});
+</script>
 </body>
 </html>
+
