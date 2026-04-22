@@ -366,7 +366,7 @@
     <div class="online-badge"><span class="live-dot"></span><span id="online-count">—</span> en ligne</div>
   </div>
   <div class="header-right">
-    <button class="nav-btn" onclick="safeNav('lobby.html')">← Menu</button>
+    <button class="nav-btn" onclick="safeNav(myRoomCode ? 'lobby.html?code='+myRoomCode : 'index.html')">← Ma salle</button>
     <button class="nav-btn primary" onclick="safeNav('index.html')">🎮 Jouer</button>
   </div>
 </header>
@@ -563,6 +563,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let playerData = {};
 try { playerData = JSON.parse(sessionStorage.getItem('bp_player') || '{}'); } catch(e) {}
 const mySessionId = playerData.sessionId || sessionStorage.getItem('bp_session') || ('anon-' + Math.random().toString(36).substr(2,8));
+const myRoomCode = playerData.code || '';
 const myPseudo = playerData.pseudo || 'Anonyme';
 const myAvatar = playerData.avatar || '🙏';
 
