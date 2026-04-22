@@ -454,7 +454,7 @@ async function init() {
       }
     })
     .on('broadcast', { event: 'game_over' }, ({ payload }) => {
-      showPodium(payload.scores);
+      showPodium(payload.scores, null, payload.players);
     })
     .on('broadcast', { event: 'reveal_answer' }, ({ payload }) => {
       if (!isHost) {
@@ -463,7 +463,8 @@ async function init() {
         showAnswerFeedback(payload.my_answer !== undefined ? payload.my_answer : -1, false, 0);
       }
     })
-    .on('broadcast', { event: 'return_to_lobby' }, ({ payload }) => {
+    .on('broadcast', { event: 'return_to_lobby' }, ({ payload })
+    .on('broadcast', { event: 'replay' }, ({ payload }) => { if (!isHost) { if (gameChannel) gameChannel.unsubscribe(); window.location.href = window.location.href; } }) => {
       if (!isHost) {
         if (gameChannel) gameChannel.unsubscribe();
         window.location.href = `lobby.html?code=${roomCode}`;
@@ -689,14 +690,15 @@ function nextQuestion() {
 // ───────────────────────────────────────────────
 function endGame() {
   if (isHost) {
-    gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores } });
+    gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores, players } });
     // Remettre la room en waiting
     db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
   }
   setTimeout(() => showPodium(scores), 500);
 }
 
-function showPodium(finalScores) {
+function showPodium(finalScores, extra, remotePlayers) {
+  if(remotePlayers && remotePlayers.length) players = remotePlayers;
   clearInterval(timerInterval);
   const overlay = document.getElementById('podium-overlay');
   const grid = document.getElementById('podium-grid');
@@ -706,8 +708,8 @@ function showPodium(finalScores) {
     .map(p => ({ ...p, score: finalScores[p.session_id] || 0 }))
     .sort((a,b) => b.score - a.score);
 
-  const RANK_ICONS = ['🥇','🥈','🥉'];
-  grid.innerHTML = sorted.slice(0,3).map((p,i) => `
+  const RANK_ICONS = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣'];
+  grid.innerHTML = sorted.map((p,i) => `
     <div class="podium-card ${i===0?'p1':i===1?'p2':'p3'}" style="animation-delay:${i*0.15}s">
       <div class="podium-rank">${RANK_ICONS[i] || ''}</div>
       <div class="podium-av">${p.avatar}</div>
@@ -769,6 +771,15 @@ function quitGame() {
 }
 
 async function replayGame() {
+  if (gameChannel) {
+    gameChannel.send({type:'broadcast', event:'replay', payload:{}});
+  }
+
+  if (gameChannel) {
+    gameChannel.send({type:'broadcast', event:'replay', payload:{}});
+    await new Promise(r => setTimeout(r, 300));
+  }
+
   if (gameChannel) gameChannel.unsubscribe();
   // Remettre room en waiting
   await db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
