@@ -591,7 +591,7 @@ async function init() {
       }
     })
     .on('broadcast', { event:'game_over' }, ({payload}) => {
-      showPodium(payload.scores);
+      showPodium(payload.scores, null, payload.players);
     })
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED' && isHost) {
@@ -622,6 +622,7 @@ function broadcastVerse(index) {
 // ── Charger un verset ──
 function loadVerse(index) {
   currentRound = index;
+  const q = questions[index]; if (!q) return;
   answered     = false;
   answeredList = [];
   usedHint     = false;
@@ -707,6 +708,38 @@ function typeLetter(letter, tile) {
 }
 
 // ── Valider ──
+
+// ── Effacer dernière lettre ──
+function deleteLastLetter() {
+  if (answered) return;
+  const b = blanks[activeBlank];
+  if (!b || b.userLetters.length === 0) {
+    const prev = activeBlank - 1;
+    if (prev >= 0) {
+      activeBlank = prev;
+      refreshVerseDisplay();
+      refreshLettersBank();
+      updateInputHint();
+    }
+    return;
+  }
+  const removed = b.userLetters.pop();
+  // Remettre la tuile disponible
+  const tiles = document.querySelectorAll('#letters-bank .letter-tile.used');
+  for (let i = tiles.length - 1; i >= 0; i--) {
+    if (tiles[i].dataset.letter === removed) {
+      tiles[i].classList.remove('used');
+      break;
+    }
+  }
+  const allFilled = blanks.every(b => b.userLetters.length === b.word.length);
+  document.getElementById('btn-validate').disabled = !allFilled;
+  const eraseBtn = document.getElementById('btn-erase');
+  if (eraseBtn) eraseBtn.disabled = blanks.every(b => b.userLetters.length === 0);
+  refreshVerseDisplay();
+  updateInputHint();
+}
+
 function validateAnswer() {
   if (answered) return;
   const allFilled = blanks.every(b => b.userLetters.length === b.word.length);
@@ -781,7 +814,14 @@ function showFeedback(allCorrect, correctCount, pts) {
   document.getElementById('fb-icon').textContent = allCorrect ? '✨' : correctCount > 0 ? '🤔' : '✗';
   document.getElementById('fb-title').textContent = allCorrect ? 'Parfait !' : correctCount > 0 ? `${correctCount}/${blanks.length} mots corrects` : 'Raté !';
   const q = questions[currentRound];
-  document.getElementById('fb-sub').textContent = `${q.ref} — ${allCorrect?'Tous les mots trouvés !':'Révision: '+blanks.filter(b=>!b.correct).map(b=>b.word).join(', ')}`;
+  // Afficher la bonne réponse complète si raté
+  const wrongBlanks = blanks.filter(b=>!b.correct).map(b=>b.word);
+  const subText = allCorrect
+    ? `✨ Tous les mots trouvés ! Réf: ${q.ref}`
+    : `Mots manqués : ${wrongBlanks.join(', ')} — Réf: ${q.ref}`;
+  document.getElementById('fb-sub').textContent = subText;
+  // Révéler le verset complet dans l'affichage
+  document.getElementById('verse-display').innerHTML = renderVerseWithBlanks(q.text, blanks, true);
   const ptsEl = document.getElementById('fb-pts');
   ptsEl.textContent = pts > 0 ? `+${pts}` : '0 pt';
   ptsEl.className = 'fb-pts ' + (pts > 0 ? 'pos' : 'zero');
@@ -865,7 +905,7 @@ function nextVerse() {
   const next = currentRound + 1;
   if (next >= TOTAL_ROUNDS) {
     if (isHost) {
-      gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores } });
+      gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores, players } });
       db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
     }
     setTimeout(() => showPodium(scores), 400);
@@ -941,11 +981,12 @@ function renderPlayersList() {
 }
 
 // ── Podium ──
-function showPodium(finalScores) {
+function showPodium(finalScores, extra, remotePlayers) {
+  if(remotePlayers && remotePlayers.length) players = remotePlayers;
   stopTimer();
   const sorted = players.map(p => ({...p,score:finalScores[p.session_id]||0})).sort((a,b)=>b.score-a.score);
-  const RANKS=['🥇','🥈','🥉'];
-  document.getElementById('pod-row').innerHTML = sorted.slice(0,3).map((p,i) => `
+  const RANKS=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣'];
+  document.getElementById('pod-row').innerHTML = sorted.map((p,i) => `
     <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
       <div class="pod-rank">${RANKS[i]||''}</div>
       <div class="pod-av">${p.avatar}</div>
@@ -956,6 +997,15 @@ function showPodium(finalScores) {
 }
 
 async function replayGame() {
+  if (gameChannel) {
+    gameChannel.send({type:'broadcast', event:'replay', payload:{}});
+  }
+
+  if (gameChannel) {
+    gameChannel.send({type:'broadcast', event:'replay', payload:{}});
+    await new Promise(r => setTimeout(r, 300));
+  }
+
   if (gameChannel) gameChannel.unsubscribe();
   await db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
   window.location.href = `lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
@@ -1009,3 +1059,4 @@ document.addEventListener('keydown', (e) => {
   <script src="/sw-register.js"></script>
 </body>
 </html>
+
