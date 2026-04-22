@@ -484,6 +484,18 @@ async function init() {
     .on('broadcast',{event:'round_answer'},({payload}) => {
       if (payload.session_id !== mySessionId) receiveAnswer(payload);
     })
+    .on('broadcast',{event:'round_reveal'},({payload}) => {
+      // Invités : recevoir la bonne réponse après que tout le monde a répondu
+      if (!isHost && questions[payload.index]) {
+        questions[payload.index].book = payload.book;
+        questions[payload.index].chapter = payload.chapter;
+        // Afficher la correction si on a répondu
+        if (answered) {
+          const q = questions[payload.index];
+          showResultCard(q, roundPts);
+        }
+      }
+    })
     .on('broadcast',{event:'load_round'},({payload}) => {
       if (!isHost) {
         questions[payload.index] = payload.question;
@@ -491,7 +503,7 @@ async function init() {
         loadRound(payload.index);
       }
     })
-    .on('broadcast',{event:'game_over'},({payload}) => showPodium(payload.scores))
+    .on('broadcast',{event:'game_over'},({payload}) => showPodium(payload.scores, null, payload.players))
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED' && isHost) {
         setTimeout(() => broadcastRound(0), 800);
@@ -727,7 +739,7 @@ function nextRound() {
   const next = currentRound + 1;
   if (next >= TOTAL_ROUNDS) {
     if (isHost) {
-      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores}});
+      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,players}});
       db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
     }
     setTimeout(()=>showPodium(scores), 400);
@@ -801,11 +813,12 @@ function renderPlayers(){
 }
 
 // ── Podium ──
-function showPodium(finalScores){
+function showPodium(finalScores, extra, remotePlayers){
+  if(remotePlayers && remotePlayers.length) players = remotePlayers;
   stopTimer();
   const sorted=players.map(p=>({...p,score:finalScores[p.session_id]||0})).sort((a,b)=>b.score-a.score);
-  const RANKS=['🥇','🥈','🥉'];
-  document.getElementById('pod-row').innerHTML=sorted.slice(0,3).map((p,i)=>`
+  const RANKS=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣'];
+  document.getElementById('pod-row').innerHTML=sorted.map((p,i)=>`
     <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
       <div class="pod-rank">${RANKS[i]||''}</div>
       <div class="pod-av">${p.avatar}</div>
@@ -816,6 +829,7 @@ function showPodium(finalScores){
 }
 
 async function replayGame(){
+  if(gameChannel){ gameChannel.send({type:'broadcast',event:'replay',payload:{}}); await new Promise(r=>setTimeout(r,300)); }
   if(gameChannel)gameChannel.unsubscribe();
   await db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
   window.location.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
