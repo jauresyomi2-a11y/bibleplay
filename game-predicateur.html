@@ -444,16 +444,21 @@ async function init() {
       if (!myPreacherTurn) startRound(payload.roundIndex);
     })
     .on('broadcast', { event: 'game_over' }, ({ payload }) => {
-      showPodium(payload.scores);
+      showPodium(payload.scores, null, payload.players);
     })
-    .subscribe();
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED' && isHost) {
+        // Hôte prêt — démarrer le premier tour
+        setTimeout(() => startRound(0), 800);
+      }
+    });
 
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('game-wrap').style.display = 'grid';
 
   renderScoreboard();
   renderPlayersList();
-  startRound(0);
+  // startRound(0) déclenché par subscribe SUBSCRIBED callback
 }
 
 // ── Tour ──
@@ -726,7 +731,7 @@ function showReveal(payload) {
 function nextRound() {
   const next = currentRound + 1;
   if (next >= totalRounds) {
-    gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores } });
+    gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores, players } });
     db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
     showPodium(scores);
     return;
@@ -843,11 +848,12 @@ function renderPlayersList() {
 }
 
 // ── Podium ──
-function showPodium(finalScores) {
+function showPodium(finalScores,extra,remotePlayers) {
+  if(remotePlayers && remotePlayers.length) players = remotePlayers;
   stopTimer();
   const sorted = players.map(p => ({ ...p, score: finalScores[p.session_id]||0 })).sort((a,b) => b.score - a.score);
-  const RANKS = ['🥇','🥈','🥉'];
-  document.getElementById('podium-row').innerHTML = sorted.slice(0,3).map((p,i) => `
+  const RANKS = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣'];
+  document.getElementById('podium-row').innerHTML = sorted.map((p,i) => `
     <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
       <div class="pod-rank">${RANKS[i]||''}</div>
       <div class="pod-av">${p.avatar}</div>
@@ -858,6 +864,10 @@ function showPodium(finalScores) {
 }
 
 function replayGame() {
+  if (gameChannel) {
+    gameChannel.send({type:'broadcast', event:'replay', payload:{}});
+  }
+
   if (gameChannel) gameChannel.unsubscribe();
   db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
   window.location.href = `lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
