@@ -542,13 +542,19 @@ async function init(){
 
   gameChannel=db.channel(`anagramme-${roomCode}`)
     .on('broadcast',{event:'answer_submitted'},({payload})=>{if(payload.session_id!==mySessionId)receiveAnswer(payload);})
-    .on('broadcast',{event:'next_word'},({payload})=>{if(!isHost)loadWord(payload.index);})
-    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores))
-    .subscribe();
+    .on('broadcast',{event:'load_word'},({payload})=>{
+      if(!isHost){ questions[payload.index]=payload.question; loadWord(payload.index); }
+    })
+    .on('broadcast',{event:'game_over'},({payload})=>showPodium(payload.scores, null, payload.players))
+    .subscribe(async(status)=>{
+      if(status==='SUBSCRIBED' && isHost){
+        setTimeout(()=>broadcastWord(0), 800);
+      }
+    });
 
   if(isHost) document.getElementById('cat-chips').style.display='flex';
 
-  questions=shuffle(getWordsForCategory('all')).slice(0,TOTAL_ROUNDS);
+  if(isHost) questions=shuffle(getWordsForCategory('all')).slice(0,TOTAL_ROUNDS);
 
   document.getElementById('loading-screen').style.display='none';
   document.getElementById('game-screen').style.display='block';
@@ -562,13 +568,14 @@ function setCategory(cat,btn){
   selectedCategory=cat;
   document.querySelectorAll('.cat-chip').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  questions=shuffle(getWordsForCategory(cat)).slice(0,TOTAL_ROUNDS);
+  if(isHost){ questions=shuffle(getWordsForCategory(cat)).slice(0,TOTAL_ROUNDS); broadcastWord(0); }
   loadWord(0);
   showToast('Catégorie : '+btn.textContent,'inf');
 }
 
 // ── Charger un mot ──
 function loadWord(index){
+  nextWordTriggered=false;
   currentRound=index;
   answered=false;answeredList=[];
   hintsLeft=3;hintPenalty=0;
@@ -747,18 +754,18 @@ function checkAllAnswered(){
   if(answeredList.length>=players.length) setTimeout(()=>nextWord(),2400);
 }
 
-function nextWord(){
+function nextWord() {
+  if(nextWordTriggered) return; nextWordTriggered=true;
   const next=currentRound+1;
   if(next>=TOTAL_ROUNDS){
     if(isHost){
-      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores}});
+      gameChannel.send({type:'broadcast',event:'game_over',payload:{scores,players}});
       db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
     }
     setTimeout(()=>showPodium(scores),400);
     return;
   }
-  if(isHost) gameChannel.send({type:'broadcast',event:'next_word',payload:{index:next}});
-  loadWord(next);
+  if(isHost) broadcastWord(next);
 }
 
 // ── Turn panel ──
@@ -823,11 +830,12 @@ function renderPlayers(){
 }
 
 // ── Podium ──
-function showPodium(finalScores){
+function showPodium(finalScores, extra, remotePlayers){
+  if(remotePlayers && remotePlayers.length) players = remotePlayers;
   stopTimer();
   const sorted=players.map(p=>({...p,score:finalScores[p.session_id]||0})).sort((a,b)=>b.score-a.score);
-  const RANKS=['🥇','🥈','🥉'];
-  document.getElementById('pod-row').innerHTML=sorted.slice(0,3).map((p,i)=>`
+  const RANKS=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣'];
+  document.getElementById('pod-row').innerHTML=sorted.map((p,i)=>`
     <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
       <div class="pod-rank">${RANKS[i]||''}</div>
       <div class="pod-av">${p.avatar}</div>
@@ -838,6 +846,7 @@ function showPodium(finalScores){
 }
 
 async function replayGame(){
+  if(gameChannel){ gameChannel.send({type:'broadcast',event:'replay',payload:{}}); await new Promise(r=>setTimeout(r,300)); }
   if(gameChannel)gameChannel.unsubscribe();
   await db.from('rooms').update({status:'waiting'}).eq('code',roomCode);
   window.location.href=`lobby.html?code=${roomCode}${isHost?'&host=1':''}`;
@@ -851,6 +860,23 @@ function showToast(msg,type=''){
 window.addEventListener('beforeunload',()=>quitGame());
 init();
 </script>
-  <script src="/sw-register.js"></script>
+  <script src="/sw-register.js">
+// ── Navigation ──
+function returnToLobby() {
+  if (typeof gameChannel !== 'undefined' && gameChannel) {
+    gameChannel.send({type:'broadcast', event:'return_to_lobby', payload:{code: roomCode}});
+    setTimeout(() => gameChannel.unsubscribe(), 200);
+  }
+  window.location.href = 'lobby.html?code=' + roomCode + (isHost ? '&host=1' : '');
+}
+
+// ── Retour lobby synchronisé ──
+document.addEventListener('keydown', (e) => {
+  const tag = document.activeElement?.tagName;
+  const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (e.key === 'Backspace' && !isInput) { e.preventDefault(); return; }
+  if (e.key === 'Escape' && !isInput) { e.preventDefault(); return; }
+});
+</script>
 </body>
 </html>
