@@ -727,7 +727,7 @@ async function init() {
       }
     })
     .on('broadcast', { event:'game_over' }, ({ payload }) => {
-      showPodium(payload.scores, payload.blocks);
+      showPodium(payload.scores, payload.blocks, payload.players);
     })
     .on('broadcast', { event:'return_to_lobby' }, ({ payload }) => {
       if (!isHost) { if(gameChannel) gameChannel.unsubscribe(); window.location.href='lobby.html?code='+roomCode; }
@@ -861,6 +861,7 @@ function applyAnswer(sessionId, ansIdx, correct, pts, isMe) {
   }
 
   if (isMe) showFeedback(ansIdx, correct, pts);
+  renderBuilders(sessionId); // mise à jour temps réel
 
   if (isHost && answeredPlayers.length >= players.length && !nextTriggered) {
     nextTriggered = true;
@@ -1094,13 +1095,14 @@ function renderBuilders(flashSid) {
 function endGame() {
   clearInterval(timerInt);
   if (isHost) {
-    gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores, blocks: totalBlocks }});
+    gameChannel.send({ type:'broadcast', event:'game_over', payload:{ scores, blocks: totalBlocks, players }});
     db.from('rooms').update({ status:'waiting' }).eq('code', roomCode);
   }
   setTimeout(() => showPodium(scores, totalBlocks), 500);
 }
 
-function showPodium(finalScores, blocks) {
+function showPodium(finalScores, blocks, remotePlayers) {
+  if(remotePlayers && remotePlayers.length) players = remotePlayers;
   clearInterval(timerInt);
   const overlay = document.getElementById('podium-overlay');
   const row = document.getElementById('podium-row');
@@ -1109,8 +1111,8 @@ function showPodium(finalScores, blocks) {
   document.getElementById('podium-temple').textContent = complete ? '🏛️' : '🏗️';
 
   const sorted = players.map(p=>({...p,score:finalScores[p.session_id]||0})).sort((a,b)=>b.score-a.score);
-  const RANKS = ['🥇','🥈','🥉'];
-  row.innerHTML = sorted.slice(0,3).map((p,i)=>`
+  const RANKS = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣'];
+  row.innerHTML = sorted.map((p,i)=>`
     <div class="pod-card ${i===0?'p1':''}" style="animation-delay:${i*0.15}s">
       <div class="pod-rank">${RANKS[i]||''}</div>
       <div class="pod-av">${p.avatar}</div>
@@ -1132,6 +1134,15 @@ function returnToLobby() {
 }
 
 async function replayGame() {
+  if (gameChannel) {
+    gameChannel.send({type:'broadcast', event:'replay', payload:{}});
+  }
+
+  if (gameChannel) {
+    gameChannel.send({type:'broadcast', event:'replay', payload:{}});
+    await new Promise(r => setTimeout(r, 300));
+  }
+
   if (gameChannel) gameChannel.unsubscribe();
   await db.from('rooms').update({status:'waiting'}).eq('code', roomCode);
   window.location.href = 'lobby.html?code='+roomCode+(isHost?'&host=1':'');
